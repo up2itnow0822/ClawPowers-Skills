@@ -5,13 +5,13 @@
 # Each line records: skill name, timestamp, duration, outcome, and notes.
 #
 # Usage:
-#   collector.sh record --skill <name> --outcome <success|failure|partial> [options]
+#   collector.sh record --skill <name> --outcome <success|failure|partial|skipped> [options]
 #   collector.sh show [--skill <name>] [--limit <n>]
 #   collector.sh summary [--skill <name>]
 #
 # Options for record:
 #   --skill <name>         Skill name (required)
-#   --outcome <result>     success, failure, or partial (required)
+#   --outcome <result>     success, failure, partial, or skipped (required)
 #   --duration <seconds>   Execution duration in seconds (optional)
 #   --notes <text>         Free-text notes about this execution (optional)
 #   --session-id <id>      Session identifier for grouping (optional)
@@ -83,11 +83,11 @@ cmd_record() {
     exit 1
   fi
   if [[ -z "$outcome" ]]; then
-    echo "Error: --outcome is required (success|failure|partial)" >&2
+    echo "Error: --outcome is required (success|failure|partial|skipped)" >&2
     exit 1
   fi
   # Only allow the three defined outcome values to maintain data consistency
-  if [[ ! "$outcome" =~ ^(success|failure|partial)$ ]]; then
+  if [[ ! "$outcome" =~ ^(success|failure|partial|skipped)$ ]]; then
     echo "Error: --outcome must be success, failure, or partial" >&2
     exit 1
   fi

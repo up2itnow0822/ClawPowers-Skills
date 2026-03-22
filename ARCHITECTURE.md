@@ -31,8 +31,7 @@ metrics:
 The runtime layer lives at `~/.clawpowers/` and provides three services:
 
 ### 1. Persistence (`runtime/persistence/`)
-- SQLite database for cross-session state
-- Key-value store for skill-specific data
+- File-based key-value store for cross-session state
 - Checkpoint system for resumable workflows
 - Schema: flat file key-value store under `state/`
 
