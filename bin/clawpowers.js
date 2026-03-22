@@ -11,17 +11,25 @@ const path = require('path');
 const os = require('os');
 const { execSync, spawnSync } = require('child_process');
 
+// __dirname is the bin/ directory; repo root is one level up
 const SCRIPT_DIR = __dirname;
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..');
+
+// Runtime data directory — override with CLAWPOWERS_DIR env var for testing
 const CLAWPOWERS_DIR = process.env.CLAWPOWERS_DIR || path.join(os.homedir(), '.clawpowers');
 
-// Resolve runtime module paths
+// Absolute paths to each runtime module — resolved once at startup so
+// error messages can include the full path if a module is missing
 const INIT_JS       = path.join(REPO_ROOT, 'runtime', 'init.js');
 const ANALYZE_JS    = path.join(REPO_ROOT, 'runtime', 'feedback', 'analyze.js');
 const STORE_JS      = path.join(REPO_ROOT, 'runtime', 'persistence', 'store.js');
 const COLLECTOR_JS  = path.join(REPO_ROOT, 'runtime', 'metrics', 'collector.js');
 const SESSION_JS    = path.join(REPO_ROOT, 'hooks', 'session-start.js');
 
+/**
+ * Prints the top-level command usage to stdout.
+ * Called when no command is given or when 'help'/'-h'/'--help' is passed.
+ */
 function printUsage() {
   console.log(`Usage: clawpowers <command> [args]
 
@@ -46,6 +54,13 @@ Examples:
 Run 'npx clawpowers <command> help' for command-specific help.`);
 }
 
+/**
+ * Safely require() a runtime module, exiting with a helpful error if the
+ * file doesn't exist (i.e., user hasn't run `init` yet).
+ *
+ * @param {string} filepath - Absolute path to the module to load.
+ * @returns {object} The module's exports.
+ */
 function requireModule(filepath) {
   if (!fs.existsSync(filepath)) {
     process.stderr.write(`Error: runtime module not found: ${filepath}\n`);
@@ -55,12 +70,20 @@ function requireModule(filepath) {
   return require(filepath);
 }
 
+/**
+ * `clawpowers init` — Set up ~/.clawpowers/ directory structure.
+ * Delegates to runtime/init.js which is idempotent (safe to run repeatedly).
+ */
 function cmdInit() {
   console.log('Initializing ClawPowers runtime...');
   const init = requireModule(INIT_JS);
   init.main();
 }
 
+/**
+ * `clawpowers status` — Show runtime health and full RSI analysis.
+ * Requires the runtime to be initialized; exits with an error if not.
+ */
 function cmdStatus() {
   if (!fs.existsSync(CLAWPOWERS_DIR)) {
     process.stderr.write('Runtime not initialized. Run: npx clawpowers init\n');
@@ -70,15 +93,21 @@ function cmdStatus() {
   analyze.cmdFullAnalysis();
 }
 
+/**
+ * `clawpowers update` — Pull the latest skill definitions from the GitHub repo.
+ * Uses git fast-forward only to avoid overwriting local modifications.
+ * Falls back gracefully if git is not installed.
+ */
 function cmdUpdate() {
   const repoUrl = 'https://github.com/up2itnow0822/clawpowers';
   const result = spawnSync('git', ['-C', REPO_ROOT, 'pull', '--ff-only', 'origin', 'main'], {
     stdio: 'inherit',
+    // On Windows, git must be launched through the shell so PATH is resolved
     shell: os.platform() === 'win32',
   });
 
   if (result.error) {
-    // git not available or command failed
+    // git binary not found or OS-level spawn error
     console.log(`git not found or failed. Visit ${repoUrl} to update manually.`);
   } else if (result.status !== 0) {
     console.log(`Warning: could not auto-update. Visit ${repoUrl} for latest.`);
@@ -87,6 +116,11 @@ function cmdUpdate() {
   }
 }
 
+/**
+ * `clawpowers inject` — Run the session-start hook to inject the
+ * using-clawpowers skill into the current AI platform session.
+ * Spawns hooks/session-start.js as a child process so it inherits stdio.
+ */
 function cmdInject() {
   const result = spawnSync(process.execPath, [SESSION_JS], {
     stdio: 'inherit',
@@ -98,25 +132,18 @@ function cmdInject() {
   process.exit(result.status || 0);
 }
 
+/**
+ * `clawpowers metrics <subcmd> [args]` — Delegate to collector.js.
+ * Supported subcommands: record, show, summary.
+ *
+ * @param {string[]} args - Remaining argv after 'metrics'.
+ */
 function cmdMetrics(args) {
-  // Delegate all args directly to collector.js
   const collector = requireModule(COLLECTOR_JS);
   const [subcmd, ...rest] = args;
 
+  // No subcommand or explicit help request: print metrics-specific usage
   if (!subcmd || subcmd === 'help' || subcmd === '--help' || subcmd === '-h') {
-    // Let collector print its own usage
-    const saved = process.argv;
-    process.argv = [process.argv[0], COLLECTOR_JS, ...(subcmd ? [subcmd] : [])];
-    try {
-      collector.cmdShow ? undefined : undefined; // just ensure module loaded
-    } finally {
-      process.argv = saved;
-    }
-    // Call main directly
-    require(COLLECTOR_JS); // side-effect: module is cached; re-invoke main
-    const mod = require(COLLECTOR_JS);
-    // Inline dispatch since we can't re-run main cleanly
-    const { cmdRecord, cmdShow, cmdSummary } = mod;
     printCollectorUsage();
     return;
   }
@@ -125,6 +152,7 @@ function cmdMetrics(args) {
 
   switch (subcmd) {
     case 'record':
+      // cmdRecord expects the remaining args array (e.g. ['--skill', 'foo', '--outcome', 'success'])
       mod.cmdRecord ? mod.cmdRecord(rest) : delegateToNode(COLLECTOR_JS, ['record', ...rest]);
       break;
     case 'show':
@@ -140,6 +168,9 @@ function cmdMetrics(args) {
   }
 }
 
+/**
+ * Prints usage information for the `metrics` sub-command group.
+ */
 function printCollectorUsage() {
   console.log(`Usage: clawpowers metrics <command> [options]
 
@@ -156,21 +187,29 @@ record options:
   --session-id <id>      Session identifier`);
 }
 
+/**
+ * `clawpowers analyze [flag] [value]` — RSI feedback analysis.
+ * Dispatches to the appropriate analyze.js function based on the flag.
+ *
+ * @param {string[]} args - Remaining argv after 'analyze'.
+ */
 function cmdAnalyze(args) {
   const analyze = requireModule(ANALYZE_JS);
   const [flag, value] = args;
 
   switch (flag) {
-    case '--skill':          analyze.cmdSkillAnalysis(value); break;
-    case '--plan':           analyze.cmdPlanAnalysis(value); break;
-    case '--worktrees':      analyze.cmdWorktreeReport(); break;
+    case '--skill':           analyze.cmdSkillAnalysis(value); break;
+    case '--plan':            analyze.cmdPlanAnalysis(value); break;
+    case '--worktrees':       analyze.cmdWorktreeReport(); break;
     case '--recommendations': analyze.cmdRecommendations(); break;
-    case '--format':         analyze.cmdFullAnalysis(); break;
+    // --format accepts a format name but human-readable is the only current output
+    case '--format':          analyze.cmdFullAnalysis(); break;
     case 'help':
     case '-h':
-    case '--help':           printAnalyzeUsage(); break;
+    case '--help':            printAnalyzeUsage(); break;
+    // No flag = full analysis of all skills
     case undefined:
-    case '':                 analyze.cmdFullAnalysis(); break;
+    case '':                  analyze.cmdFullAnalysis(); break;
     default:
       process.stderr.write(`Unknown analyze option: ${flag}\n`);
       printAnalyzeUsage();
@@ -178,6 +217,9 @@ function cmdAnalyze(args) {
   }
 }
 
+/**
+ * Prints usage information for the `analyze` sub-command.
+ */
 function printAnalyzeUsage() {
   console.log(`Usage: clawpowers analyze [options]
 
@@ -190,6 +232,12 @@ Options:
   --format json            JSON output (default: human-readable)`);
 }
 
+/**
+ * `clawpowers store <subcmd> [args]` — Key-value state store operations.
+ * Maps CLI subcommands to store.js exported functions.
+ *
+ * @param {string[]} args - Remaining argv after 'store'.
+ */
 function cmdStore(args) {
   const store = requireModule(STORE_JS);
   const [subcmd, ...rest] = args;
@@ -199,13 +247,15 @@ function cmdStore(args) {
     return;
   }
 
-  // Map subcommands to store module functions
   try {
     switch (subcmd) {
       case 'set':
+        // rest[1] may be undefined for empty-string value; default to ''
         store.cmdSet(rest[0], rest[1] !== undefined ? rest[1] : '');
         break;
+
       case 'get': {
+        // Pass default value only when it was explicitly supplied (args.length >= 2)
         let val;
         try {
           val = rest.length >= 2 ? store.cmdGet(rest[0], rest[1]) : store.cmdGet(rest[0]);
@@ -216,12 +266,15 @@ function cmdStore(args) {
         }
         break;
       }
+
       case 'delete': {
         const msg = store.cmdDelete(rest[0]);
+        // cmdDelete returns a "Key not found" prefix for missing keys — route to stderr
         if (msg.startsWith('Key not found')) process.stderr.write(msg + '\n');
         else console.log(msg);
         break;
       }
+
       case 'list': {
         const keys = store.cmdList(rest[0] || '');
         if (keys.length === 0 && rest[0]) {
@@ -231,6 +284,7 @@ function cmdStore(args) {
         }
         break;
       }
+
       case 'list-values': {
         const pairs = store.cmdListValues(rest[0] || '');
         if (pairs.length === 0 && rest[0]) {
@@ -240,19 +294,25 @@ function cmdStore(args) {
         }
         break;
       }
+
       case 'exists': {
+        // Exit 0 if key exists, exit 1 if not — compatible with shell conditionals
         const exists = store.cmdExists(rest[0]);
         process.exit(exists ? 0 : 1);
         break;
       }
+
       case 'append':
         store.cmdAppend(rest[0], rest[1] !== undefined ? rest[1] : '');
         break;
+
       case 'incr': {
+        // Parse increment amount as base-10 integer; defaults to 1 inside cmdIncr
         const newVal = store.cmdIncr(rest[0], rest[1] !== undefined ? parseInt(rest[1], 10) : 1);
         console.log(newVal);
         break;
       }
+
       default:
         process.stderr.write(`Unknown store command: ${subcmd}\n`);
         printStoreUsage();
@@ -264,6 +324,9 @@ function cmdStore(args) {
   }
 }
 
+/**
+ * Prints usage information for the `store` sub-command group.
+ */
 function printStoreUsage() {
   console.log(`Usage: clawpowers store <command> [args]
 
@@ -280,13 +343,22 @@ Commands:
 Key format: namespace:entity:attribute`);
 }
 
-// Fallback: spawn node <script> with args as a child process
+/**
+ * Fallback dispatcher: spawn `node <script> [...args]` as a child process.
+ * Used when a module function isn't directly exported but can be triggered
+ * via its CLI entry point.
+ *
+ * @param {string} script - Absolute path to the Node.js script to run.
+ * @param {string[]} args - Arguments to forward to the script.
+ */
 function delegateToNode(script, args) {
   const result = spawnSync(process.execPath, [script, ...args], { stdio: 'inherit' });
   process.exit(result.status || 0);
 }
 
-// Main dispatch
+// ============================================================
+// Main dispatch — parse the first positional argument as the command
+// ============================================================
 const [cmd, ...args] = process.argv.slice(2);
 
 try {
@@ -301,6 +373,7 @@ try {
     case 'help':
     case '-h':
     case '--help':  printUsage(); break;
+    // No command or empty string: show usage and exit 1 (non-zero for scripts)
     case undefined:
     case '':
       printUsage();

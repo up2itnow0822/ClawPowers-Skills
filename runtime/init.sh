@@ -9,19 +9,25 @@
 #   npx clawpowers init
 set -euo pipefail
 
+# Runtime root — override with CLAWPOWERS_DIR env var for testing or custom locations
 CLAWPOWERS_DIR="${CLAWPOWERS_DIR:-$HOME/.clawpowers}"
 VERSION="1.0.0"
 
-# Create directory structure
+## === Directory Setup ===
+
+# Creates all required runtime subdirectories.
+# Each directory is created with mode 700 (owner-only) so skill state
+# and metrics aren't readable by other users on the system.
+# Prints the count of newly created directories (0 if already initialized).
 create_structure() {
   local dirs=(
-    "$CLAWPOWERS_DIR"
-    "$CLAWPOWERS_DIR/state"
-    "$CLAWPOWERS_DIR/metrics"
-    "$CLAWPOWERS_DIR/checkpoints"
-    "$CLAWPOWERS_DIR/feedback"
-    "$CLAWPOWERS_DIR/memory"
-    "$CLAWPOWERS_DIR/logs"
+    "$CLAWPOWERS_DIR"              # Root runtime directory
+    "$CLAWPOWERS_DIR/state"        # Key-value persistence (store.sh / store.js)
+    "$CLAWPOWERS_DIR/metrics"      # Skill outcome JSONL logs, rotated monthly
+    "$CLAWPOWERS_DIR/checkpoints"  # Resumable plan state (executing-plans skill)
+    "$CLAWPOWERS_DIR/feedback"     # RSI analysis reports (analyze.sh / analyze.js)
+    "$CLAWPOWERS_DIR/memory"       # Cross-session knowledge base
+    "$CLAWPOWERS_DIR/logs"         # Debug and audit logs
   )
 
   local created=0
@@ -29,6 +35,7 @@ create_structure() {
     if [[ ! -d "$dir" ]]; then
       mkdir -p "$dir"
       chmod 700 "$dir"
+      # Bash arithmetic in set -e contexts requires || true to suppress exit on 0-return
       ((created++)) || true
     fi
   done
@@ -36,7 +43,11 @@ create_structure() {
   echo "$created"
 }
 
-# Write version file
+## === Version File ===
+
+# Writes .version on first initialization. Contains the ClawPowers version and
+# an ISO timestamp so we can track install date and run future migrations.
+# No-op if the file already exists.
 write_version() {
   local version_file="$CLAWPOWERS_DIR/.version"
   if [[ ! -f "$version_file" ]]; then
@@ -44,14 +55,21 @@ write_version() {
 version=$VERSION
 initialized=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
+    # 0o600 = owner read/write only
     chmod 600 "$version_file"
   fi
 }
 
-# Write README in the runtime dir
+## === README ===
+
+# Writes a human-readable README into CLAWPOWERS_DIR explaining its purpose.
+# Helps users who discover the directory understand what it is and that it
+# is safe to delete (ClawPowers recreates it on next run).
+# No-op if the README already exists.
 write_readme() {
   local readme="$CLAWPOWERS_DIR/README"
   if [[ ! -f "$readme" ]]; then
+    # Single-quoted heredoc prevents variable expansion inside the README
     cat > "$readme" << 'EOF'
 ClawPowers Runtime Directory
 ============================
@@ -75,22 +93,27 @@ EOF
   fi
 }
 
-# Migrate from older versions (future-proofing)
+## === Migrations ===
+
+# Updates the version stamp in .version to the current version.
+# Placeholder for future schema migrations (e.g., restructuring state/ layout).
+# The sed command replaces the version= line in place; .bak is cleaned up immediately.
 run_migrations() {
   local current_version
   current_version=$(grep "^version=" "$CLAWPOWERS_DIR/.version" 2>/dev/null | cut -d= -f2 || echo "0.0.0")
 
-  # Placeholder for future migrations
+  # Future migration hooks go here, e.g.:
   # if [[ "$current_version" < "2.0.0" ]]; then
   #   migrate_v1_to_v2
   # fi
 
-  # Update version stamp
+  # Always update the version stamp to reflect the currently running version
   sed -i.bak "s/^version=.*/version=$VERSION/" "$CLAWPOWERS_DIR/.version" 2>/dev/null || true
   rm -f "$CLAWPOWERS_DIR/.version.bak"
 }
 
-# Main
+## === Main ===
+
 main() {
   local created
   created=$(create_structure)
@@ -98,10 +121,13 @@ main() {
   write_version
   write_readme
 
+  # Migrations only apply when the version file exists (guaranteed after write_version)
   if [[ -f "$CLAWPOWERS_DIR/.version" ]]; then
     run_migrations
   fi
 
+  # CLAWPOWERS_QUIET=1 suppresses all output when called from a hook or
+  # another script that needs clean stdout (e.g., session-start emitting JSON)
   if [[ "${CLAWPOWERS_QUIET:-}" != "1" ]]; then
     if [[ $created -gt 0 ]]; then
       echo "ClawPowers runtime initialized at $CLAWPOWERS_DIR"

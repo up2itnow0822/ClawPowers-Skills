@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# hooks/session-start — ClawPowers session injection hook
+# hooks/session-start — ClawPowers session injection hook (bash runtime)
 #
 # Detects the active AI coding platform and outputs platform-appropriate JSON
 # to inject the using-clawpowers skill into the agent's context window.
@@ -16,59 +16,88 @@
 # Exit 1: skill file not found
 set -euo pipefail
 
+## === Path Setup ===
+
+# hooks/ is one level inside the repo; climb to get the repo root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Path to the primary skill file that gets embedded in the injection JSON
 SKILL_FILE="$REPO_ROOT/skills/using-clawpowers/SKILL.md"
+
+# Path to the bash init script for silent first-run initialization
 RUNTIME_INIT="$REPO_ROOT/runtime/init.sh"
 
-# Initialize runtime on first run (silent)
+## === First-Run Initialization ===
+
+# Silently initialize the runtime directory if it doesn't exist yet.
+# This handles the case where a platform hook runs before the user has
+# manually executed `clawpowers init`. Output is suppressed so it doesn't
+# pollute the JSON emitted below.
 if [[ ! -d "${HOME}/.clawpowers" ]] && [[ -f "$RUNTIME_INIT" ]]; then
   bash "$RUNTIME_INIT" >/dev/null 2>&1 || true
 fi
 
+## === Prerequisite Check ===
+
+# If the skill file is missing, emit a machine-readable JSON error to stderr
+# so the consuming platform can surface a helpful message to the user.
 if [[ ! -f "$SKILL_FILE" ]]; then
   echo '{"error":"ClawPowers: using-clawpowers/SKILL.md not found","action":"run npx clawpowers init"}' >&2
   exit 1
 fi
 
+# Read the skill file content once — it's embedded in every platform's JSON output
 SKILL_CONTENT="$(cat "$SKILL_FILE")"
 TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 VERSION="1.0.0"
 
-# Detect platform
+## === Platform Detection ===
+
+# Detect the active AI coding platform by checking environment variables first,
+# then falling back to PATH binary checks. Priority order reflects likelihood.
 detect_platform() {
   if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" ]]; then
     echo "claude-code"
   elif [[ -n "${CURSOR_PLUGIN_ROOT:-}" ]]; then
     echo "cursor"
   elif [[ -n "${CODEX:-}" ]] || command -v codex >/dev/null 2>&1; then
+    # Codex sets the CODEX env var when active; also detectable via binary
     echo "codex"
   elif [[ -n "${OPENCODE:-}" ]]; then
     echo "opencode"
   elif [[ -n "${GEMINI_CLI:-}" ]] || command -v gemini >/dev/null 2>&1; then
+    # Gemini CLI sets GEMINI_CLI env var when active; also detectable via binary
     echo "gemini"
   else
+    # No recognized platform — emit generic JSON any agent can consume
     echo "generic"
   fi
 }
 
 PLATFORM="$(detect_platform)"
 
-# Escape content for JSON embedding
+## === JSON Escaping ===
+
+# Escape a string for safe embedding in a JSON double-quoted string value.
+# Order matters: backslashes must be escaped first, then quotes, then control chars.
 json_escape() {
   local content="$1"
-  # Escape backslashes first, then quotes, then newlines/tabs
-  content="${content//\\/\\\\}"
-  content="${content//\"/\\\"}"
-  content="${content//$'\n'/\\n}"
-  content="${content//$'\r'/\\r}"
-  content="${content//$'\t'/\\t}"
+  content="${content//\\/\\\\}"   # Escape backslashes (must be first)
+  content="${content//\"/\\\"}"   # Escape double quotes
+  content="${content//$'\n'/\\n}" # Escape newlines (skill content is multi-line)
+  content="${content//$'\r'/\\r}" # Escape carriage returns (Windows line endings)
+  content="${content//$'\t'/\\t}" # Escape tabs
   echo "$content"
 }
 
+# Escape the skill file content once; reused in all platform branches below
 ESCAPED_CONTENT="$(json_escape "$SKILL_CONTENT")"
 
-# Output platform-appropriate JSON
+## === Platform-Specific JSON Output ===
+
+# Each platform receives the same JSON structure but with a tailored instruction
+# string that matches how that platform surfaces skill content to its agent.
 case "$PLATFORM" in
   claude-code)
     cat <<EOF

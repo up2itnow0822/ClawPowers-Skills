@@ -25,9 +25,15 @@
 # Keys with '/' are rejected (no path traversal)
 set -euo pipefail
 
+## === Configuration ===
+
+# State directory — override parent with CLAWPOWERS_DIR env var for testing
 STATE_DIR="${CLAWPOWERS_DIR:-$HOME/.clawpowers}/state"
 
-# Ensure state directory exists
+## === Internal Utilities ===
+
+# Creates the state directory if it doesn't already exist.
+# Mode 700 ensures the directory is accessible only to the current user.
 ensure_dir() {
   if [[ ! -d "$STATE_DIR" ]]; then
     mkdir -p "$STATE_DIR"
@@ -35,43 +41,57 @@ ensure_dir() {
   fi
 }
 
-# Validate key: only safe characters, no path traversal
+# Validates a key before use. Rejects empty keys, path separators, and '..'
+# to prevent directory traversal attacks when constructing filenames.
 validate_key() {
   local key="$1"
   if [[ -z "$key" ]]; then
     echo "Error: key cannot be empty" >&2
     exit 1
   fi
+  # Reject '/' and '\' — they would allow writing outside STATE_DIR
   if [[ "$key" =~ [/\\] ]]; then
     echo "Error: key cannot contain '/' or '\\': $key" >&2
     exit 1
   fi
+  # Reject '..' segments to prevent directory traversal
   if [[ "$key" =~ \.\. ]]; then
     echo "Error: key cannot contain '..': $key" >&2
     exit 1
   fi
 }
 
-# Convert key to safe filename (replace ':' with '__')
+# Converts a colon-separated key to a safe filesystem filename.
+# Colons are replaced with double underscores because ':' is not valid in
+# Windows filenames and can be ambiguous on some filesystems.
+#
+# Example: "execution:my-plan:task_1" → "$STATE_DIR/execution__my-plan__task_1"
 key_to_file() {
   local key="$1"
   echo "$STATE_DIR/${key//:/__}"
 }
 
-# Atomic write using temp file + mv
+# Atomically writes a value to a file using temp-file-then-mv.
+# This prevents partial writes — readers see either the old value or the new
+# value, never an intermediate truncated state.
 atomic_write() {
   local file="$1"
   local value="$2"
+  # Use PID in temp filename to avoid collisions with concurrent writes
   local tmpfile="${file}.tmp.$$"
 
   echo "$value" > "$tmpfile"
   chmod 600 "$tmpfile"
+  # mv is atomic on POSIX filesystems when source and dest are on the same mount
   mv "$tmpfile" "$file"
 }
 
+## === Command Implementations ===
+
+# set — Write a value to a key, overwriting any existing value.
 cmd_set() {
   local key="$1"
-  local value="${2:-}"
+  local value="${2:-}"  # Default to empty string if no value provided
   validate_key "$key"
   ensure_dir
 
@@ -80,6 +100,10 @@ cmd_set() {
   atomic_write "$file" "$value"
 }
 
+# get — Read the value for a key.
+# If the key doesn't exist and a default is provided, print the default.
+# If the key doesn't exist and no default is provided, print an error and exit 1.
+# The sentinel "__NOTSET__" distinguishes "no default provided" from "empty default".
 cmd_get() {
   local key="$1"
   local default_val="${2:-__NOTSET__}"
@@ -99,6 +123,8 @@ cmd_get() {
   fi
 }
 
+# delete — Remove a key and its file.
+# Prints a confirmation on success, or a "not found" message to stderr.
 cmd_delete() {
   local key="$1"
   validate_key "$key"
@@ -109,21 +135,25 @@ cmd_delete() {
     rm -f "$file"
     echo "Deleted: $key"
   else
+    # Route "not found" to stderr so shell scripts can distinguish from success output
     echo "Key not found (nothing deleted): $key" >&2
   fi
 }
 
+# list — Print all keys matching an optional prefix (one key per line).
+# The prefix uses colon notation (e.g. "execution:my-plan:") which is converted
+# to filename notation before globbing.
 cmd_list() {
   local prefix="${1:-}"
   ensure_dir
 
-  # Convert prefix from key format to filename format
+  # Convert prefix from key format (colons) to filename format (double underscores)
   local file_prefix="${prefix//:/__}"
 
   local found=0
   for f in "$STATE_DIR"/${file_prefix}*; do
     if [[ -f "$f" ]]; then
-      # Convert filename back to key format
+      # Convert filename back to colon-separated key format for output
       local basename
       basename=$(basename "$f")
       local key="${basename//__/:}"
@@ -137,6 +167,8 @@ cmd_list() {
   fi
 }
 
+# list-values — Print all key=value pairs matching an optional prefix.
+# Output format: "key=value" (one pair per line), suitable for shell parsing.
 cmd_list_values() {
   local prefix="${1:-}"
   ensure_dir
@@ -161,15 +193,21 @@ cmd_list_values() {
   fi
 }
 
+# exists — Exit 0 if the key exists, exit 1 if not.
+# Designed for use in shell conditionals: `store.sh exists my:key && echo "found"`
 cmd_exists() {
   local key="$1"
   validate_key "$key"
 
   local file
   file=$(key_to_file "$key")
+  # The [[ -f "$file" ]] test returns 0/1 directly — no explicit exit needed
   [[ -f "$file" ]]
 }
 
+# append — Add a value to an existing key, separated by a newline.
+# Creates the key if it doesn't exist (same behavior as set on first call).
+# Useful for maintaining lists, logs, or multi-line notes in a single key.
 cmd_append() {
   local key="$1"
   local value="${2:-}"
@@ -180,26 +218,32 @@ cmd_append() {
   file=$(key_to_file "$key")
 
   if [[ -f "$file" ]]; then
-    # Append to existing content
+    # Append to existing content — echo adds the trailing newline separator
     echo "$value" >> "$file"
   else
-    # Create new file with value
+    # First write: use atomic write to properly create the file with permissions
     atomic_write "$file" "$value"
   fi
 }
 
+# incr — Increment the integer value stored at a key.
+# Creates the key with value equal to `amount` if it doesn't exist (treating missing as 0).
+# Rejects non-integer values with an error.
 cmd_incr() {
   local key="$1"
-  local amount="${2:-1}"
+  local amount="${2:-1}"  # Default increment is 1
   validate_key "$key"
   ensure_dir
 
   local file
   file=$(key_to_file "$key")
 
+  # Read the current value; default to 0 if the key doesn't exist
   local current=0
   if [[ -f "$file" ]]; then
+    # tr removes all whitespace including the trailing newline written by atomic_write
     current=$(cat "$file" | tr -d '[:space:]')
+    # Validate that the stored value is a plain integer (no decimals, no whitespace)
     if ! [[ "$current" =~ ^-?[0-9]+$ ]]; then
       echo "Error: value is not an integer: $current" >&2
       exit 1
@@ -210,6 +254,8 @@ cmd_incr() {
   atomic_write "$file" "$new_val"
   echo "$new_val"
 }
+
+## === Usage ===
 
 cmd_usage() {
   cat << 'EOF'
@@ -238,17 +284,20 @@ Examples:
 EOF
 }
 
-# Dispatch
+## === Main Dispatch ===
+
+# Route the first positional argument to the appropriate command function.
+# Arguments after the command name are forwarded directly to each function.
 case "${1:-}" in
-  set)     cmd_set "${2:-}" "${3:-}" ;;
-  get)     cmd_get "${2:-}" "${3:-__NOTSET__}" ;;
-  delete)  cmd_delete "${2:-}" ;;
-  list)    cmd_list "${2:-}" ;;
-  list-values) cmd_list_values "${2:-}" ;;
-  exists)  cmd_exists "${2:-}" ;;
-  append)  cmd_append "${2:-}" "${3:-}" ;;
-  incr)    cmd_incr "${2:-}" "${3:-1}" ;;
+  set)          cmd_set "${2:-}" "${3:-}" ;;
+  get)          cmd_get "${2:-}" "${3:-__NOTSET__}" ;;
+  delete)       cmd_delete "${2:-}" ;;
+  list)         cmd_list "${2:-}" ;;
+  list-values)  cmd_list_values "${2:-}" ;;
+  exists)       cmd_exists "${2:-}" ;;
+  append)       cmd_append "${2:-}" "${3:-}" ;;
+  incr)         cmd_incr "${2:-}" "${3:-1}" ;;
   help|-h|--help) cmd_usage ;;
-  "")      cmd_usage; exit 1 ;;
-  *)       echo "Unknown command: $1"; cmd_usage; exit 1 ;;
+  "")           cmd_usage; exit 1 ;;
+  *)            echo "Unknown command: $1"; cmd_usage; exit 1 ;;
 esac

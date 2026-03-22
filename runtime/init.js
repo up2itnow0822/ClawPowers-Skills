@@ -14,17 +14,27 @@ const path = require('path');
 const os = require('os');
 
 const VERSION = '1.0.0';
+
+// Runtime root — override with CLAWPOWERS_DIR env var for testing or custom locations
 const CLAWPOWERS_DIR = process.env.CLAWPOWERS_DIR || path.join(os.homedir(), '.clawpowers');
 
+/**
+ * Creates the full runtime directory tree under CLAWPOWERS_DIR.
+ * Each directory is created with mode 0o700 (owner-only access) so
+ * skill state and metrics aren't readable by other users on the system.
+ * Directories that already exist are silently skipped.
+ *
+ * @returns {number} Count of directories actually created (0 if already initialized).
+ */
 function createStructure() {
   const dirs = [
     CLAWPOWERS_DIR,
-    path.join(CLAWPOWERS_DIR, 'state'),
-    path.join(CLAWPOWERS_DIR, 'metrics'),
-    path.join(CLAWPOWERS_DIR, 'checkpoints'),
-    path.join(CLAWPOWERS_DIR, 'feedback'),
-    path.join(CLAWPOWERS_DIR, 'memory'),
-    path.join(CLAWPOWERS_DIR, 'logs'),
+    path.join(CLAWPOWERS_DIR, 'state'),        // Key-value persistence files
+    path.join(CLAWPOWERS_DIR, 'metrics'),       // JSONL outcome logs per month
+    path.join(CLAWPOWERS_DIR, 'checkpoints'),   // Resumable plan state (executing-plans skill)
+    path.join(CLAWPOWERS_DIR, 'feedback'),      // RSI analysis reports
+    path.join(CLAWPOWERS_DIR, 'memory'),        // Cross-session knowledge base
+    path.join(CLAWPOWERS_DIR, 'logs'),          // Debug and audit logs
   ];
 
   let created = 0;
@@ -37,15 +47,28 @@ function createStructure() {
   return created;
 }
 
+/**
+ * Writes a .version file to CLAWPOWERS_DIR on first initialization.
+ * The file contains the ClawPowers version and an ISO timestamp so we can
+ * track when the runtime was first set up and run migrations in the future.
+ * No-op if the file already exists.
+ */
 function writeVersion() {
   const versionFile = path.join(CLAWPOWERS_DIR, '.version');
   if (!fs.existsSync(versionFile)) {
     const ts = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
     const content = `version=${VERSION}\ninitialized=${ts}\n`;
+    // 0o600 = owner read/write only — this file may contain version metadata
     fs.writeFileSync(versionFile, content, { mode: 0o600 });
   }
 }
 
+/**
+ * Writes a human-readable README into CLAWPOWERS_DIR explaining its purpose.
+ * Helps users who discover the directory understand what it is and that it is
+ * safe to delete (ClawPowers will recreate it on next run).
+ * No-op if the README already exists.
+ */
 function writeReadme() {
   const readme = path.join(CLAWPOWERS_DIR, 'README');
   if (!fs.existsSync(readme)) {
@@ -73,15 +96,29 @@ function writeReadme() {
   }
 }
 
+/**
+ * Updates the version stamp in .version after initialization.
+ * Currently a no-op placeholder for actual schema migrations; the version
+ * string is updated in place so future versions can detect and migrate old
+ * runtime layouts.
+ */
 function runMigrations() {
   const versionFile = path.join(CLAWPOWERS_DIR, '.version');
   if (!fs.existsSync(versionFile)) return;
 
+  // Replace the version= line with the current version to keep .version current
   let content = fs.readFileSync(versionFile, 'utf8');
   content = content.replace(/^version=.*/m, `version=${VERSION}`);
   fs.writeFileSync(versionFile, content, { mode: 0o600 });
 }
 
+/**
+ * Reads the stored version string from .version.
+ * Used in the "already initialized" status message to show what version is
+ * currently installed in the runtime directory.
+ *
+ * @returns {string} Stored version string, or the current VERSION if unreadable.
+ */
 function getStoredVersion() {
   const versionFile = path.join(CLAWPOWERS_DIR, '.version');
   if (!fs.existsSync(versionFile)) return VERSION;
@@ -90,15 +127,26 @@ function getStoredVersion() {
   return match ? match[1].trim() : VERSION;
 }
 
+/**
+ * Main initialization sequence:
+ * 1. Create directory structure (idempotent).
+ * 2. Write .version file (first run only).
+ * 3. Write README (first run only).
+ * 4. Run migrations to update version stamp.
+ * 5. Print status to stdout (suppressed when CLAWPOWERS_QUIET=1).
+ */
 function main() {
   const created = createStructure();
   writeVersion();
   writeReadme();
 
+  // Only run migrations when .version exists (i.e., after writeVersion)
   if (fs.existsSync(path.join(CLAWPOWERS_DIR, '.version'))) {
     runMigrations();
   }
 
+  // CLAWPOWERS_QUIET=1 suppresses output when called from session-start hook
+  // so the hook's JSON output isn't polluted with init messages
   if (process.env.CLAWPOWERS_QUIET !== '1') {
     if (created > 0) {
       console.log(`ClawPowers runtime initialized at ${CLAWPOWERS_DIR}`);
@@ -111,6 +159,7 @@ function main() {
   }
 }
 
+// Only run main() when executed directly; allow require() without side effects
 if (require.main === module) {
   try {
     main();
