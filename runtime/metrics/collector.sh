@@ -190,15 +190,23 @@ cmd_summary() {
   /\"outcome\":\"failure\"/ { failure++ }
   /\"outcome\":\"partial\"/ { partial++ }
   /\"duration_s\":/ {
-    match($0, /"duration_s":([0-9.]+)/, arr)
-    if (arr[1] != "") {
-      total_duration += arr[1]
-      duration_count++
+    p = index($0, "\"duration_s\":")
+    if (p > 0) {
+      rest = substr($0, p + 13)
+      val = rest + 0
+      if (val > 0 || substr(rest, 1, 1) == "0") {
+        total_duration += val
+        duration_count++
+      }
     }
   }
   /\"skill\":/ {
-    match($0, /"skill":"([^"]+)"/, arr)
-    if (arr[1] != "") skill_counts[arr[1]]++
+    p = index($0, "\"skill\":\"")
+    if (p > 0) {
+      rest = substr($0, p + 9)
+      q = index(rest, "\"")
+      if (q > 0) skill_counts[substr(rest, 1, q - 1)]++
+    }
   }
   { total++ }
   END {

@@ -34,7 +34,7 @@ The runtime layer lives at `~/.clawpowers/` and provides three services:
 - SQLite database for cross-session state
 - Key-value store for skill-specific data
 - Checkpoint system for resumable workflows
-- Schema: `state.db` with tables per skill
+- Schema: flat file key-value store under `state/`
 
 ### 2. Metrics (`runtime/metrics/`)
 - Outcome tracking per skill execution

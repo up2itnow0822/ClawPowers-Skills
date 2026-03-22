@@ -54,8 +54,12 @@ compute_skill_stats() {
   /\"outcome\":\"failure\"/ { failure++ }
   /\"outcome\":\"partial\"/ { partial++ }
   /\"duration_s\":/ {
-    match($0, /"duration_s":([0-9.]+)/, a)
-    if (a[1]) { dur_total += a[1]; dur_count++ }
+    p = index($0, "\"duration_s\":")
+    if (p > 0) {
+      rest = substr($0, p + 13)
+      val = rest + 0
+      if (val > 0 || substr(rest, 1, 1) == "0") { dur_total += val; dur_count++ }
+    }
   }
   { total++ }
   END {
@@ -72,8 +76,12 @@ compute_skill_stats() {
 get_all_skills() {
   load_metrics | awk '
   /\"skill\":/ {
-    match($0, /"skill":"([^"]+)"/, a)
-    if (a[1]) skills[a[1]] = 1
+    p = index($0, "\"skill\":\"")
+    if (p > 0) {
+      rest = substr($0, p + 9)
+      q = index(rest, "\"")
+      if (q > 0) skills[substr(rest, 1, q - 1)] = 1
+    }
   }
   END { for (s in skills) print s }
   ' | sort

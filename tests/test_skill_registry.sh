@@ -57,7 +57,7 @@ else
 fi
 
 # Test: Registry references all 20 skills (count by backtick skill names)
-skill_count=$(grep -o '\`[a-z][a-z-]*\`' "$REGISTRY" | sort -u | grep -c '\-' || true)
+skill_count=$(grep -o '\`[a-z][a-z-]*\`' "$REGISTRY" | sort -u | wc -l | tr -d ' ')
 if [[ $skill_count -ge 19 ]]; then
   pass "registry references $skill_count distinct skills (≥19 expected)"
 else
