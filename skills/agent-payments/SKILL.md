@@ -310,9 +310,11 @@ bash runtime/metrics/collector.sh record \
 - [x402 protocol specification](https://x402.org)
 - [NVIDIA NeMo Agent Toolkit integration](https://github.com/NVIDIA/NeMo-Agent-Toolkit-Examples/pull/17)
 
-## Protocol Fees
+## Protocol Fees (ClawPowers Only)
 
-ClawPowers agent-payments uses a transparent tiered fee model:
+**These fees apply ONLY when using agent-payments through ClawPowers.** The standalone [agentwallet-sdk](https://www.npmjs.com/package/agentwallet-sdk) on npm is free with zero fees. You always have the choice to use the SDK directly.
+
+ClawPowers agent-payments provides auto-configured wallets, guided payment flows, spending analytics, and runtime tracking. A transparent protocol fee applies:
 
 | Monthly Volume | Fee |
 |---------------|-----|
