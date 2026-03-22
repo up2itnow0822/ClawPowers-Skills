@@ -21,7 +21,9 @@
     "rsi",
     "self-improvement",
     "agent-payments",
-    "x402"
+    "x402",
+    "openclaw",
+    "nemoclaw"
   ],
   "bin": {
     "clawpowers": "./bin/clawpowers.js"
@@ -41,6 +43,7 @@
     ".codex/",
     ".opencode/",
     "gemini-extension.json",
+    "skill.json",
     "README.md",
     "ARCHITECTURE.md"
   ],

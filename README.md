@@ -42,6 +42,20 @@ npx clawpowers init
 
 This downloads ClawPowers, creates the `~/.clawpowers/` runtime directory, and you're ready to go. Works in any terminal: Windows CMD, PowerShell, macOS Terminal, Linux shell.
 
+### OpenClaw
+
+```bash
+openclaw skills install clawpowers
+```
+
+Or install from GitHub directly:
+
+```bash
+openclaw skills install github:up2itnow0822/clawpowers
+```
+
+ClawPowers registers as a native OpenClaw skill with session hooks, runtime init, and all 20 skills auto-discoverable.
+
 ### Claude Code (Plugin Marketplace)
 
 ```bash
@@ -247,6 +261,106 @@ npx clawpowers analyze --skill <name>                  # Analyze specific skill
 npx clawpowers store set <key> <value>                 # Store persistent state
 npx clawpowers store get <key>                         # Retrieve state
 npx clawpowers store list [prefix]                     # List stored keys
+```
+
+## Security Model
+
+ClawPowers takes agent autonomy seriously — which means taking agent *limits* seriously.
+
+### Runtime Isolation
+
+- **State directory** (`~/.clawpowers/`) uses `700` permissions — owner-only access
+- **Path traversal blocked** — keys containing `/` or `\` are rejected at the store level
+- **No network access** — runtime scripts (store, metrics, analyze) are fully offline
+- **No eval** — zero use of `eval()`, `Function()`, or dynamic code execution in any runtime script
+
+### Agent Payment Guardrails
+
+The `agent-payments` skill uses `agentwallet-sdk` with hard on-chain spending limits:
+
+```
+Agent wants to spend $15  → ✅ Auto-approved (under $25/tx limit)
+Agent wants to spend $500 → ⏳ Queued for owner approval
+Agent spent $490 today    → 🛑 Next tx blocked ($500/day limit hit)
+```
+
+- **Non-custodial** — your private key, your wallet. No third-party custody.
+- **ERC-6551 token-bound accounts** — wallet is tied to an NFT. Portable, auditable, on-chain.
+- **Smart-contract enforced** — spending policies live on-chain. The agent literally *cannot* bypass them, even with a prompt injection.
+- **Owner override** — you can revoke, pause, or adjust limits at any time.
+
+### What This Means in Practice
+
+Even if an agent is compromised (prompt injection, jailbreak, malicious skill), it cannot:
+1. Spend more than the per-transaction limit you set
+2. Exceed the daily/weekly spending cap you configured
+3. Access funds outside its ERC-6551 token-bound account
+4. Modify its own spending policy (only the owner wallet can)
+
+**Recommendation:** Start with low limits ($5/tx, $25/day) and increase as you build confidence. The SDK supports per-token policies — set tighter limits on volatile assets, looser on stablecoins.
+
+## Agent Payment Demo
+
+Here's a complete example of an agent autonomously paying for a premium API:
+
+### 1. Set Up the Wallet (One-Time)
+
+```typescript
+import { createWallet, setSpendPolicy, NATIVE_TOKEN } from 'agentwallet-sdk';
+import { createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base } from 'viem/chains';
+
+// Create wallet on Base (cheapest gas for agent operations)
+const account = privateKeyToAccount(process.env.AGENT_PRIVATE_KEY as `0x${string}`);
+const walletClient = createWalletClient({ account, chain: base, transport: http() });
+
+const wallet = createWallet({
+  accountAddress: '0xYourAgentWallet',
+  chain: 'base',
+  walletClient,
+});
+
+// Set spending guardrails: $5 per request, $50/day max
+await setSpendPolicy(wallet, {
+  token: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
+  perTxLimit: 5_000_000n,    // 5 USDC per transaction
+  periodLimit: 50_000_000n,  // 50 USDC per day
+  periodLength: 86400,       // 24 hours
+});
+```
+
+### 2. Agent Pays for Premium Data (Autonomous)
+
+```typescript
+import { createX402Client } from 'agentwallet-sdk';
+
+const x402 = createX402Client(wallet, {
+  supportedNetworks: ['base:8453'],
+  globalDailyLimit: 50_000_000n, // matches spend policy
+  globalPerRequestMax: 5_000_000n,
+});
+
+// Agent encounters a 402 Payment Required response — pays automatically
+const response = await x402.fetch('https://api.premium-data.com/market-analysis');
+const data = await response.json();
+// Cost: $0.50 USDC, auto-approved (under $5 limit)
+// Owner sees: tx hash on Base, fully auditable
+```
+
+### 3. Track Payment Outcomes (RSI Loop)
+
+```bash
+# ClawPowers tracks every payment outcome
+npx clawpowers metrics record \
+  --skill agent-payments \
+  --outcome success \
+  --duration 3 \
+  --notes "Paid $0.50 for market analysis API — data quality 9/10"
+
+# After 10+ payments, analyze ROI
+npx clawpowers analyze --skill agent-payments
+# Output: success rate, avg cost, cost-per-successful-outcome
 ```
 
 ## Credential
