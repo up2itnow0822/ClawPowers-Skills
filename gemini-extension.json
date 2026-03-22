@@ -1,0 +1,32 @@
+{
+  "name": "clawpowers",
+  "version": "1.0.0",
+  "description": "Skills framework with runtime execution, persistent memory, self-improvement, and agent payments for Gemini CLI.",
+  "author": "AI Agent Economy",
+  "homepage": "https://github.com/up2itnow0822/clawpowers",
+  "license": "MIT",
+  "type": "extension",
+  "hooks": {
+    "session_start": {
+      "command": "bash",
+      "args": ["hooks/session-start"],
+      "env": {
+        "GEMINI_CLI": "1"
+      }
+    }
+  },
+  "skills_directory": "skills/",
+  "runtime_directory": "runtime/",
+  "inject_on_start": true,
+  "inject_skill": "using-clawpowers",
+  "capabilities": [
+    "skill_injection",
+    "persistent_state",
+    "outcome_metrics",
+    "rsi_feedback"
+  ],
+  "install": {
+    "command": "gemini extensions install https://github.com/up2itnow0822/clawpowers",
+    "post_install": "npx clawpowers init"
+  }
+}

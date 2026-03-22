@@ -1,0 +1,51 @@
+{
+  "name": "clawpowers",
+  "version": "1.0.0",
+  "description": "The skills framework that actually does something — runtime execution, persistent memory, self-improvement, and autonomous payments for coding agents.",
+  "license": "MIT",
+  "author": "AI Agent Economy <https://github.com/up2itnow0822>",
+  "homepage": "https://github.com/up2itnow0822/clawpowers",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/up2itnow0822/clawpowers.git"
+  },
+  "keywords": [
+    "ai-agent",
+    "coding-agent",
+    "skills",
+    "claude-code",
+    "cursor",
+    "codex",
+    "opencode",
+    "gemini",
+    "rsi",
+    "self-improvement",
+    "agent-payments",
+    "x402"
+  ],
+  "bin": {
+    "clawpowers": "./bin/clawpowers.sh"
+  },
+  "scripts": {
+    "init": "bash bin/clawpowers.sh init",
+    "test": "bash tests/run_all.sh"
+  },
+  "files": [
+    "bin/",
+    "skills/",
+    "runtime/",
+    "hooks/",
+    "plugins/",
+    ".claude-plugin/",
+    ".cursor-plugin/",
+    ".codex/",
+    ".opencode/",
+    "gemini-extension.json",
+    "README.md",
+    "ARCHITECTURE.md"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {}
+}

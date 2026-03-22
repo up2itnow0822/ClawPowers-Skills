@@ -1,0 +1,21 @@
+{
+  "name": "clawpowers",
+  "version": "1.0.0",
+  "description": "Skills framework with runtime execution, persistent memory, self-improvement, and agent payments for Cursor AI.",
+  "author": "AI Agent Economy",
+  "homepage": "https://github.com/up2itnow0822/clawpowers",
+  "license": "MIT",
+  "hooks": {
+    "session_start": "hooks/session-start"
+  },
+  "skills_directory": "skills/",
+  "runtime_directory": "runtime/",
+  "inject_on_start": true,
+  "inject_skill": "using-clawpowers",
+  "capabilities": [
+    "skill_injection",
+    "persistent_state",
+    "outcome_metrics",
+    "rsi_feedback"
+  ]
+}
