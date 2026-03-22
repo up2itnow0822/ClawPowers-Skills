@@ -1,13 +1,13 @@
 ---
 name: agent-payments
-description: Enable agents to make autonomous payments using the x402 protocol with non-custodial wallets and smart-contract-enforced spending limits. Activate when an agent needs to pay for an API, service, or compute resource.
-version: 1.0.0
+description: Enable agents to transact autonomously across a full multi-chain financial stack — x402 payments, Uniswap V3 swaps, CCTP bridging, ERC-8004 identity, mutual stake escrow, spending policies, and agent-to-agent delegation (AP2). Activate when an agent needs to pay for an API, swap tokens, bridge assets, escrow funds for a task, or establish on-chain identity.
+version: 6.0.0
 requires:
-  tools: [bash, curl, node]
+  tools: [bash, node]
   runtime: true
 metrics:
-  tracks: [payments_attempted, payments_succeeded, spending_per_session, limit_enforcement_hits]
-  improves: [payment_routing, limit_calibration, retry_strategy]
+  tracks: [payments_attempted, payments_succeeded, swaps_executed, bridges_initiated, escrows_created, spending_per_session, limit_enforcement_hits]
+  improves: [payment_routing, limit_calibration, retry_strategy, swap_routing, bridge_selection]
 ---
 
 # Agent Payments
@@ -20,28 +20,35 @@ Apply this skill when:
 - You need to call a premium API that requires per-request payment
 - You're accessing a paid AI model, compute resource, or data service
 - You need to purchase a resource (storage, credits, bandwidth) autonomously
-- An agent-to-agent payment is required in a multi-agent workflow
+- An agent-to-agent payment or task delegation is required (AP2 protocol)
+- You need to swap tokens across Base, Arbitrum, Optimism, or Polygon
+- You need to bridge USDC between EVM chains or to Solana (CCTP V2)
+- You need to establish or verify on-chain agent identity (ERC-8004)
+- You need to escrow funds for a multi-agent task (mutual stake or optimistic)
+- Gas sponsorship is needed for a gasless user experience
 
 **Skip when:**
 - The service requires human authorization for payment (no wallet configured)
-- The payment would exceed the configured spending limit
+- The payment would exceed the configured spending limit (surface to operator)
 - The service uses subscription billing (not per-request x402)
-- The payment is above threshold for autonomous authorization (see limits configuration)
+- The payment is above threshold for autonomous authorization (see limits)
 
 **Decision tree:**
 ```
 Is the response HTTP 402?
-├── No  → This skill doesn't apply
+├── No  → Does the task require swap/bridge/escrow/identity?
+│         ├── No  → This skill doesn't apply
+│         └── Yes → Jump to the relevant section below
 └── Yes → Is a wallet configured?
-          ├── No  → Configure wallet first (see Setup section)
+          ├── No  → Run setup (see Setup section)
           └── Yes → Does this payment fit within spending limits?
-                    ├── No  → Request human authorization
+                    ├── No  → Queue via agentExecute or request human auth
                     └── Yes → Proceed with autonomous payment
 ```
 
 ## Background: x402 Protocol
 
-The x402 protocol is a standard for machine-to-machine payments embedded in HTTP. When a server requires payment, it returns:
+The x402 protocol is a standard for machine-to-machine payments embedded in HTTP. When a server requires payment it returns:
 
 ```http
 HTTP/1.1 402 Payment Required
@@ -58,237 +65,286 @@ Reference implementation: [agentpay-mcp](https://github.com/up2itnow0822/agentpa
 
 ## Setup
 
-### Install agentpay-mcp
+### Install agentwallet-sdk
 
 ```bash
-npm install -g agentpay-mcp
-# or use directly
-npx agentpay-mcp
+npm install agentwallet-sdk viem
 ```
 
-### Configure Wallet
+### Supported Chains
 
-```bash
-# Initialize a non-custodial agent wallet
-npx agentpay-mcp wallet create --name "agent-wallet"
-
-# Output:
-# Wallet created: agent-wallet
-# Address: 0xYOUR_AGENT_ADDRESS
-# Key stored encrypted at: ~/.agentpay/wallets/agent-wallet.enc
-# NEVER share your private key
-
-# Configure spending limits (enforced by smart contract)
-npx agentpay-mcp wallet set-limit \
-  --wallet agent-wallet \
-  --per-request 0.10 \    # Max $0.10 per individual payment
-  --per-session 5.00 \    # Max $5.00 per agent session
-  --per-day 20.00         # Max $20.00 per day
-```
-
-### Fund the Wallet
-
-```bash
-# Check wallet balance
-npx agentpay-mcp wallet balance --wallet agent-wallet
-
-# Fund from another address (send USDC on Base network)
-# Wallet address: 0xYOUR_AGENT_ADDRESS
-# Network: Base (chain ID: 8453)
-# Asset: USDC (0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)
-```
+Base, Ethereum, Arbitrum, Polygon, Optimism, Avalanche, Unichain, Linea, Sonic, World Chain, Base Sepolia (testnet). Solana is supported for CCTP V2 bridging.
 
 ## Core Methodology
 
-### Step 1: Detect Payment Required
+### 1. Create Wallet + Set Spending Policy
 
-```bash
-# Make the initial request
-response=$(curl -s -w "\n%{http_code}" "$API_ENDPOINT")
-body=$(echo "$response" | head -n -1)
-status=$(echo "$response" | tail -1)
+Non-custodial ERC-6551 token-bound wallets are available on all 11 supported EVM chains. Spending limits are enforced by smart contract — the agent cannot override them.
 
-if [[ "$status" == "402" ]]; then
-  # Extract payment requirements
-  payment_required=$(curl -s -I "$API_ENDPOINT" | grep -i "X-Payment-Required" | cut -d: -f2-)
-  echo "Payment required: $payment_required"
-fi
+```typescript
+import { createWallet, setSpendPolicy, agentExecute, NATIVE_TOKEN } from 'agentwallet-sdk';
+
+const wallet = createWallet({
+  accountAddress: '0x...',
+  chain: 'base',
+  walletClient,            // viem WalletClient
+});
+
+// Set per-token, per-period on-chain spending limits
+await setSpendPolicy(wallet, {
+  token: NATIVE_TOKEN,
+  perTxLimit: 25000000000000000n,    // 0.025 ETH per transaction
+  periodLimit: 500000000000000000n,  // 0.5 ETH per period
+  periodLength: 86400,               // 24-hour rolling period
+});
+
+// agentExecute auto-approves within limits, queues if over
+const result = await agentExecute(wallet, {
+  to: '0x...',
+  value: 10000000000000000n,         // 0.01 ETH
+});
 ```
 
-### Step 2: Parse Payment Requirements
+**`agentExecute` behavior:**
+- Within limits → executes immediately, returns transaction receipt
+- Over limits → queues the payment, returns queue ID for human review
+- Exceeded daily cap → returns `LIMIT_EXCEEDED` with details
 
-```javascript
-// Parse the X-Payment-Required header
-const paymentReq = JSON.parse(paymentRequiredHeader);
+### 2. x402 Payments (Multi-Chain)
 
-// paymentReq structure:
-// {
-//   scheme: "exact",
-//   network: "base",
-//   maxAmountRequired: "1000000",  // in smallest unit (USDC: 6 decimals → $1.00)
-//   asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",  // USDC on Base
-//   payTo: "0xMERCHANT_ADDRESS",
-//   resource: "https://api.example.com/endpoint",
-//   description: "1 premium API call"
-// }
+```typescript
+import { createX402Client } from 'agentwallet-sdk';
 
-const amountUsd = Number(paymentReq.maxAmountRequired) / 1e6;
-console.log(`Payment required: $${amountUsd} for: ${paymentReq.description}`);
+const x402 = createX402Client(wallet, {
+  supportedNetworks: ['base:8453', 'arbitrum:42161'],
+  globalDailyLimit: 10_000_000n,     // 10 USDC daily cap (6 decimals)
+});
+
+// Auto-detects network, handles 402 → pay → retry transparently
+const response = await x402.fetch('https://api.example.com/premium');
+const data = await response.json();
 ```
 
-### Step 3: Check Spending Limits
+The client automatically:
+- Parses the `X-Payment-Required` header
+- Selects the cheapest supported network
+- Constructs and submits the payment
+- Retries the original request with proof
 
-Before paying, verify the payment is within limits:
+### 3. Token Swaps (Uniswap V3)
 
-```bash
-# Check via agentpay-mcp
-npx agentpay-mcp check-limit \
-  --wallet agent-wallet \
-  --amount 0.001 \    # Amount in USD
-  --description "1 premium API call"
+Available on Base, Arbitrum, Optimism, Polygon. Use the chain-specific token registries: `BASE_TOKENS`, `ARBITRUM_TOKENS`, `OPTIMISM_TOKENS`, `POLYGON_TOKENS`.
 
-# Returns: APPROVED or LIMIT_EXCEEDED with details
+```typescript
+import { attachSwap } from 'agentwallet-sdk/swap';
+import { BASE_TOKENS } from 'agentwallet-sdk';
+
+const swap = attachSwap(wallet, { chain: 'base' });
+
+await swap.swap(
+  BASE_TOKENS.WETH,
+  BASE_TOKENS.USDC,
+  amount,
+  { slippageBps: 50 },              // 0.5% slippage tolerance
+);
 ```
 
-If `LIMIT_EXCEEDED`, do not proceed. Surface to the human operator.
+Token registries expose canonical addresses for all major tokens on each chain. Always use registry constants rather than hardcoding addresses.
 
-### Step 4: Execute Payment
+### 4. CCTP V2 Bridge (EVM ↔ EVM and EVM ↔ Solana)
 
-```bash
-# Execute payment and get proof
-payment_proof=$(npx agentpay-mcp pay \
-  --wallet agent-wallet \
-  --to "$MERCHANT_ADDRESS" \
-  --amount "$AMOUNT" \
-  --asset "USDC" \
-  --network "base" \
-  --resource "$RESOURCE_URL")
+Bridge USDC across any supported chain pair, including to/from Solana.
 
-echo "Payment proof: $payment_proof"
-# Output: {"paymentHash":"0x...","signature":"0x...","timestamp":1234567890}
+```typescript
+import { CCTPBridge } from 'agentwallet-sdk';
+
+const bridge = new CCTPBridge({ sourceChain: 'base', walletClient });
+
+const { transferId } = await bridge.transfer({
+  destinationChain: 'arbitrum',      // or 'solana' for cross-ecosystem
+  amount: 100_000_000n,              // 100 USDC (6 decimals)
+  recipient: '0x...',
+});
+
+// Poll for settlement
+const status = await bridge.getStatus(transferId);
 ```
 
-### Step 5: Retry Original Request with Payment Proof
+### 5. ERC-8004 On-Chain Agent Identity
 
-```bash
-# Include payment proof in retry
-response=$(curl -s \
-  -H "X-Payment: $payment_proof" \
-  -H "Content-Type: application/json" \
-  "$API_ENDPOINT")
+Register and manage verifiable on-chain identity for agents. Three registries: Identity, Reputation, Validation.
 
-echo "Response: $response"
+```typescript
+import { AgentIdentity } from 'agentwallet-sdk';
+
+const identity = new AgentIdentity({ chain: 'base', walletClient });
+
+// Register agent identity
+const { agentId } = await identity.register({
+  name: 'my-agent',
+  capabilities: ['payments', 'swaps', 'data-fetch'],
+  metadataURI: 'ipfs://...',
+});
+
+// Verify another agent's identity before task delegation
+const isValid = await identity.validate('0xAgentAddress');
 ```
 
-### Step 6: Verify and Log
+### 6. Mutual Stake Escrow
 
-```bash
-# Log the payment for audit
-bash runtime/persistence/store.sh set \
-  "payment:$(date +%s):amount" "$AMOUNT"
-bash runtime/persistence/store.sh set \
-  "payment:$(date +%s):to" "$MERCHANT_ADDRESS"
-bash runtime/persistence/store.sh set \
-  "payment:$(date +%s):hash" "$PAYMENT_HASH"
-bash runtime/persistence/store.sh set \
-  "payment:$(date +%s):resource" "$RESOURCE_URL"
-bash runtime/persistence/store.sh set \
-  "payment:$(date +%s):status" "confirmed"
+Reciprocal collateral for agent-to-agent tasks. Both parties stake before work begins; funds release on verified completion.
+
+```typescript
+import { MutualStakeEscrow } from 'agentwallet-sdk';
+
+const escrow = new MutualStakeEscrow({ chain: 'base', walletClient });
+
+const { escrowId } = await escrow.create({
+  counterparty: '0x...',
+  token: '0xUSDC',
+  stakeAmount: 100_000_000n,         // 100 USDC (6 decimals)
+  taskHash: '0x...',
+  deadline: Math.floor(Date.now() / 1000) + 86400,
+});
+
+// Release on verified completion
+await escrow.release(escrowId, proofOfWork);
 ```
 
-### Complete Flow (Bash Helper)
+### 7. Optimistic Escrow
 
-```bash
-#!/usr/bin/env bash
-# x402_request — make an HTTP request, handling 402 automatically
+Time-locked escrow with challenge window. Funds release automatically after the lock period unless disputed.
 
-x402_request() {
-  local method="${1:-GET}"
-  local url="$2"
-  local wallet="${X402_WALLET:-agent-wallet}"
-  
-  # First attempt
-  response=$(curl -s -w "\n%{http_code}" -X "$method" "$url")
-  body=$(echo "$response" | head -n -1)
-  status=$(echo "$response" | tail -1)
-  
-  if [[ "$status" != "402" ]]; then
-    echo "$body"
-    return 0
-  fi
-  
-  echo "402 received — processing x402 payment" >&2
-  
-  # Get payment requirements
-  payment_header=$(curl -sI -X "$method" "$url" | grep -i "x-payment-required" | cut -d' ' -f2-)
-  
-  if [[ -z "$payment_header" ]]; then
-    echo "Error: 402 without X-Payment-Required header" >&2
-    return 1
-  fi
-  
-  # Execute payment
-  proof=$(npx agentpay-mcp pay --wallet "$wallet" --from-header "$payment_header")
-  
-  if [[ $? -ne 0 ]]; then
-    echo "Error: payment failed" >&2
-    return 1
-  fi
-  
-  # Retry with payment proof
-  response=$(curl -s -w "\n%{http_code}" -X "$method" -H "X-Payment: $proof" "$url")
-  body=$(echo "$response" | head -n -1)
-  status=$(echo "$response" | tail -1)
-  
-  echo "$body"
-  return 0
-}
+```typescript
+import { OptimisticEscrow } from 'agentwallet-sdk';
+
+const escrow = new OptimisticEscrow({ chain: 'base', walletClient });
+
+const { escrowId } = await escrow.create({
+  beneficiary: '0x...',
+  token: '0xUSDC',
+  amount: 50_000_000n,
+  lockPeriod: 3600,                  // 1-hour challenge window
+  taskHash: '0x...',
+});
+```
+
+### 8. AP2 Protocol — Agent-to-Agent Task Delegation
+
+Delegate tasks to sub-agents with automatic payment on completion.
+
+```typescript
+import { AP2Client } from 'agentwallet-sdk';
+
+const ap2 = new AP2Client({ chain: 'base', walletClient });
+
+const { taskId } = await ap2.delegate({
+  agent: '0xSubAgentAddress',
+  task: { type: 'data-fetch', params: { url: 'https://...' } },
+  maxPayment: 5_000_000n,            // 5 USDC ceiling
+  escrowType: 'mutual-stake',
+});
+
+const result = await ap2.awaitCompletion(taskId);
+```
+
+### 9. Gas Sponsorship (ERC-4337 Paymaster)
+
+Sponsor gas for agent transactions so end users never hold ETH.
+
+```typescript
+import { createWallet } from 'agentwallet-sdk';
+
+const wallet = createWallet({
+  accountAddress: '0x...',
+  chain: 'base',
+  walletClient,
+  gasSponsorship: {
+    enabled: true,
+    paymasterUrl: 'https://...',     // ERC-4337 paymaster endpoint
+  },
+});
+```
+
+### 10. Fiat Onramp
+
+Opt-in fiat-to-crypto conversion for wallets that need funding without manual crypto transfers.
+
+```typescript
+import { FiatOnramp } from 'agentwallet-sdk';
+
+const onramp = new FiatOnramp({ chain: 'base', walletClient });
+
+const { sessionUrl } = await onramp.createSession({
+  targetToken: 'USDC',
+  targetAmount: 100,                 // USD
+  walletAddress: wallet.address,
+});
+// Redirect agent operator to sessionUrl for KYC/payment
+```
+
+### 11. On-Chain Settlement
+
+Finalize multi-party payment flows with cryptographic settlement proof.
+
+```typescript
+import { Settlement } from 'agentwallet-sdk';
+
+const settlement = new Settlement({ chain: 'base', walletClient });
+
+await settlement.finalize({
+  taskId: '0x...',
+  parties: ['0xAgent1', '0xAgent2'],
+  amounts: [80_000_000n, 20_000_000n],
+  proofHash: '0x...',
+});
 ```
 
 ## ClawPowers Enhancement
 
-When `~/.clawpowers/` runtime is initialized:
+When `~/.clawpowers/` runtime is initialized, agent-payments gains persistent tracking across all transaction types.
 
 **Persistent Payment Ledger:**
 
-Every payment is logged to `~/.clawpowers/state/`:
 ```bash
 bash runtime/persistence/store.sh set "ledger:total_spent_today" "$(date +%Y-%m-%d):0.047"
 bash runtime/persistence/store.sh list "payment:*:amount" | awk -F: '{sum += $NF} END {print "Total: $" sum}'
 ```
 
-**Session Spending Tracking:**
+**Multi-Metric Session Tracking:**
 
-Cumulative spend per session is tracked against the session limit:
 ```bash
 bash runtime/metrics/collector.sh record \
   --skill agent-payments \
   --outcome success \
-  --notes "session spend: $0.047, limit: $5.00, 3 payments"
+  --notes "payments: 3, swaps: 1, bridges: 0, session_spend: $0.047, limit: $5.00"
 ```
 
 **Spending Analytics:**
 
 `runtime/feedback/analyze.sh` computes:
-- Total spend per day/week/month
+- Total spend per day/week/month across all transaction types
 - Most expensive APIs (payment frequency × amount)
-- Limit hit rate (how often limits prevent payments)
+- Swap slippage vs. configured tolerance
+- Bridge utilization and latency
+- Escrow open/close ratio
+- Limit hit rate (how often limits block payments)
 - Payment success rate (failed on-chain transactions)
 
 ## Security
 
 **Private Key Security:**
-- Keys are encrypted at rest (`~/.agentpay/wallets/`)
-- Never printed to logs
-- Passphrase required to decrypt (set during `wallet create`)
+- Keys are encrypted at rest via the ERC-6551 NFT-bound wallet
+- Never printed to logs or surfaces
+- Passphrase required to decrypt
 
 **Spending Limit Enforcement:**
-- Limits are enforced by the wallet layer before transaction submission
-- Smart contract limits are on-chain (cannot be overridden by agent software)
-- All payments are logged with merchant address, amount, and timestamp
+- `setSpendPolicy()` writes limits to the smart contract — the agent cannot override them
+- `agentExecute()` queries the contract before submitting any transaction
+- Over-limit transactions are queued, not silently dropped
 
 **Audit Trail:**
-- Every payment generates a transaction hash (on-chain verification)
+- Every transaction generates an on-chain hash
 - Payment logs in `~/.clawpowers/state/` are append-only
 - Session spend is tracked against daily/session limits
 
@@ -296,19 +352,14 @@ bash runtime/metrics/collector.sh record \
 
 | Anti-Pattern | Why It Fails | Correct Approach |
 |-------------|-------------|-----------------|
-| No spending limits configured | Unlimited liability, potential wallet drain | Always set per-request, per-session, and per-day limits |
-| Paying without checking limits first | Exceeds budget unintentionally | Check limits via agentpay-mcp before every payment |
-| Not logging payments | No audit trail, can't debug overcharges | Log every payment with hash, amount, merchant |
-| Storing raw private keys | Credential theft | Use encrypted wallet storage only |
-| Retrying failed payments automatically without human review | Double-charge or infinite payment loops | Manual review required for payment failures |
-| Paying without verifying the server response | Payment sent but service not rendered | Verify response status after payment |
-
-## References
-
-- [agentpay-mcp on GitHub](https://github.com/up2itnow0822/agentpay-mcp)
-- [agentwallet-sdk on npm](https://www.npmjs.com/package/agentwallet-sdk)
-- [x402 protocol specification](https://x402.org)
-- [NVIDIA NeMo Agent Toolkit integration](https://github.com/NVIDIA/NeMo-Agent-Toolkit-Examples/pull/17)
+| No spending limits configured | Unlimited liability, potential wallet drain | Always call `setSpendPolicy()` before `agentExecute()` |
+| Hardcoding token addresses | Chain upgrades break integrations | Use `BASE_TOKENS`, `ARBITRUM_TOKENS`, etc. from the SDK |
+| Skipping identity validation before AP2 delegation | Funds sent to unverified agent | Call `identity.validate()` before delegating tasks |
+| Using optimistic escrow for high-value tasks | Challenge window may be too short | Use mutual stake escrow for tasks above risk threshold |
+| Retrying failed payments without human review | Double-charge or infinite payment loop | Manual review required for any payment failure |
+| Paying without verifying server response | Payment sent, service not rendered | Always check response status after x402 payment |
+| Not logging swap/bridge transactions | No audit trail for reconciliation | Log every transaction hash via runtime persistence |
+| Swapping with default slippage on volatile pairs | Front-run or excessive slippage | Set explicit `slippageBps` based on pair volatility |
 
 ## Protocol Fees (ClawPowers Only)
 
@@ -331,19 +382,30 @@ Fees are:
 
 Fee collector: `0xff86829393C6C26A4EC122bE0Cc3E466Ef876AdD` (all EVM chains)
 
+## References
+
+- [agentwallet-sdk on npm](https://www.npmjs.com/package/agentwallet-sdk)
+- [agentpay-mcp on GitHub](https://github.com/up2itnow0822/agentpay-mcp)
+- [x402 protocol specification](https://x402.org)
+- [ERC-6551 Token Bound Accounts](https://eips.ethereum.org/EIPS/eip-6551)
+- [ERC-4337 Account Abstraction](https://eips.ethereum.org/EIPS/eip-4337)
+- [CCTP V2 Documentation](https://developers.circle.com/stablecoins/cctp-getting-started)
+- [NVIDIA NeMo Agent Toolkit integration](https://github.com/NVIDIA/NeMo-Agent-Toolkit-Examples/pull/17)
+
 ## Underlying Infrastructure
 
-This skill is powered by [agentwallet-sdk](https://www.npmjs.com/package/agentwallet-sdk):
+This skill is powered by [agentwallet-sdk v6.0](https://www.npmjs.com/package/agentwallet-sdk) — full multi-chain agent wallet stack:
 
-- **Non-custodial HD wallets** — Agent owns its keys via NFT-bound wallet
-- **ERC-8004 Agent Identity** — On-chain identity with verifiable credentials
-- **Smart-contract spending policies** — Per-transaction, daily, monthly limits enforced at contract level
-- **17-chain CCTP** — Cross-chain transfers via Circle's Cross-Chain Transfer Protocol
-- **x402 payment negotiation** — Automatic HTTP 402 handling
-
-Install the SDK if you need programmatic access beyond what this skill provides:
-```bash
-npm install agentwallet-sdk
-```
+- **ERC-6551 Non-custodial wallets** — Agent owns its keys via NFT-bound wallet on 11 chains
+- **Smart-contract spending policies** — Per-token, per-period limits enforced at contract level
+- **x402 multi-chain payments** — Auto network detection across Base, Arbitrum, Optimism, and more
+- **Uniswap V3 swaps** — Base, Arbitrum, Optimism, Polygon with chain-specific token registries
+- **CCTP V2 bridge** — EVM↔EVM and EVM↔Solana USDC bridging
+- **ERC-8004 Agent Identity** — Identity, Reputation, and Validation registries
+- **Mutual Stake & Optimistic Escrow** — Reciprocal and time-locked collateral for agent tasks
+- **AP2 Protocol** — Agent-to-agent task delegation and payment
+- **ERC-4337 Gas Sponsorship** — Paymaster integration for gasless transactions
+- **Fiat Onramp** — Opt-in fiat-to-crypto conversion
+- **On-chain Settlement** — Cryptographic finalization of multi-party payment flows
 
 Integrated into [NVIDIA's official NeMo Agent Toolkit](https://github.com/NVIDIA/NeMo-Agent-Toolkit-Examples/pull/17).

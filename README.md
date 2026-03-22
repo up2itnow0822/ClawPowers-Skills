@@ -254,7 +254,7 @@ npx clawpowers store list [prefix]                     # List stored keys
 Built by [AI Agent Economy](https://github.com/up2itnow0822) — the team behind:
 
 - Payment infrastructure in [NVIDIA's official NeMo Agent Toolkit](https://github.com/NVIDIA/NeMo-Agent-Toolkit-Examples/pull/17)
-- [agentwallet-sdk](https://www.npmjs.com/package/agentwallet-sdk) — Non-custodial agent wallets (741 downloads/week)
+- [agentwallet-sdk](https://www.npmjs.com/package/agentwallet-sdk) — agentwallet-sdk v6.0 — Full multi-chain agent wallet: x402 payments, Uniswap V3 swaps, CCTP bridging, ERC-8004 identity, mutual stake escrow, spending policies (741+ downloads/week)
 - [agentpay-mcp](https://github.com/up2itnow0822/agentpay-mcp) — MCP payment server for AI agents
 - Production trading systems with RSI self-improvement (268+ measured outcomes)
 
