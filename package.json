@@ -24,10 +24,10 @@
     "x402"
   ],
   "bin": {
-    "clawpowers": "./bin/clawpowers.sh"
+    "clawpowers": "./bin/clawpowers.js"
   },
   "scripts": {
-    "init": "bash bin/clawpowers.sh init",
+    "init": "node bin/clawpowers.js init",
     "test": "bash tests/run_all.sh"
   },
   "files": [
