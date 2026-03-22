@@ -1,6 +1,6 @@
 {
   "name": "clawpowers",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "The skills framework that actually does something — runtime execution, persistent memory, self-improvement, and autonomous payments for coding agents.",
   "license": "MIT",
   "author": "AI Agent Economy <https://github.com/up2itnow0822>",
