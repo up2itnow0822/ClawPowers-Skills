@@ -188,9 +188,126 @@ test_jwt_token_stuff()
 
 TDD applies at all layers. Start with unit. Add integration when units pass.
 
+### Autonomous Mutation Testing
+
+After the REFACTOR phase is complete and all tests are green, run autonomous mutation testing to verify your tests actually catch bugs — not just pass on correct code.
+
+**The mutation testing loop:**
+
+```
+GREEN tests → generate mutants → run suite against each → calculate score → fix gaps → re-run
+```
+
+**Step 1: Generate mutants**
+
+Mutation tools automatically modify your production code in small ways to simulate bugs:
+
+| Mutation type | Example | What it tests |
+|--------------|---------|-------------|
+| Operator swap | `a > b` → `a >= b` | Off-by-one detection |
+| Condition removal | `if (valid && active)` → `if (active)` | Guard clause tests |
+| Return value swap | `return true` → `return false` | Output assertion coverage |
+| Constant mutation | `ttl = 3600` → `ttl = 0` | Boundary value tests |
+| Statement deletion | Remove a line entirely | Whether tests catch missing logic |
+
+**Step 2: Run mutation tools**
+
+```bash
+# Python: mutmut
+pip install mutmut
+mutmut run --paths-to-mutate src/ --tests-dir tests/
+mutmut results  # shows surviving (undetected) mutants
+
+# JavaScript/TypeScript: Stryker
+npx stryker run
+# Stryker generates a detailed HTML report with surviving mutants
+
+# Go: go-mutesting
+go install github.com/zimmski/go-mutesting/cmd/go-mutesting@latest
+go-mutesting ./...
+
+# Java: PIT
+mvn org.pitest:pitest-maven:mutationCoverage
+```
+
+**Step 3: Calculate and interpret the mutation score**
+
+```
+mutation score = (killed mutants / total mutants) × 100
+```
+
+| Score | Assessment | Action |
+|-------|-----------|--------|
+| ≥ 90% | Excellent | No action needed |
+| 80–89% | Good | Review surviving mutants; add 1-2 targeted tests |
+| 70–79% | Marginal | Systematic gap; add boundary and error-path tests |
+| < 70% | Poor | Tests exist but don't assert enough; add failing-case coverage |
+
+**Step 4: Kill surviving mutants**
+
+For each surviving mutant, the tool shows what change it made. Write a test that would catch that bug:
+
+```python
+# Stryker report shows this mutant survived:
+# Original:  if score >= passing_threshold:
+# Mutant:    if score > passing_threshold:
+
+# Write a test that detects the off-by-one:
+def test_score_at_exact_threshold_passes():
+    # This test kills the >= vs > mutant
+    assert grade(score=passing_threshold) == "pass"
+    assert grade(score=passing_threshold - 1) == "fail"
+```
+
+```typescript
+// Stryker shows this mutant survived:
+// Original:  return { token, expiresAt, userId }
+// Mutant:    return { token, expiresAt, userId: "" }
+
+// Write a test that kills it:
+test('issue() returns correct userId in payload', () => {
+  const result = auth.issue('user-abc', 3600);
+  expect(result.userId).toBe('user-abc');  // was not previously asserted!
+});
+```
+
+**Step 5: Iterate until score ≥ 80%**
+
+```bash
+# After adding new tests, re-run to measure improvement
+mutmut run --paths-to-mutate src/ --tests-dir tests/
+NEW_SCORE=$(mutmut results | grep "Killed" | awk '{print $2/$4 * 100}')
+echo "Mutation score: $NEW_SCORE%"
+```
+
+**Tracking mutation scores over time:**
+
+```bash
+# Record in ClawPowers metrics after each TDD cycle
+MUTATION_SCORE=87
+bash runtime/metrics/collector.sh record \
+  --skill test-driven-development \
+  --outcome success \
+  --notes "AuthService: RED×6 witnessed, mutation_score=$MUTATION_SCORE%, 0 surviving mutants after 2 additions"
+```
+
+The TDD cycle with mutation testing:
+
+```
+RED → GREEN → REFACTOR → MUTATE → [score < 80%? → KILL SURVIVORS → RE-MUTATE] → done
+```
+
 ## ClawPowers Enhancement
 
 When `~/.clawpowers/` runtime is initialized:
+
+**Mutation Score History:**
+
+```bash
+# Query historical mutation scores
+bash runtime/persistence/store.sh list "tdd:mutation:*" | sort
+# Shows trend: if scores are declining, tests are growing but not keeping up with code complexity
+```
 
 **Mutation Analysis Integration:**
 

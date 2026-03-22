@@ -29,7 +29,7 @@ ClawPowers follows a three-layer approach:
 3. **Outcome Tracking** — If runtime is available, record execution outcomes for self-improvement
 
 
-You have ClawPowers loaded. This gives you 20 skills that go beyond static instructions — they execute tools, persist state across sessions, and track outcomes for self-improvement.
+You have ClawPowers loaded. This gives you 24 skills that go beyond static instructions — they execute tools, persist state across sessions, and track outcomes for self-improvement. The RSI Intelligence Layer (skills 21-24) enables the agent to improve its own methodology over time.
 
 ## How Skills Work
 
@@ -58,6 +58,12 @@ Skills activate automatically when you recognize a matching task pattern. You do
 | Need to understand how to learn something effectively | `learn-how-to-learn` |
 | Competitive research or trend analysis | `market-intelligence` |
 | Finding leads or prospects | `prospecting` |
+| Task counter hits 50; skill success rates declining | `meta-skill-evolution` |
+| Test suite fails; want automatic patch-and-commit | `self-healing-code` |
+| Starting a task; want to check cross-project patterns first | `cross-project-knowledge` |
+| After fixing a bug or architecture decision; want to store the pattern | `cross-project-knowledge` |
+| TDD GREEN phase complete; want invariant property tests | `formal-verification-lite` |
+| Need roundtrip/idempotence/commutativity tests for a pure function | `formal-verification-lite` |
 
 ## Reading a Skill
 
@@ -106,15 +112,15 @@ You never need to check the mode. Skills detect it themselves and adapt their in
 - **Don't stack conflicting skills** — If TDD and subagent-driven-development both apply, let subagent-driven-development drive; it includes TDD internally
 - **Don't ignore ClawPowers enhancements** — When the runtime is available, use it; the static path is a fallback, not the goal
 
-## Quick Reference: All 20 Skills
+## Quick Reference: All 24 Skills
 
 ### Core Development (14)
 1. `subagent-driven-development` — Parallel subagents, two-stage review, worktree isolation
-2. `test-driven-development` — RED-GREEN-REFACTOR with failure witness and mutation analysis
+2. `test-driven-development` — RED-GREEN-REFACTOR with failure witness and autonomous mutation testing
 3. `writing-plans` — Spec to sequenced 2-5 min tasks with dependency graph
 4. `executing-plans` — Tracked execution with resumability and milestone persistence
 5. `brainstorming` — Structured ideation with convergence protocol
-6. `systematic-debugging` — Hypothesis-driven debugging with evidence collection
+6. `systematic-debugging` — Hypothesis-driven debugging with persistent hypothesis memory
 7. `verification-before-completion` — Quality gates before any merge or handoff
 8. `finishing-a-development-branch` — Branch cleanup, changelog, squash, merge prep
 9. `requesting-code-review` — Review request with context, risk areas, reviewer matching
@@ -132,6 +138,12 @@ You never need to check the mode. Skills detect it themselves and adapt their in
 19. `market-intelligence` — Competitive analysis, trend detection, opportunity scoring
 20. `prospecting` — ICP → company search → contact enrichment → outreach prep
 
+### RSI Intelligence Layer (4) — NEW
+21. `meta-skill-evolution` — Every 50 tasks: analyze outcomes, find weakest skill, surgically improve it, commit with version bump
+22. `self-healing-code` — Test failure → hypothesis tree → ≥2 candidate patches → auto-commit winner or escalate
+23. `cross-project-knowledge` — Persistent pattern KB across all projects; search before tasks, store after fixes
+24. `formal-verification-lite` — Property-based testing (fast-check/Hypothesis) after TDD GREEN; 1000+ iterations per invariant
+
 ## Session Initialization Complete
 
-ClawPowers is ready. Skills activate on pattern recognition. Runtime enhancements available when `~/.clawpowers/` exists.
+ClawPowers is ready. 24 skills active. Skills activate on pattern recognition. Runtime enhancements available when `~/.clawpowers/` exists. RSI Intelligence Layer (meta-skill-evolution, self-healing-code, cross-project-knowledge, formal-verification-lite) provides persistent learning across sessions and projects.

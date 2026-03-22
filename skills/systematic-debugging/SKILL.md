@@ -38,6 +38,82 @@ Is the error message self-explanatory?
 
 ## Core Methodology
 
+### Persistent Hypothesis Memory
+
+Before forming any new hypotheses, check if this error pattern has been seen before. Pattern-matching known bugs is 10-100x faster than fresh investigation.
+
+**Step 0: Check the hypothesis memory store**
+
+```bash
+# Compute error signature hash from the error message + test name
+ERROR_MSG="ConnectionPool timeout after 50 requests"
+ERROR_SIG=$(echo "$ERROR_MSG" | md5)
+
+# Look up prior debugging sessions for this error pattern
+KNOWN=$(bash runtime/persistence/store.sh get "debug:hypothesis:$ERROR_SIG:winning" 2>/dev/null)
+
+if [[ -n "$KNOWN" ]]; then
+  echo "=== Known error pattern found ==="
+  echo "Previously solved. Winning hypothesis:"
+  echo "$KNOWN"
+  echo ""
+  # Start directly with the previously successful hypothesis
+  # Verify it applies to the current context before applying
+fi
+```
+
+**Storage format** — every hypothesis tree is stored keyed by error signature:
+
+```bash
+# After solving a bug, always persist the result
+ERROR_SIG=$(echo "$ERROR_MSG" | md5)
+RESOLVE_TIME=$(( END_TS - START_TS ))
+
+bash runtime/persistence/store.sh set "debug:hypothesis:$ERROR_SIG:error_msg" "$ERROR_MSG"
+bash runtime/persistence/store.sh set "debug:hypothesis:$ERROR_SIG:hypotheses_tried" "$H1|$H2|$H3"
+bash runtime/persistence/store.sh set "debug:hypothesis:$ERROR_SIG:winning" "$WINNING_HYPOTHESIS"
+bash runtime/persistence/store.sh set "debug:hypothesis:$ERROR_SIG:root_cause" "$ROOT_CAUSE"
+bash runtime/persistence/store.sh set "debug:hypothesis:$ERROR_SIG:fix_summary" "$FIX_SUMMARY"
+bash runtime/persistence/store.sh set "debug:hypothesis:$ERROR_SIG:time_to_resolution" "$RESOLVE_TIME"
+bash runtime/persistence/store.sh set "debug:hypothesis:$ERROR_SIG:project" "$(basename $(git rev-parse --show-toplevel))"
+bash runtime/persistence/store.sh set "debug:hypothesis:$ERROR_SIG:timestamp" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+```
+
+**Fuzzy search for similar patterns** (when exact hash doesn't match):
+
+```bash
+# Search by keyword across all stored hypotheses
+bash runtime/persistence/store.sh list "debug:hypothesis:*:error_msg" | while read key; do
+  VALUE=$(bash runtime/persistence/store.sh get "$key")
+  if echo "$VALUE" | grep -qi "connection\|pool\|timeout"; then
+    SIG=$(echo "$key" | awk -F: '{print $3}')
+    echo "=== Similar error ==="
+    echo "Error: $VALUE"
+    echo "Winning hypothesis: $(bash runtime/persistence/store.sh get "debug:hypothesis:$SIG:winning")"
+    echo "Time to resolve: $(bash runtime/persistence/store.sh get "debug:hypothesis:$SIG:time_to_resolution")s"
+    echo ""
+  fi
+done
+```
+
+**After 10+ debugging sessions, the memory pays dividends:**
+
+| Scenario | Without memory | With memory |
+|---------|---------------|-------------|
+| Same error exact match | 30-90 min investigation | < 2 min (known fix) |
+| Similar error pattern | 20-60 min | 5-10 min (start from best hypothesis) |
+| Novel error | Same as before | Same — no false acceleration |
+
+**When to override the memory:**
+- The error signature matches but the context differs (different library version, different project type)
+- The previously winning hypothesis was marked as "project-specific"
+- The fix was a workaround, not a root cause fix
+
+```bash
+# Flag a fix as project-specific (won't suggest for other projects)
+bash runtime/persistence/store.sh set "debug:hypothesis:$ERROR_SIG:scope" "project-specific"
+```
+
 ### The Scientific Debugging Loop
 
 ```

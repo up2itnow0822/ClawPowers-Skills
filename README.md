@@ -27,7 +27,7 @@ ClawPowers gives your coding agent superpowers that go beyond instructions. Whil
 | Windows native support | ✅ | ❌ |
 | Zero dependencies | ✅ | ✅ |
 
-**20 skills.** 14 cover everything static frameworks do (TDD, subagent dev, debugging, planning, code review, git worktrees). 6 go where they can't — payments, security, content, prospecting, market intelligence, and metacognitive learning.
+**24 skills.** 14 cover everything static frameworks do (TDD, subagent dev, debugging, planning, code review, git worktrees). 6 go where they can't — payments, security, content, prospecting, market intelligence, and metacognitive learning.
 
 ## Requirements
 
@@ -60,7 +60,7 @@ Or install from GitHub directly:
 openclaw skills install github:up2itnow0822/clawpowers
 ```
 
-ClawPowers registers as a native OpenClaw skill with session hooks, runtime init, and all 20 skills auto-discoverable.
+ClawPowers registers as a native OpenClaw skill with session hooks, runtime init, and all 24 skills auto-discoverable.
 
 ### Claude Code (Plugin Marketplace)
 
