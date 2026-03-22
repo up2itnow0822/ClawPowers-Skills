@@ -7,7 +7,7 @@
   "homepage": "https://github.com/up2itnow0822/clawpowers",
   "repository": {
     "type": "git",
-    "url": "https://github.com/up2itnow0822/clawpowers.git"
+    "url": "git+https://github.com/up2itnow0822/clawpowers.git"
   },
   "keywords": [
     "ai-agent",
@@ -26,7 +26,7 @@
     "nemoclaw"
   ],
   "bin": {
-    "clawpowers": "./bin/clawpowers.js"
+    "clawpowers": "bin/clawpowers.js"
   },
   "scripts": {
     "init": "node bin/clawpowers.js init",
@@ -45,7 +45,8 @@
     "gemini-extension.json",
     "skill.json",
     "README.md",
-    "ARCHITECTURE.md"
+    "ARCHITECTURE.md",
+    "docs/"
   ],
   "engines": {
     "node": ">=16.0.0"

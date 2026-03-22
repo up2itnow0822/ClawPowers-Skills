@@ -4,6 +4,12 @@
 
 ClawPowers gives your coding agent superpowers that go beyond instructions. While other frameworks hand your agent a reading list and hope for the best, ClawPowers gives it **runtime tools, persistent memory, self-improvement loops, and the ability to transact autonomously.**
 
+## Demo
+
+![ClawPowers Demo](docs/demo/clawpowers-demo.gif)
+
+*Install → persist state across sessions → track outcomes → self-improve. All from the terminal.*
+
 ## Why ClawPowers?
 
 | Feature | ClawPowers | Static Skills Frameworks |
