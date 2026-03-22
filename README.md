@@ -27,7 +27,7 @@ ClawPowers gives your coding agent superpowers that go beyond instructions. Whil
 | Windows native support | ✅ | ❌ |
 | Zero dependencies | ✅ | ✅ |
 
-**24 skills.** 14 cover everything static frameworks do (TDD, subagent dev, debugging, planning, code review, git worktrees). 6 go where they can't — payments, security, content, prospecting, market intelligence, and metacognitive learning. 4 are things no other framework even attempts — self-healing code, agents that rewrite their own methodology, cross-project knowledge transfer, and property-based formal verification.
+**25 skills.** 14 cover everything static frameworks do (TDD, subagent dev, debugging, planning, code review, git worktrees). 6 go where they can't — payments, security, content, prospecting, market intelligence, and metacognitive learning. 4 are things no other framework even attempts — self-healing code, agents that rewrite their own methodology, cross-project knowledge transfer, and property-based formal verification.
 
 ## Requirements
 
@@ -224,12 +224,13 @@ These skills don't exist in any other framework. They require runtime execution,
 | `self-healing-code` | On test failure: captures error → builds hypothesis tree → generates 2+ patches → applies with coverage guard → auto-commits winner | 3-cycle max with rollback. Turns red tests into green tests without human intervention |
 | `cross-project-knowledge` | Persistent pattern library across ALL repos. Bug fixes, architecture decisions, and performance optimizations transfer between projects | Agent working on Project B benefits from everything learned on Projects A, C, D. Knowledge compounds |
 | `formal-verification-lite` | Property-based testing with fast-check (JS), Hypothesis (Python), QuickCheck (Haskell). 5 property templates, 1000+ examples per property | Goes beyond "tests pass" to "tests actually prove correctness." Catches edge cases unit tests miss |
+| `economic-code-optimization` | Autonomously spends micro-budgets on premium models, cloud GPUs, expert reviews when ROI justifies it. Tracks every cent and learns optimal spend ratios | Agents literally invest in their own performance. Spending efficiency improves over time via RSI feedback loop |
 
 ## Architecture
 
 ```
 clawpowers/
-├── skills/                    # 24 skill directories, each with SKILL.md
+├── skills/                    # 25 skill directories, each with SKILL.md
 ├── runtime/
 │   ├── persistence/           # Cross-session state (store.js + store.sh)
 │   ├── metrics/               # Outcome tracking (collector.js + collector.sh)
