@@ -69,6 +69,8 @@ Skills activate automatically when you recognize a matching task pattern. You do
 | Need roundtrip/idempotence/commutativity tests for a pure function | `formal-verification-lite` |
 | Complex task where premium resources would improve quality | `economic-code-optimization` |
 | Deciding whether to pay for expert review or premium model | `economic-code-optimization` |
+| Hiring another agent to complete a task with payment escrow | `agent-bounties` |
+| Want skin-in-the-game guarantees before a multi-agent task | `agent-bounties` |
 
 ## Reading a Skill
 
@@ -150,6 +152,9 @@ You never need to check the mode. Skills detect it themselves and adapt their in
 24. `formal-verification-lite` — Property-based testing (fast-check/Hypothesis) after TDD GREEN; 1000+ iterations per invariant
 25. `economic-code-optimization` — Autonomously spend micro-budgets on premium models, compute, expert reviews when ROI justifies it
 
+### Agent Economy Layer (1) — NEW
+26. `agent-bounties` — Post tasks with USDC rewards, escrow both-party collateral via MutualStakeEscrow, verify with automation, release or dispute on-chain
+
 ## Session Initialization Complete
 
-ClawPowers is ready. 25 skills active. Skills activate on pattern recognition. Runtime enhancements available when `~/.clawpowers/` exists. RSI Intelligence Layer (meta-skill-evolution, self-healing-code, cross-project-knowledge, formal-verification-lite) provides persistent learning across sessions and projects.
+ClawPowers is ready. 26 skills active. Skills activate on pattern recognition. Runtime enhancements available when `~/.clawpowers/` exists. RSI Intelligence Layer (meta-skill-evolution, self-healing-code, cross-project-knowledge, formal-verification-lite) provides persistent learning across sessions and projects. Agent Economy Layer (agent-bounties) enables autonomous agent-to-agent hiring with on-chain escrow.

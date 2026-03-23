@@ -266,6 +266,147 @@ print(json.dumps(prospects, indent=2))
 "
 ```
 
+### Premium Enrichment (x402-Aware)
+
+By default, the prospecting skill uses free public sources (GitHub, LinkedIn
+search, Hunter.io free tier). When incomplete contact data is holding back
+your campaign, x402-aware paid enrichment APIs can fill the gaps.
+
+#### Three States
+
+| State | Config | Behaviour |
+|-------|--------|-----------|
+| **disabled** | `payments.enabled: false` | Skip all paid enrichment, log a note, continue with free data |
+| **dry-run** | `payments.mode: "dry_run"` | Log what _would_ be paid, show cost estimate, do NOT execute payment |
+| **live** | `payments.mode: "live"` | Execute payment if within policy limits; queue for approval if over |
+
+#### How It Works
+
+After Phase 4 (Contact Enrichment), the skill checks how many contacts are
+still missing key data (email, phone, LinkedIn URL) and offers to enrich them
+via premium APIs that accept x402 micropayments.
+
+```bash
+# After free enrichment — assess gaps
+TOTAL_LEADS=15
+INCOMPLETE=8  # missing email or key contact field
+
+echo "Found $TOTAL_LEADS leads. $INCOMPLETE have incomplete data."
+echo "Premium enrichment available for \$0.02/lead."
+echo "Estimated cost: \$$(echo "$INCOMPLETE * 0.02" | bc) USDC"
+```
+
+#### Payment Gate Flow
+
+```javascript
+// runtime/payments/pipeline.js — called automatically when x402 enrichment is triggered
+const { evaluatePayment } = require('../../runtime/payments/pipeline');
+
+const result = await evaluatePayment({
+  skill: 'prospecting',
+  reason: 'premium contact enrichment',
+  amount_usd: incompleteCount * 0.02,
+  asset: 'USDC',
+  chain: 'base',
+  recipient: '0xENRICHMENT_API_RECIPIENT',
+  url: 'https://api.contactdb.example.com/enrich',
+});
+
+switch (result.action) {
+  case 'disabled':
+    console.log('[prospecting] Premium enrichment disabled — using free data only.');
+    break;
+
+  case 'dry_run':
+    console.log(
+      `[prospecting] DRY-RUN: would pay $${(incompleteCount * 0.02).toFixed(2)} USDC ` +
+      `to enrich ${incompleteCount} contacts via ${result.reason}. No payment made.`
+    );
+    break;
+
+  case 'queued':
+    console.log(
+      `[prospecting] Payment queued for owner approval: ` +
+      `$${(incompleteCount * 0.02).toFixed(2)} USDC for ${incompleteCount} enrichments.`
+    );
+    // → Enrichment pauses until owner approves pending tx
+    break;
+
+  case 'approved':
+    console.log(`[prospecting] Executing premium enrichment for ${incompleteCount} contacts...`);
+    await runPremiumEnrichment(incompleteContacts);
+    break;
+}
+```
+
+#### Enabling Premium Enrichment
+
+```bash
+# ~/.clawpowers/config.json
+{
+  "payments": {
+    "enabled": true,
+    "mode": "live",
+    "per_tx_limit": 0.50,
+    "daily_limit": 5.00,
+    "require_approval_above": 1.00
+  }
+}
+```
+
+```bash
+# .env additions for prospecting
+AGENT_PRIVATE_KEY=0x...
+AGENT_WALLET_ADDRESS=0x...
+CHAIN_NAME=base
+SPEND_LIMIT_PER_TX=0.50
+SPEND_LIMIT_DAILY=5.00
+```
+
+#### Supported Premium Enrichment Sources
+
+| Source | Cost/lead | Data provided |
+|--------|-----------|--------------|
+| Apollo.io (paid tier) | ~$0.02 | Verified email, phone, LinkedIn |
+| Clearbit Enrichment | ~$0.03 | Company firmographics, tech stack |
+| Hunter.io Pro | ~$0.01 | Email verification, role signals |
+| Proxycurl | ~$0.015 | LinkedIn profile scrape |
+| Coresignal | ~$0.02 | Company employee headcount, tech |
+
+All premium API calls go through the x402 client wrapper:
+
+```javascript
+import { x402FromEnv } from 'agentwallet-sdk';
+
+const wallet = walletFromEnv();
+const client = x402FromEnv(wallet);
+
+// Automatically pays any HTTP 402 responses from enrichment APIs
+const response = await client.fetch(
+  `https://api.apollo.io/v1/people/enrich?email=${email}`,
+  { headers: { 'x-api-key': process.env.APOLLO_API_KEY } }
+);
+const enriched = await response.json();
+```
+
+#### Dry-Run Output Example
+
+When `payments.mode` is `"dry_run"`, the skill outputs a cost preview before
+any action is taken:
+
+```
+[prospecting] Enrichment summary:
+  Free sources:   7 / 15 contacts fully enriched
+  Incomplete:     8 / 15 contacts missing email or title
+
+[prospecting] DRY-RUN: Premium enrichment would cost:
+  8 contacts × $0.02/lead = $0.16 USDC
+  API: Apollo.io (paid), chain: base
+
+  To execute: set payments.mode = "live" in ~/.clawpowers/config.json
+  To approve this batch: clawpowers payments approve --skill prospecting
+```
+
 ## ClawPowers Enhancement
 
 When `~/.clawpowers/` runtime is initialized:

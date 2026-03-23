@@ -27,7 +27,7 @@ ClawPowers gives your coding agent superpowers that go beyond instructions. Whil
 | Windows native support | ✅ | ❌ |
 | Zero dependencies | ✅ | ✅ |
 
-**25 skills.** 14 cover everything static frameworks do (TDD, subagent dev, debugging, planning, code review, git worktrees). 6 go where they can't — payments, security, content, prospecting, market intelligence, and metacognitive learning. 4 are things no other framework even attempts — self-healing code, agents that rewrite their own methodology, cross-project knowledge transfer, and property-based formal verification.
+**26 skills.** 14 cover everything static frameworks do (TDD, subagent dev, debugging, planning, code review, git worktrees). 6 go where they can't — payments, security, content, prospecting, market intelligence, and metacognitive learning. 4 are things no other framework even attempts — self-healing code, agents that rewrite their own methodology, cross-project knowledge transfer, and property-based formal verification.
 
 ## Requirements
 
@@ -230,7 +230,7 @@ These skills don't exist in any other framework. They require runtime execution,
 
 ```
 clawpowers/
-├── skills/                    # 25 skill directories, each with SKILL.md
+├── skills/                    # 26 skill directories, each with SKILL.md
 ├── runtime/
 │   ├── persistence/           # Cross-session state (store.js + store.sh)
 │   ├── metrics/               # Outcome tracking (collector.js + collector.sh)
@@ -280,6 +280,40 @@ npx clawpowers store set <key> <value>                 # Store persistent state
 npx clawpowers store get <key>                         # Retrieve state
 npx clawpowers store list [prefix]                     # List stored keys
 ```
+
+## Payments Are Optional (and Safe by Default)
+
+ClawPowers works without any wallet.
+
+When you hit a paid boundary (HTTP 402 "Payment Required", premium tools, or agent-to-agent settlements), ClawPowers can pay **only if** you enable it and set spending limits.
+
+**Default mode: Dry Run**
+- We detect payment requirements.
+- We evaluate your spending policy (limits + allowlist).
+- We log exactly what would happen.
+- **No funds move until you explicitly enable live payments.**
+
+### Enable payments (2 minutes)
+
+```bash
+npx clawpowers init
+npx clawpowers payments setup
+```
+
+Choose:
+- Keep disabled
+- Enable Dry Run (observe what would happen)
+- Enable Live Payments (set per-tx and daily limits)
+
+All logs are local at `~/.clawpowers/` (never share this directory).
+
+### Try it risk-free
+
+```bash
+npx clawpowers demo x402
+```
+
+Runs a local mock x402 merchant — see the full 402 → pay → 200 flow without any real money.
 
 ## Security Model
 
@@ -397,6 +431,14 @@ We welcome contributions. Unlike some frameworks, we don't dismiss legitimate sk
 ## Patent Notice
 
 **Patent Pending** — The underlying financial infrastructure (agentwallet-sdk, agentpay-mcp) is covered by USPTO provisional patent application filed March 2026: "Non-Custodial Multi-Chain Financial Infrastructure System for Autonomous AI Agents."
+
+## Open Standard + Defensive Patent
+
+We support the open x402 standard and encourage interoperable implementations. Our [provisional patent filing](https://github.com/up2itnow0822) is defensive — intended to prevent hostile monopolization and protect builders' ability to use open payment rails. Our goal is to be the safest, fastest, most complete implementation, and to help the ecosystem adopt secure agent payments.
+
+## Disclaimer
+
+ClawPowers and agentwallet-sdk are non-custodial developer tooling. You control your own keys and set your own spending limits. You are responsible for compliance with applicable laws in your jurisdiction. This software is provided as-is under the MIT license. Nothing in this project constitutes financial advice, custody services, or money transmission.
 
 ## License
 

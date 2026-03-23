@@ -107,19 +107,35 @@ function cmdStatus() {
  */
 function cmdUpdate() {
   const repoUrl = 'https://github.com/up2itnow0822/clawpowers';
-  const result = spawnSync('git', ['-C', REPO_ROOT, 'pull', '--ff-only', 'origin', 'main'], {
-    stdio: 'inherit',
-    // On Windows, git must be launched through the shell so PATH is resolved
-    shell: os.platform() === 'win32',
-  });
 
-  if (result.error) {
-    // git binary not found or OS-level spawn error
-    console.log(`git not found or failed. Visit ${repoUrl} to update manually.`);
-  } else if (result.status !== 0) {
-    console.log(`Warning: could not auto-update. Visit ${repoUrl} for latest.`);
+  // Check if we're in a git repo (git clone install) or npm install
+  const gitDir = path.join(REPO_ROOT, '.git');
+  const isGitInstall = fs.existsSync(gitDir);
+
+  if (isGitInstall) {
+    // Git install: pull latest
+    const result = spawnSync('git', ['-C', REPO_ROOT, 'pull', '--ff-only', 'origin', 'main'], {
+      stdio: 'inherit',
+      shell: os.platform() === 'win32',
+    });
+
+    if (result.error) {
+      console.log(`git not found or failed. Visit ${repoUrl} to update manually.`);
+    } else if (result.status !== 0) {
+      console.log(`Warning: could not auto-update. Visit ${repoUrl} for latest.`);
+    } else {
+      console.log('Updated to latest version.');
+    }
   } else {
-    console.log('Pulling latest skill definitions...');
+    // npm/npx install: instruct user to reinstall via npm
+    console.log('ClawPowers was installed via npm. To update:');
+    console.log('');
+    console.log('  npx clawpowers@latest init');
+    console.log('');
+    console.log('This will update the CLI and re-initialize the runtime');
+    console.log('(your existing state, metrics, and config are preserved).');
+    console.log('');
+    console.log(`Or visit: ${repoUrl}`);
   }
 }
 
