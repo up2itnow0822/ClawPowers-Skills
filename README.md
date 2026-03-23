@@ -1,10 +1,10 @@
 # 🦞 ClawPowers
 
-> **v1.1.3** · 26 skills · 372 tests · MIT · **Patent Pending**
+> **v1.1.4** · 27 skills · 372 tests · MIT · **Patent Pending**
 
 **Your agent needs to pay for APIs. ClawPowers makes that work.**
 
-When your agent hits a premium API and gets back HTTP 402 Payment Required, it needs to pay and retry — automatically, within limits you set, with your approval before anything moves. That's the core problem ClawPowers solves. The other 25 skills are a bonus.
+When your agent hits a premium API and gets back HTTP 402 Payment Required, it needs to pay and retry — automatically, within limits you set, with your approval before anything moves. That's the core problem ClawPowers solves. The other 26 skills are a bonus.
 
 ## The Pay-to-Complete Flow
 
@@ -130,6 +130,64 @@ Fully autonomous agent payments sound great until an agent in a loop runs up $50
 
 When you've verified the agent behaves correctly, raise the auto-approve threshold. Start low.
 
+## Validator Skill
+
+The built-in validator runs 14 rounds of automated checks on any project. It auto-detects the language and selects the right tools.
+
+```text
+Run the Validator on ~/DevDrive/my-project
+```
+
+### What It Checks
+
+| Round | Check | Blocking? |
+|-------|-------|-----------|
+| 0 | **Compile Gate** | ✅ Yes — stops everything if this fails |
+| 1 | Lint (ESLint, Clippy, Ruff) | No |
+| 2 | Test Suite | No |
+| 3 | Security Audit (npm audit, cargo audit, Trivy) | No |
+| 4 | Type Coverage | No |
+| 5 | Documentation completeness | No |
+| 6 | Changelog | No |
+| 7 | Secrets detection (gitleaks) | No |
+| 8 | Spelling (codespell) | No |
+| 9 | Link verification | No |
+| 10 | PR-readiness (DCO, conventional commits, SPDX) | No |
+| 11 | Cross-platform compatibility | No |
+| 12 | Dependency health | No |
+| 13 | Summary + verdict | — |
+
+### Example Output
+
+```
+Validator Report — my-project v2.1.0
+
+Score: 12/14 rounds clean | 2 advisory warnings | 0 blockers
+Verdict: WARN ⚠️ → PUBLISH ✅
+
+Blocking issues: none
+Advisory: missing SPDX headers (round 10), placeholder URL in docs (round 9)
+```
+
+### Targeted Runs
+
+```text
+# Quick check — compile + test only
+Run Validator rounds 0-2 on my-project
+
+# Before submitting a PR to NVIDIA
+Run Validator PR-readiness checks on my-project for NVIDIA/NeMo-Agent-Toolkit-Examples
+
+# Security-focused
+Run Validator rounds 3 and 7 on my-project
+```
+
+### Supported Languages
+
+TypeScript, JavaScript, Rust, Go, Python, Ruby, Java/Kotlin, Solidity, C/C++, Swift, Docker, Shell, Markdown, YAML — auto-detected from project files.
+
+---
+
 ## Installation
 
 ### Universal (Windows, macOS, Linux)
@@ -172,9 +230,9 @@ cd clawpowers
 node bin/clawpowers.js init
 ```
 
-## All 26 Skills
+## All 27 Skills
 
-### Core Development (14)
+### Core Development (15)
 
 | Skill | What It Does |
 |-------|-------------|
@@ -184,6 +242,7 @@ node bin/clawpowers.js init
 | `executing-plans` | Execute plans with interruption recovery and milestone tracking |
 | `brainstorming` | Structured ideation with cross-session idea persistence |
 | `systematic-debugging` | Persistent hypothesis tree so you never re-investigate the same dead end |
+| `validator` | 14-round automated validation pipeline — compile, lint, test, security, docs, secrets, spelling, links, PR-readiness. Auto-detects project language. Run before publish, deploy, or merge. |
 | `verification-before-completion` | Pre-merge quality gates that actually run the verification suite |
 | `finishing-a-development-branch` | Branch cleanup, changelog, merge prep |
 | `requesting-code-review` | Reviewer match scoring, review history |
