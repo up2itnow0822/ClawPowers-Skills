@@ -53,6 +53,9 @@ Skills activate automatically when you recognize a matching task pattern. You do
 | Need to create a new skill | `writing-skills` |
 | Multiple independent tasks that can run concurrently | `dispatching-parallel-agents` |
 | Making a payment or calling a paid API | `agent-payments` |
+| "setup payments" / "enable wallet" / "configure spending" | `agent-payments` → `npx clawpowers payments setup` |
+| "demo x402" / "test payments" / "mock merchant" | `npx clawpowers demo x402` |
+| "payment log" / "spending history" | `npx clawpowers payments log` |
 | Checking code/containers for vulnerabilities | `security-audit` |
 | Writing blog posts, docs, or social content | `content-pipeline` |
 | Need to understand how to learn something effectively | `learn-how-to-learn` |

@@ -1,7 +1,7 @@
 {
   "name": "clawpowers",
-  "version": "1.0.0",
-  "description": "Runtime-powered skills framework — 20 skills with persistent memory, self-improvement (RSI), outcome tracking, and autonomous agent payments (x402). Works on Claude Code, Cursor, Codex, OpenCode, Gemini CLI.",
+  "version": "1.1.1",
+  "description": "Runtime-powered skills framework \u2014 25 skills with persistent memory, self-improvement (RSI), outcome tracking, and autonomous agent payments (x402). Works on Claude Code, Cursor, Codex, OpenCode, Gemini CLI.",
   "author": {
     "name": "AI Agent Economy",
     "url": "https://github.com/up2itnow0822"
@@ -38,7 +38,11 @@
     "market research",
     "analyze performance"
   ],
-  "platforms": ["macos", "linux", "windows"],
+  "platforms": [
+    "macos",
+    "linux",
+    "windows"
+  ],
   "category": "development",
   "runtime": {
     "init": "node bin/clawpowers.js init",
@@ -69,6 +73,13 @@
       "learn-how-to-learn",
       "market-intelligence",
       "prospecting"
+    ],
+    "rsi_intelligence": [
+      "meta-skill-evolution",
+      "self-healing-code",
+      "cross-project-knowledge",
+      "formal-verification-lite",
+      "economic-code-optimization"
     ]
   }
 }

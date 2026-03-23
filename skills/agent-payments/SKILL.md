@@ -46,6 +46,74 @@ Is the response HTTP 402?
                     └── Yes → Proceed with autonomous payment
 ```
 
+## Dry-Run Mode
+
+**Default mode is dry-run.** Until you explicitly enable live payments, the agent-payments skill operates in observation mode: it detects payment requirements, evaluates spending policy, and logs what *would* happen — without moving any funds.
+
+### What Dry-Run Does
+
+- Intercepts HTTP 402 responses and parses x402 payment requirements
+- Evaluates the payment against your configured policy (limits, allowlist, mode)
+- Logs a structured entry to `~/.clawpowers/logs/payments.jsonl` describing the decision
+- Reports the outcome inline: `[dry-run: would pay $0.03 USDC on base-sepolia]`
+- Never submits a transaction or touches a wallet
+
+### No Funds Move in Dry-Run
+
+Dry-run is safe to leave enabled indefinitely. No wallet is required, no credentials are needed, and no on-chain operations occur. The skill continues to function — it simply skips the actual payment step and logs instead.
+
+### Build Confidence Before Going Live
+
+After 10+ dry-run cycles, review your payment log:
+
+```bash
+npx clawpowers payments log
+npx clawpowers payments summary
+```
+
+You'll see exactly which skills are hitting payment gates, which APIs require payment, which chains and assets are involved, and how much you would have spent. When the pattern looks predictable and the amounts look reasonable, enable live payments with confidence.
+
+### How to Switch Modes
+
+**Interactive wizard (recommended):**
+```bash
+npx clawpowers payments setup
+```
+
+**Manual config edit:**
+Edit `~/.clawpowers/config.json`:
+```json
+{
+  "payments": {
+    "enabled": true,
+    "mode": "live",
+    "per_tx_limit_usd": 0.10,
+    "daily_limit_usd": 5.00
+  }
+}
+```
+
+### Example Dry-Run Log Entry
+
+```json
+{
+  "timestamp": "2026-03-22T21:42:00Z",
+  "skill": "agent-payments",
+  "type": "decision",
+  "url": "https://api.example.com/premium-data",
+  "required_amount": "30000",
+  "asset": "USDC",
+  "chain": "base-sepolia",
+  "policy_result": "dry_run",
+  "reason": "payments.mode=dry_run",
+  "would_have_paid": true
+}
+```
+
+`would_have_paid: true` means the payment would have been approved by your policy — only the dry-run mode prevented it from executing.
+
+---
+
 ## Background: x402 Protocol
 
 The x402 protocol is a standard for machine-to-machine payments embedded in HTTP. When a server requires payment it returns:

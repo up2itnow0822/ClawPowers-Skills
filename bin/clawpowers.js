@@ -25,6 +25,7 @@ const ANALYZE_JS    = path.join(REPO_ROOT, 'runtime', 'feedback', 'analyze.js');
 const STORE_JS      = path.join(REPO_ROOT, 'runtime', 'persistence', 'store.js');
 const COLLECTOR_JS  = path.join(REPO_ROOT, 'runtime', 'metrics', 'collector.js');
 const SESSION_JS    = path.join(REPO_ROOT, 'hooks', 'session-start.js');
+const LEDGER_JS     = path.join(REPO_ROOT, 'runtime', 'payments', 'ledger.js');
 
 /**
  * Prints the top-level command usage to stdout.
@@ -41,6 +42,8 @@ Commands:
   metrics <cmd>      Record or query skill execution metrics
   analyze [opts]     RSI feedback analysis of skill performance
   store <cmd>        Key-value state store operations
+  payments <cmd>     Payment setup, log, and summary commands
+  demo <cmd>         Run interactive demos (e.g. x402 mock merchant)
 
 Examples:
   npx clawpowers init
@@ -50,6 +53,10 @@ Examples:
   npx clawpowers analyze --skill systematic-debugging
   npx clawpowers store set "my:key" "my value"
   npx clawpowers store get "my:key"
+  npx clawpowers payments setup
+  npx clawpowers payments log
+  npx clawpowers payments summary
+  npx clawpowers demo x402
 
 Run 'npx clawpowers <command> help' for command-specific help.`);
 }
@@ -356,6 +363,216 @@ function delegateToNode(script, args) {
   process.exit(result.status || 0);
 }
 
+/**
+ * `clawpowers payments setup` — Interactive wallet activation wizard.
+ *
+ * Guides the user through enabling or configuring the payment subsystem.
+ * Never asks for private keys — those belong in .env.
+ * Reads and writes ~/.clawpowers/config.json (created by init if missing).
+ *
+ * Wizard steps:
+ * 1. Explain that payments are optional
+ * 2. Ask user to choose a mode: disabled / dry run / live
+ * 3. If dry run: update config payments.mode = "dry_run", payments.enabled = true
+ * 4. If live: ask for per_tx_limit and daily_limit, then update config
+ * 5. Confirm where logs are stored
+ */
+function cmdPaymentsSetup() {
+  const readline = require('readline');
+  const CLAWPOWERS_DIR = process.env.CLAWPOWERS_DIR || path.join(os.homedir(), '.clawpowers');
+  const configFile = path.join(CLAWPOWERS_DIR, 'config.json');
+
+  // Load existing config or fall back to defaults
+  let config = {};
+  if (fs.existsSync(configFile)) {
+    try {
+      config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+    } catch (_) {
+      config = {};
+    }
+  }
+  // Ensure payments section exists with safe defaults
+  if (!config.payments) {
+    config.payments = {
+      enabled: false,
+      mode: 'dry_run',
+      per_tx_limit_usd: 0,
+      daily_limit_usd: 0,
+      weekly_limit_usd: 0,
+      allowlist: [],
+      require_approval_above_usd: 0,
+    };
+  }
+
+  const logsPath = path.join(CLAWPOWERS_DIR, 'logs', 'payments.jsonl');
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+  const ask = (question) => new Promise((resolve) => rl.question(question, resolve));
+
+  async function run() {
+    console.log('');
+    console.log('╔══════════════════════════════════════════════════╗');
+    console.log('║        ClawPowers Payment Setup Wizard          ║');
+    console.log('╚══════════════════════════════════════════════════╝');
+    console.log('');
+    console.log('Payments are optional. ClawPowers works without a wallet.');
+    console.log('When enabled, agents can autonomously pay for premium APIs');
+    console.log('and services using the x402 protocol.');
+    console.log('');
+    console.log('⚠  Private keys belong in .env — this wizard never asks for them.');
+    console.log('');
+    console.log('Choose a mode:');
+    console.log('  [1] Keep disabled  (default — no payments, no wallet required)');
+    console.log('  [2] Enable Dry Run (detect payment gates, log what WOULD happen)');
+    console.log('  [3] Enable Live    (real payments within configured limits)');
+    console.log('');
+
+    const choice = (await ask('Enter choice [1/2/3]: ')).trim();
+
+    if (choice === '1' || choice === '') {
+      config.payments.enabled = false;
+      config.payments.mode = 'dry_run';
+      console.log('');
+      console.log('✓ Payments remain disabled. No wallet required.');
+
+    } else if (choice === '2') {
+      config.payments.enabled = true;
+      config.payments.mode = 'dry_run';
+      console.log('');
+      console.log('✓ Dry Run mode enabled.');
+      console.log('  Agents will detect payment requirements and log what would happen.');
+      console.log('  No funds will move. Review the log after 10+ cycles, then');
+      console.log('  run this wizard again to go live with confidence.');
+
+    } else if (choice === '3') {
+      console.log('');
+      console.log('Live payment mode requires spending limits to protect your wallet.');
+      console.log('');
+
+      const perTxRaw = (await ask('Per-transaction limit (USD, e.g. 0.10): ')).trim();
+      const dailyRaw = (await ask('Daily limit (USD, e.g. 5.00): ')).trim();
+
+      const perTxLimit = parseFloat(perTxRaw) || 0;
+      const dailyLimit = parseFloat(dailyRaw) || 0;
+
+      config.payments.enabled = true;
+      config.payments.mode = 'live';
+      config.payments.per_tx_limit_usd = perTxLimit;
+      config.payments.daily_limit_usd = dailyLimit;
+
+      console.log('');
+      console.log(`✓ Live payments enabled.`);
+      console.log(`  Per-transaction limit: $${perTxLimit.toFixed(2)}`);
+      console.log(`  Daily limit:           $${dailyLimit.toFixed(2)}`);
+      console.log('');
+      console.log('  Add your private key or mnemonic to ~/.clawpowers/.env');
+      console.log('  (never commit this file — it is gitignored by default)');
+
+    } else {
+      console.log('');
+      console.log('Invalid choice. No changes made.');
+      rl.close();
+      return;
+    }
+
+    // Save updated config
+    if (!fs.existsSync(CLAWPOWERS_DIR)) {
+      fs.mkdirSync(CLAWPOWERS_DIR, { recursive: true, mode: 0o700 });
+    }
+    fs.writeFileSync(configFile, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+
+    console.log('');
+    console.log(`✓ Configuration saved to: ${configFile}`);
+    console.log(`  All payment logs are stored locally at: ${logsPath}`);
+    console.log('');
+    console.log('  Review logs with:  npx clawpowers payments log');
+    console.log('  See summary with:  npx clawpowers payments summary');
+    console.log('');
+
+    rl.close();
+  }
+
+  run().catch((err) => {
+    process.stderr.write(`Error: ${err.message}\n`);
+    rl.close();
+    process.exit(1);
+  });
+}
+
+/**
+ * `clawpowers payments <subcmd> [args]` — Payment ledger and setup commands.
+ *
+ * Subcommands:
+ *   setup   — Interactive payment mode wizard
+ *   log     — Show recent payment decisions
+ *   summary — Show payment totals by skill, chain, outcome
+ *
+ * @param {string[]} args - Remaining argv after 'payments'.
+ */
+function cmdPayments(args) {
+  const [subcmd, ...rest] = args;
+
+  if (!subcmd || subcmd === 'help' || subcmd === '--help' || subcmd === '-h') {
+    console.log(`Usage: clawpowers payments <command> [options]
+
+Commands:
+  setup              Interactive payment mode wizard
+  log [--limit <n>]  Show recent payment decisions (default: last 20)
+  summary            Show totals by skill, chain, and outcome`);
+    return;
+  }
+
+  switch (subcmd) {
+    case 'setup':
+      cmdPaymentsSetup();
+      break;
+    case 'log':
+      requireModule(LEDGER_JS).cmdLog ? requireModule(LEDGER_JS).cmdLog(rest)
+        : delegateToNode(LEDGER_JS, ['log', ...rest]);
+      break;
+    case 'summary':
+      requireModule(LEDGER_JS).cmdSummary ? requireModule(LEDGER_JS).cmdSummary()
+        : delegateToNode(LEDGER_JS, ['summary']);
+      break;
+    default:
+      process.stderr.write(`Unknown payments subcommand: ${subcmd}\n`);
+      process.stderr.write('Run: npx clawpowers payments help\n');
+      process.exit(1);
+  }
+}
+
+/**
+ * `clawpowers demo x402` — Start the x402 mock merchant server for demo purposes.
+ * Delegates to runtime/demo/x402-mock-server.js.
+ *
+ * @param {string[]} args - Remaining argv after 'demo'.
+ */
+function cmdDemo(args) {
+  const [subcmd] = args;
+
+  if (!subcmd || subcmd === 'help' || subcmd === '--help' || subcmd === '-h') {
+    console.log(`Usage: clawpowers demo <command>
+
+Commands:
+  x402   Start the x402 mock merchant server`);
+    return;
+  }
+
+  if (subcmd === 'x402') {
+    const MOCK_SERVER_JS = path.join(REPO_ROOT, 'runtime', 'demo', 'x402-mock-server.js');
+    if (!fs.existsSync(MOCK_SERVER_JS)) {
+      process.stderr.write(`Error: runtime module not found: ${MOCK_SERVER_JS}\n`);
+      process.exit(1);
+    }
+    delegateToNode(MOCK_SERVER_JS, []);
+  } else {
+    process.stderr.write(`Unknown demo subcommand: ${subcmd}\n`);
+    process.stderr.write('Run: npx clawpowers demo help\n');
+    process.exit(1);
+  }
+}
+
 // ============================================================
 // Main dispatch — parse the first positional argument as the command
 // ============================================================
@@ -363,16 +580,18 @@ const [cmd, ...args] = process.argv.slice(2);
 
 try {
   switch (cmd) {
-    case 'init':    cmdInit(); break;
-    case 'status':  cmdStatus(); break;
-    case 'update':  cmdUpdate(); break;
-    case 'inject':  cmdInject(); break;
-    case 'metrics': cmdMetrics(args); break;
-    case 'analyze': cmdAnalyze(args); break;
-    case 'store':   cmdStore(args); break;
+    case 'init':     cmdInit(); break;
+    case 'status':   cmdStatus(); break;
+    case 'update':   cmdUpdate(); break;
+    case 'inject':   cmdInject(); break;
+    case 'metrics':  cmdMetrics(args); break;
+    case 'analyze':  cmdAnalyze(args); break;
+    case 'store':    cmdStore(args); break;
+    case 'payments': cmdPayments(args); break;
+    case 'demo':     cmdDemo(args); break;
     case 'help':
     case '-h':
-    case '--help':  printUsage(); break;
+    case '--help':   printUsage(); break;
     // No command or empty string: show usage and exit 1 (non-zero for scripts)
     case undefined:
     case '':

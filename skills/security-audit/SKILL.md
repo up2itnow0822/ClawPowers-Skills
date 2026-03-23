@@ -265,6 +265,51 @@ trivy fs . --severity HIGH,CRITICAL
 bandit -r src/ -ll
 ```
 
+### Premium Scanner Escalation
+
+The default audit pipeline uses **free local scanners**: `npm audit`, `gitleaks`, `trivy`, `bandit`, and `semgrep`. These cover the vast majority of findings and require no payment.
+
+When free scanners surface critical or high-severity findings, premium scanners can provide deeper analysis: broader CVE databases, behavioral analysis, license compliance, supply-chain attack detection, and exploit chain mapping.
+
+**Payment gate logic for scanner escalation:**
+
+| Config state | Behavior |
+|-------------|---------|
+| `payments.enabled = false` | Log the premium scanner option. Skip it. Proceed with free scan results only. |
+| `payments.mode = "dry_run"` | Log what would happen: `[dry-run: would pay $0.05 for Snyk deep scan]`. No charge. |
+| `payments.mode = "live"` | Evaluate cost vs. severity. If cost fits policy limits and severity is Critical/High, pay and run the premium scan. |
+
+**Example escalation scenarios:**
+
+```
+Trivy found 2 critical vulns in base image.
+Premium scanner (Snyk container) available for $0.05.
+[dry-run: would pay — severity=critical, cost=$0.05 < per_tx_limit=$0.10]
+```
+
+```
+gitleaks found 0 secrets in current HEAD.
+Premium deep-history scan available for $0.20.
+[skipped — payments.enabled=false]
+```
+
+**When to escalate:**
+- `CRITICAL` findings from free scanners → always consider premium for exploit chain analysis
+- `HIGH` findings with active CVEs → premium scanner may have fresher signature database
+- Pre-production release gates → deep scan is worth the cost
+- Compliance requirements (SOC 2, PCI) → premium scanners generate compliance-ready reports
+
+**Check payment config before escalating:**
+
+```bash
+cat ~/.clawpowers/config.json | grep -A8 '"payments"'
+
+# After audit session, review any payment decisions made
+npx clawpowers payments log
+```
+
+**Escalation is always optional.** The free scanner suite is production-grade. Premium escalation improves coverage at the margin — it never replaces the free baseline.
+
 ## ClawPowers Enhancement
 
 When `~/.clawpowers/` runtime is initialized:

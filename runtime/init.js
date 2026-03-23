@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.1';
 
 // Runtime root — override with CLAWPOWERS_DIR env var for testing or custom locations
 const CLAWPOWERS_DIR = process.env.CLAWPOWERS_DIR || path.join(os.homedir(), '.clawpowers');
@@ -97,6 +97,43 @@ function writeReadme() {
 }
 
 /**
+ * Default configuration written to ~/.clawpowers/config.json on first init.
+ * Users can edit this file to enable payments, telemetry, or change skill behavior.
+ * Never overwritten once created — user settings are always preserved.
+ */
+const DEFAULT_CONFIG = {
+  version: VERSION,
+  payments: {
+    enabled: false,
+    mode: 'dry_run',
+    per_tx_limit_usd: 0,
+    daily_limit_usd: 0,
+    weekly_limit_usd: 0,
+    allowlist: [],
+    require_approval_above_usd: 0,
+  },
+  telemetry: {
+    enabled: false,
+  },
+  skills: {
+    auto_load: true,
+  },
+};
+
+/**
+ * Writes the default config.json to CLAWPOWERS_DIR on first initialization.
+ * No-op if config.json already exists — user settings are always preserved.
+ * The config file is written with mode 0o600 (owner read/write only).
+ */
+function writeConfig() {
+  const configFile = path.join(CLAWPOWERS_DIR, 'config.json');
+  if (!fs.existsSync(configFile)) {
+    const content = JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n';
+    fs.writeFileSync(configFile, content, { mode: 0o600 });
+  }
+}
+
+/**
  * Updates the version stamp in .version after initialization.
  * Currently a no-op placeholder for actual schema migrations; the version
  * string is updated in place so future versions can detect and migrate old
@@ -139,6 +176,7 @@ function main() {
   const created = createStructure();
   writeVersion();
   writeReadme();
+  writeConfig();
 
   // Only run migrations when .version exists (i.e., after writeVersion)
   if (fs.existsSync(path.join(CLAWPOWERS_DIR, '.version'))) {
@@ -169,4 +207,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { main, CLAWPOWERS_DIR, VERSION };
+module.exports = { main, CLAWPOWERS_DIR, VERSION, writeConfig, DEFAULT_CONFIG };

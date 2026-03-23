@@ -11,7 +11,7 @@ set -euo pipefail
 
 # Runtime root — override with CLAWPOWERS_DIR env var for testing or custom locations
 CLAWPOWERS_DIR="${CLAWPOWERS_DIR:-$HOME/.clawpowers}"
-VERSION="1.0.0"
+VERSION="1.1.1"
 
 ## === Directory Setup ===
 
@@ -93,6 +93,38 @@ EOF
   fi
 }
 
+## === Config File ===
+
+# Writes the default config.json on first initialization.
+# No-op if config.json already exists — user settings are always preserved.
+# The file is written with mode 600 (owner read/write only).
+write_config() {
+  local config_file="$CLAWPOWERS_DIR/config.json"
+  if [[ ! -f "$config_file" ]]; then
+    cat > "$config_file" << EOF
+{
+  "version": "$VERSION",
+  "payments": {
+    "enabled": false,
+    "mode": "dry_run",
+    "per_tx_limit_usd": 0,
+    "daily_limit_usd": 0,
+    "weekly_limit_usd": 0,
+    "allowlist": [],
+    "require_approval_above_usd": 0
+  },
+  "telemetry": {
+    "enabled": false
+  },
+  "skills": {
+    "auto_load": true
+  }
+}
+EOF
+    chmod 600 "$config_file"
+  fi
+}
+
 ## === Migrations ===
 
 # Updates the version stamp in .version to the current version.
@@ -120,6 +152,7 @@ main() {
 
   write_version
   write_readme
+  write_config
 
   # Migrations only apply when the version file exists (guaranteed after write_version)
   if [[ -f "$CLAWPOWERS_DIR/.version" ]]; then

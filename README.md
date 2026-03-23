@@ -394,6 +394,10 @@ Built by [AI Agent Economy](https://github.com/up2itnow0822) — the team behind
 
 We welcome contributions. Unlike some frameworks, we don't dismiss legitimate skill proposals with one-word responses. Open an issue or PR — every submission gets a genuine technical review.
 
+## Patent Notice
+
+**Patent Pending** — The underlying financial infrastructure (agentwallet-sdk, agentpay-mcp) is covered by USPTO provisional patent application filed March 2026: "Non-Custodial Multi-Chain Financial Infrastructure System for Autonomous AI Agents."
+
 ## License
 
 MIT

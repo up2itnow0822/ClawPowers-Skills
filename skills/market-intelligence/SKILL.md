@@ -222,6 +222,41 @@ Score identified opportunities on 4 dimensions:
 [List all sources with access dates]
 ```
 
+### Premium Data Sources (x402-Aware)
+
+Market research frequently encounters paid API boundaries — academic paper databases, financial data APIs, patent registries, and proprietary datasets. ClawPowers routes these through the payment decision pipeline so you stay in control.
+
+**When research hits a 402 Payment Required response:**
+
+1. **Payments disabled** → Log the encounter and skip. Report: `[payment gate: skipped — payments.enabled=false]`. Continue with free alternatives.
+2. **Dry-run mode** → Log what would happen. Report: `[dry-run: would pay $0.05 USDC on base to access financial data API]`. No funds move. Use `npx clawpowers payments log` to review.
+3. **Live mode** → Evaluate against spending policy. If the cost fits within per-transaction and daily limits, pay autonomously and retry the request with payment proof.
+
+**Example premium sources the payment pipeline handles:**
+
+| Source | Typical Cost | Value |
+|--------|-------------|-------|
+| Financial data APIs (real-time prices, fundamentals) | $0.01–$0.10/request | Live market data for opportunity scoring |
+| Patent databases (full-text search) | $0.05–$0.50/query | IP landscape analysis |
+| Academic papers (behind paywalls) | $0.03–$0.30/paper | Early technology signal research |
+| Proprietary analyst datasets | $0.10–$2.00/query | Competitive benchmarking |
+
+**Configuration check before any paid research step:**
+
+```bash
+# Check current payment mode before hitting paid sources
+cat ~/.clawpowers/config.json | grep -A2 '"payments"'
+
+# Review what payment gates have been hit during this research session
+npx clawpowers payments log --limit 10
+```
+
+**Recommended workflow:**
+1. Run free sources first (GitHub API, npm stats, HN search, public web)
+2. When a free source hits a 402 wall, check if the premium data is decision-critical
+3. If yes and payments are enabled: let the pipeline evaluate and pay if policy allows
+4. If no: log the gap and note it in the intelligence report as a confidence gap
+
 ## ClawPowers Enhancement
 
 When `~/.clawpowers/` runtime is initialized:
