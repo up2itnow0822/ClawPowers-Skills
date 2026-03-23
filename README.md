@@ -90,7 +90,7 @@ Or register the marketplace first, then install:
 
 In Cursor Agent chat:
 
-```
+```text
 /add-plugin clawpowers
 ```
 
@@ -100,7 +100,7 @@ Or search for "clawpowers" in the Cursor plugin marketplace.
 
 Tell Codex:
 
-```
+```text
 Fetch and follow instructions from https://raw.githubusercontent.com/up2itnow0822/clawpowers/main/.codex/INSTALL.md
 ```
 
@@ -108,7 +108,7 @@ Fetch and follow instructions from https://raw.githubusercontent.com/up2itnow082
 
 Tell OpenCode:
 
-```
+```text
 Fetch and follow instructions from https://raw.githubusercontent.com/up2itnow0822/clawpowers/main/.opencode/INSTALL.md
 ```
 
@@ -152,7 +152,7 @@ Static skills tell your agent *what to do*. ClawPowers skills can *do things the
 
 Every ClawPowers skill can read from and write to a persistent state store. When your agent debugs an issue on Monday and encounters the same stack trace on Friday, it remembers what worked and what didn't. No more Groundhog Day debugging.
 
-```
+```text
 ~/.clawpowers/
 ├── state/            # Cross-session key-value store
 ├── metrics/          # Outcome tracking per skill (JSONL)
@@ -239,7 +239,7 @@ These skills don't exist in any other framework. They require runtime execution,
 
 ## Architecture
 
-```
+```text
 clawpowers/
 ├── skills/                    # 26 skill directories, each with SKILL.md
 ├── runtime/
@@ -298,7 +298,8 @@ ClawPowers works without any wallet.
 
 When you hit a paid boundary (HTTP 402 "Payment Required", premium tools, or agent-to-agent settlements), ClawPowers can pay **only if** you enable it and set spending limits.
 
-**Default mode: Dry Run**
+### Default mode: Dry Run
+
 - We detect payment requirements.
 - We evaluate your spending policy (limits + allowlist).
 - We log exactly what would happen.
@@ -341,7 +342,7 @@ ClawPowers takes agent autonomy seriously — which means taking agent *limits* 
 
 The `agent-payments` skill uses `agentwallet-sdk` with hard on-chain spending limits:
 
-```
+```text
 Agent wants to spend $15  → ✅ Auto-approved (under $25/tx limit)
 Agent wants to spend $500 → ⏳ Queued for owner approval
 Agent spent $490 today    → 🛑 Next tx blocked ($500/day limit hit)
@@ -405,7 +406,7 @@ const x402 = createX402Client(wallet, {
 });
 
 // Agent encounters a 402 Payment Required response — pays automatically
-const response = await x402.fetch('https://api.premium-data.com/market-analysis');
+const response = await x402.fetch('https://example.com/api/premium-data');
 const data = await response.json();
 // Cost: $0.50 USDC, auto-approved (under $5 limit)
 // Owner sees: tx hash on Base, fully auditable
@@ -424,7 +425,7 @@ npx clawpowers metrics record \
 # After 10+ payments, analyze ROI
 npx clawpowers analyze --skill agent-payments
 # Output: success rate, avg cost, cost-per-successful-outcome
-```
+```text
 
 ## Credential
 

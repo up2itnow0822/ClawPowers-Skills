@@ -12,7 +12,7 @@ Two paths — pick the one that matches your stack.
 
 1. **Testnet wallet** — any EOA private key (generate one with `cast wallet new` from Foundry, or MetaMask)
 2. **Deployed AgentAccountV2** — run `npx clawpowers payments setup` for the interactive wizard
-3. **Base Sepolia ETH (gas)** — free from [https://www.coinbase.com/faucets/base-ethereum-goerli-faucet](https://www.coinbase.com/faucets/base-ethereum-goerli-faucet)
+3. **Base Sepolia ETH (gas)** — free from the [Coinbase Base Sepolia Faucet](https://www.coinbase.com/faucets/base-ethereum-goerli-faucet)
 
 ---
 
@@ -94,7 +94,7 @@ node first-tx.mjs
 3. `agentExecute()` called `agentExecute()` on the smart contract, which checked
    the native ETH policy and sent 1 wei to the burn address.
 4. The tx hash was returned immediately — you can verify it on
-   [https://sepolia.basescan.org](https://sepolia.basescan.org/tx/{txHash}).
+   View on [Base Sepolia Explorer](https://sepolia.basescan.org/tx/{txHash}).
 
 ---
 
@@ -157,7 +157,7 @@ python first_tx.py
    which the server translated into an `agentTransferToken()` call on your
    `AgentAccountV2` smart wallet.
 3. The server returned the transaction hash, which you can verify at
-   [https://sepolia.basescan.org](https://sepolia.basescan.org).
+   View on [Base Sepolia Explorer](https://sepolia.basescan.org).
 
 > **Python + MCP** is ideal when your agent framework is Python-based
 > (LangChain, AutoGen, CrewAI) and you want to avoid writing viem/TypeScript.

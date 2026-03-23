@@ -132,7 +132,7 @@ EOF
 # The sed command replaces the version= line in place; .bak is cleaned up immediately.
 run_migrations() {
   local current_version
-  current_version=$(grep "^version=" "$CLAWPOWERS_DIR/.version" 2>/dev/null | cut -d= -f2 || echo "0.0.0")
+  # current_version=$(grep "^version=" "$CLAWPOWERS_DIR/.version" 2>/dev/null | cut -d= -f2 || echo "0.0.0")
 
   # Future migration hooks go here, e.g.:
   # if [[ "$current_version" < "2.0.0" ]]; then
