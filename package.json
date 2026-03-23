@@ -30,7 +30,8 @@
   },
   "scripts": {
     "init": "node bin/clawpowers.js init",
-    "test": "bash tests/run_all.sh"
+    "test": "bash tests/run_all.sh",
+    "lint": "eslint bin/ runtime/"
   },
   "files": [
     "bin/",
@@ -51,5 +52,8 @@
   "engines": {
     "node": ">=16.0.0"
   },
-  "dependencies": {}
+  "devDependencies": {
+    "eslint": "^10.1.0",
+    "globals": "^17.4.0"
+  }
 }

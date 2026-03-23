@@ -16,7 +16,7 @@
 'use strict';
 
 const http = require('http');
-const os = require('os');
+
 
 // Track requests for demo visibility
 let requestCount = 0;

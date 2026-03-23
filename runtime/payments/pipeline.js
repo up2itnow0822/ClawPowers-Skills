@@ -21,7 +21,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { logPaymentDecision, LOGS_DIR } = require('./ledger');
+const { logPaymentDecision } = require('./ledger');
 
 // ─── Config paths ──────────────────────────────────────────────────────────
 
@@ -103,11 +103,7 @@ function isAllowlisted(recipient, allowlist) {
 
 /**
  * Returns an ISO 8601 timestamp without milliseconds.
- * @returns {string}
  */
-function isoNow() {
-  return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
-}
 
 // ─── Core pipeline ─────────────────────────────────────────────────────────
 

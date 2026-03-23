@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync, spawnSync } = require('child_process');
+const { spawnSync } = require('child_process');
 
 // __dirname is the bin/ directory; repo root is one level up
 const SCRIPT_DIR = __dirname;
@@ -162,7 +162,7 @@ function cmdInject() {
  * @param {string[]} args - Remaining argv after 'metrics'.
  */
 function cmdMetrics(args) {
-  const collector = requireModule(COLLECTOR_JS);
+  const _collector = requireModule(COLLECTOR_JS);
   const [subcmd, ...rest] = args;
 
   // No subcommand or explicit help request: print metrics-specific usage
