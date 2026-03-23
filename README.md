@@ -1,8 +1,19 @@
 # 🦞 ClawPowers
 
+> **v1.1.3** · 26 skills · 372 tests · MIT
+
 **The skills framework that actually does something.**
 
 ClawPowers gives your coding agent superpowers that go beyond instructions. While other frameworks hand your agent a reading list and hope for the best, ClawPowers gives it **runtime tools, persistent memory, self-improvement loops, and the ability to transact autonomously.**
+
+## Quick Start
+
+```bash
+npx clawpowers init          # Create runtime + load 26 skills
+npx clawpowers status        # Check what's running
+npx clawpowers metrics       # See skill performance data
+npx clawpowers demo x402     # Try agent payments (no real money)
+```
 
 ## Demo
 
