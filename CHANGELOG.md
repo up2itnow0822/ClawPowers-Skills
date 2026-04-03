@@ -2,6 +2,38 @@
 
 All notable changes to ClawPowers are documented here.
 
+## [2.0.0] - 2026-04-03
+
+### Breaking Changes
+
+- **Complete TypeScript rewrite.** The v1.x shell-script runtime has been replaced with a fully typed TypeScript library.
+- **No agent control loop.** ClawPowers is now a pure capability library — bring your own agent framework.
+- **ESM-only.** Requires Node.js 20+.
+
+### Added
+
+- **Payments module** — x402 detection (`detect402`), `SpendingPolicy` enforcement, `PaymentExecutor` with append-only audit log. Fees: 0.77% tx / 0.30% swap.
+- **Memory module** — `WorkingMemoryManager` (in-process, token-budgeted), `EpisodicMemory` (JSONL append-only), `ProceduralMemory` (atomic JSON), `CheckpointManager` (crash recovery), `ContextInjector` (relevant memory selection).
+- **RSI module** — `MetricsCollector`, `HypothesisEngine`, `MutationEngine`, `ABTestManager`, `RSIAuditLog`, `AutoResearcher`. Full measure → hypothesize → mutate → A/B test → promote/rollback cycle.
+- **Wallet module** — `WalletManager`, `generateWallet`, `importWallet`, `signMessage` with AES-256-GCM encryption at rest.
+- **Skills module** — `discoverSkills`, `loadSkillManifest`, `SkillExecutor` with outcome tracking.
+- **Config module** — Zod-validated config, dot-notation access, profile support.
+- **Framework demos** — LangChain (`demos/langchain.ts`), Claude Code (`demos/claude-code.md`), ElizaOS (`demos/elizaos.ts`).
+- **231 TypeScript tests** — full coverage across all modules.
+- **BSL 1.1 license** with Change Date April 3, 2030.
+- **SECURITY.md** with vulnerability reporting policy and security design principles.
+
+### Compatibility
+
+Drop-in library for: LangChain, LangGraph, Claude Code, Cursor, ElizaOS, AutoGen, CrewAI, Agent Zero, any MCP-compatible host.
+
+### Removed
+
+- Shell-script runtime (v1.x skills)
+- CLI binary (`clawpowers` command)
+- Agent control loop (use ClawPowers-Agent for that)
+
+
 ## [1.1.3] - 2026-03-22
 
 ### Added
