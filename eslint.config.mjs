@@ -2,7 +2,7 @@ import globals from "globals";
 
 export default [
   {
-    files: ["bin/**/*.js", "runtime/**/*.js"],
+    files: ["src/**/*.ts", "src/**/*.tsx"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "commonjs",
