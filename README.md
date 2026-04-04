@@ -153,6 +153,8 @@ const info = await wallet.generate();
 console.log(info.address); // 0x...
 ```
 
+> ⚠️ **Wallet Caveat:** Generated addresses use SHA-256 for address derivation, which is **NOT valid for on-chain Ethereum transactions**. The secp256k1 public key derivation and keccak256 hashing required for real Ethereum addresses are not implemented in this library. For production wallet operations — sending transactions, signing EIP-712 messages, or interacting with smart contracts — use [`viem`](https://viem.sh) or [`ethers.js`](https://docs.ethers.org) instead.
+
 ## Memory Module
 
 | Layer | Storage | Purpose |
@@ -195,13 +197,15 @@ import subprocess
 import json
 
 # Call ClawPowers via Node.js subprocess
+# Note: use --input-type=module (or a .mjs file) because clawpowers is an ES module
 result = subprocess.run(
-    ['node', '-e', '''
+    ['node', '--input-type=module'],
+    input='''
     import { detect402, SpendingPolicy } from "clawpowers";
     const policy = new SpendingPolicy({ dailyLimit: 25, transactionLimit: 10, allowedDomains: [] });
     const decision = policy.checkTransaction(5.00, "api.example.com");
     console.log(JSON.stringify(decision));
-    '''],
+    ''',
     capture_output=True, text=True
 )
 decision = json.loads(result.stdout)
