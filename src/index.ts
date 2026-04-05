@@ -49,3 +49,24 @@ export type { SkillExecutionContext, SkillExecutionResult } from './skills/index
 // Wallet
 export { WalletManager, generateWallet, importWallet, signMessage } from './wallet/index.js';
 export type { WalletConfig, WalletInfo, SignedMessage } from './wallet/index.js';
+
+// Parallel Swarm
+export {
+  ConcurrencyManager,
+  TokenPool,
+  classifyHeuristic,
+  selectModel,
+  classifyTasks,
+} from './swarm/index.js';
+export type {
+  ModelComplexity,
+  TaskStatus,
+  SwarmTask,
+  SwarmResult,
+  SwarmRun,
+  SwarmConfig,
+  SwarmMemoryEntry,
+  SwarmMemoryHandle,
+  TokenAllocation,
+  TokenUsageReport,
+} from './swarm/index.js';
