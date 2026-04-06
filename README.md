@@ -1,6 +1,6 @@
 # ClawPowers
 
-**Skills library for AI agents — payments, memory, RSI, wallet.** Drop-in capability layer for any agent framework.
+**Skills library for AI agents — payments, memory, RSI, wallet, parallel swarm, ITP.** Drop-in capability layer for any agent framework.
 
 [![npm version](https://img.shields.io/npm/v/clawpowers)](https://www.npmjs.com/package/clawpowers)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
@@ -22,6 +22,8 @@ ClawPowers extracts the core capabilities from [ClawPowers-Agent](https://github
 - **RSI Engine** — Metrics collection, hypothesis generation, mutation, A/B testing
 - **Wallet** — Generate, import, and sign with Ethereum-compatible wallets
 - **Skills** — Discover, load, and track skill execution outcomes
+- **Parallel Swarm** — Concurrent task execution with intelligent model routing and token budgeting
+- **ITP (Identical Twins Protocol)** — Context compression that eliminates redundant token usage across agent sessions
 
 ## x402 Payment Flow
 
@@ -182,6 +184,54 @@ measure → hypothesize → mutate → A/B test → promote/rollback → repeat
 - **T4** (Architecture Proposals) — **ALWAYS requires human approval**
 
 Safety invariants (spending limits, identity, RSI definitions, sandbox boundaries, credentials) can **NEVER** be modified by RSI.
+
+## Parallel Swarm
+
+Run multiple tasks concurrently with intelligent model routing, shared context, and token budget management.
+
+```typescript
+import { ConcurrencyManager, TokenPool, classifyHeuristic, selectModel } from 'clawpowers';
+
+const pool = new TokenPool({ totalBudget: 100000 });
+const concurrency = new ConcurrencyManager({ maxConcurrency: 5 });
+
+// Classify and route tasks to optimal models
+const complexity = classifyHeuristic('Build a distributed trading system');
+const model = selectModel(complexity); // → claude-opus-4-5
+
+// Allocate token budgets per task
+pool.allocate('task-1', 5000);
+```
+
+### Swarm vs Sequential Cron — Verified Performance
+
+Tested April 6, 2026 — 5 health/monitoring tasks:
+
+| Metric | 5 Sequential Crons | 1 Parallel Swarm | Savings |
+|--------|-------------------|------------------|---------|
+| Input tokens | 50,800 | 17,700 | **65% less** |
+| Wall time | ~25s | ~5s | **80% faster** |
+| Cost per run | $0.182 | $0.062 | **66% cheaper** |
+| Monthly (6 runs/day) | $32.83 | $11.18 | **$21.65/mo saved** |
+
+The savings come from eliminating redundant context loading — each cron session loads the full system prompt independently. The swarm loads it once and fans out.
+
+## ITP (Identical Twins Protocol)
+
+Context compression for multi-agent communication. When agents share similar context (same model, same workspace), ITP deduplicates the common payload before transmission.
+
+```typescript
+import { itpEncode, itpDecode, itpHealthCheck, encodeTaskDescription, decodeSwarmResult } from 'clawpowers';
+
+// Graceful fallback — works without ITP server running
+const encoded = await encodeTaskDescription('Analyze quarterly revenue data');
+const decoded = await decodeSwarmResult(result);
+
+// Health check
+const serverUp = await itpHealthCheck(); // false = passthrough mode
+```
+
+ITP is most effective in parallel swarm scenarios where multiple tasks share the same model context. Cross-model savings (e.g., Opus → Sonnet) also compound because LLM providers inject similar preambles across model tiers.
 
 ## Fee Structure
 
