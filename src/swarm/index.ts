@@ -26,3 +26,6 @@ export type {
   TokenAllocation,
   TokenUsageReport,
 } from './types.js';
+
+// ITP ↔ Swarm bridge (optional — graceful if ITP not available)
+export { encodeTaskDescription, decodeSwarmResult } from '../itp/swarm-bridge.js';

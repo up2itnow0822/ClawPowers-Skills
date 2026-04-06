@@ -50,6 +50,11 @@ export type { SkillExecutionContext, SkillExecutionResult } from './skills/index
 export { WalletManager, generateWallet, importWallet, signMessage } from './wallet/index.js';
 export type { WalletConfig, WalletInfo, SignedMessage } from './wallet/index.js';
 
+// ITP — Identical Twins Protocol
+export { encode as itpEncode, decode as itpDecode, healthCheck as itpHealthCheck } from './itp/index.js';
+export type { EncodeResult as ItpEncodeResult, DecodeResult as ItpDecodeResult } from './itp/index.js';
+export { encodeTaskDescription, decodeSwarmResult } from './itp/swarm-bridge.js';
+
 // Parallel Swarm
 export {
   ConcurrencyManager,
