@@ -289,22 +289,24 @@ const model = selectModel(complexity); // → claude-opus-4-5
 pool.allocate('task-1', 5000);
 ```
 
-### Swarm vs Sequential Cron — Verified Performance
+### Swarm vs Sequential Sessions
 
-Tested April 6, 2026 — 5 health/monitoring tasks:
+Running N tasks as a single parallel swarm instead of N separate LLM sessions avoids reloading shared context (system prompt, workspace files, tool schemas) for every task.
 
-| Metric | 5 Sequential Crons | 1 Parallel Swarm | Savings |
-|--------|-------------------|------------------|---------|
-| Input tokens | 50,800 | 17,700 | **65% less** |
-| Wall time | ~25s | ~5s | **80% faster** |
-| Cost per run | $0.182 | $0.062 | **66% cheaper** |
-| Monthly (6 runs/day) | $32.83 | $11.18 | **$21.65/mo saved** |
+**Measured benefits:**
+- **Wall time:** parallel fan-out is significantly faster than sequential execution, scaling with task count and concurrency limit
+- **Token usage:** shared-context overhead is paid once per swarm run instead of once per task
 
-The savings come from eliminating redundant context loading — each cron session loads the full system prompt independently. The swarm loads it once and fans out.
+**What we haven't yet measured:**
+- Exact token reduction varies with context size, task complexity, and model. We are collecting real API traces to publish concrete numbers in `MEASUREMENTS.md`. Treat any prior "X% savings" numbers in blog posts or decks as modeled estimates until we publish the measured set.
 
-## ITP (Identical Twins Protocol)
+**Reproduce the model:** `node benchmarks/swarm-vs-sequential.mjs` — runs a cost-model comparison with configurable overhead values. Adjust the constants to match your own gateway traces.
 
-Context compression for multi-agent communication. When agents share similar context (same model, same workspace), ITP deduplicates the common payload before transmission.
+## ITP (Identical Twins Protocol) — Experimental
+
+> **Status: Experimental, pending production measurement.** The compression mechanism is implemented and has verified speed improvements in internal tests, but token-savings magnitude varies significantly by workload and has not yet been validated across enough real runs to publish a headline number. Use it, benchmark it in your own workloads, and tell us what you measure.
+
+Context compression for multi-agent communication. When agents share similar context (same model, same workspace), ITP deduplicates the common payload before transmission. The library ships with a graceful passthrough fallback, so code using ITP works even when the ITP server is offline — messages are simply forwarded unchanged.
 
 ```typescript
 import { itpEncode, itpDecode, itpHealthCheck, encodeTaskDescription, decodeSwarmResult } from 'clawpowers';
@@ -316,6 +318,9 @@ const decoded = await decodeSwarmResult(result);
 // Health check
 const serverUp = await itpHealthCheck(); // false = passthrough mode
 ```
+
+**What we've measured:** speed improvement on identical-context parallel tasks.
+**What we haven't measured yet:** exact token-reduction percentage across diverse workloads. Preliminary numbers vary from ~15% to ~40% depending on context overlap; we'll publish the measured distribution in `MEASUREMENTS.md` as we collect more data.
 
 ITP is most effective in parallel swarm scenarios where multiple tasks share the same model context. Cross-model savings (e.g., Opus → Sonnet) also compound because LLM providers inject similar preambles across model tiers.
 

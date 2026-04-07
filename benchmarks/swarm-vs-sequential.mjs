@@ -1,21 +1,25 @@
 #!/usr/bin/env node
 /**
- * Reproducible benchmark: Parallel Swarm vs Sequential Sessions
+ * Cost Model: Parallel Swarm vs Sequential Sessions
  *
- * Measures token overhead and wall-clock time for a realistic
- * 5-task health-monitoring workload. The "cron" model assumes each
- * task runs as its own LLM session (full system prompt + workspace
- * context + tool schemas reloaded per session). The "swarm" model
- * loads that context once and fans out to parallel workers.
+ * ⚠️  This is a MODEL, not a live measurement.
  *
- * Run:
- *   node benchmarks/swarm-vs-sequential.mjs
+ * It computes expected token usage and wall-clock time using
+ * configurable per-session overhead constants (system prompt,
+ * workspace context, tool schemas) and compares:
+ *   - Sequential:  N LLM sessions, full context reloaded each time
+ *   - Swarm:       1 shared session, fan-out to N workers
  *
- * Expected output: ~65% token reduction, ~5× faster wall time.
+ * The default constants are rough estimates from early testing;
+ * your real savings depend on your own context size, task count,
+ * and model. Adjust CRON_OVERHEAD / SWARM_OVERHEAD to match
+ * your actual gateway traces before quoting any result.
  *
- * Token overhead values are conservative estimates based on
- * measured Claude Sonnet 4 API traces. Actual savings scale
- * linearly with context size.
+ * Run:   node benchmarks/swarm-vs-sequential.mjs
+ *
+ * We'll publish measured results in MEASUREMENTS.md as we
+ * collect real API traces across a range of workloads. Until
+ * then, treat the output as a back-of-envelope estimate.
  */
 
 import {
