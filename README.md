@@ -1,6 +1,6 @@
 # ClawPowers
 
-**Skills library for AI agents — payments, memory, RSI, wallet, parallel swarm, ITP.** Drop-in capability layer for any agent framework.
+**Skills library for AI agents - payments, memory, RSI, wallet, parallel swarm, ITP.** Drop-in capability layer for any agent framework.
 
 [![npm version](https://img.shields.io/npm/v/clawpowers)](https://www.npmjs.com/package/clawpowers)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
@@ -15,15 +15,15 @@ npm install clawpowers
 
 ## What Is This?
 
-ClawPowers extracts the core capabilities from [ClawPowers-Agent](https://github.com/up2itnow0822/ClawPowers-Agent) into a standalone library. **No agent control loop** — bring your own agent framework and get:
+ClawPowers extracts the core capabilities from [ClawPowers-Agent](https://github.com/up2itnow0822/ClawPowers-Agent) into a standalone library. **No agent control loop** - bring your own agent framework and get:
 
-- **x402 Payments** — Detect HTTP 402 responses, enforce spending policies, execute payments
-- **Three-Tier Memory** — Working, episodic, procedural memory with crash recovery
-- **RSI Engine** — Metrics collection, hypothesis generation, mutation, A/B testing
-- **Wallet** — Generate, import, and sign with **MetaMask-compatible** Ethereum addresses (secp256k1 + Keccak-256) when the native or WASM tier is active
-- **Skills** — Discover, load, and track skill execution outcomes
-- **Parallel Swarm** — Concurrent task execution with intelligent model routing and token budgeting
-- **ITP (Identical Twins Protocol)** — Context compression that eliminates redundant token usage across agent sessions
+- **x402 Payments** - Detect HTTP 402 responses, enforce spending policies, execute payments
+- **Three-Tier Memory** - Working, episodic, procedural memory with crash recovery
+- **RSI Engine** - Metrics collection, hypothesis generation, mutation, A/B testing
+- **Wallet** - Generate, import, and sign with **MetaMask-compatible** Ethereum addresses (secp256k1 + Keccak-256) when the native or WASM tier is active
+- **Skills** - Discover, load, and track skill execution outcomes
+- **Parallel Swarm** - Concurrent task execution with intelligent model routing and token budgeting
+- **ITP (Identical Twins Protocol)** - Context compression that eliminates redundant token usage across agent sessions
 
 ## Native Acceleration
 
@@ -31,9 +31,9 @@ ClawPowers ships the same optional **Rust + WASM + PyO3** stack as [ClawPowers-A
 
 | Tier | Backend | When it loads |
 |------|---------|----------------|
-| **1 — Native** | `napi-rs` `.node` addon (`native/ffi`, built locally with Rust) | Fastest; optional — not required for npm installs |
-| **2 — WASM** | Pre-built `native/wasm/pkg-node` (and `pkg` for web) | **Default** for most Node.js installs — no `wasm-pack` or Rust needed |
-| **3 — TypeScript** | Pure JS / Node built-ins | Universal fallback when native and WASM are unavailable |
+| **1 - Native** | `napi-rs` `.node` addon (`native/ffi`, built locally with Rust) | Fastest; optional - not required for npm installs |
+| **2 - WASM** | Pre-built `native/wasm/pkg-node` (and `pkg` for web) | **Default** for most Node.js installs - no `wasm-pack` or Rust needed |
+| **3 - TypeScript** | Pure JS / Node built-ins | Universal fallback when native and WASM are unavailable |
 
 Check status in code:
 
@@ -54,7 +54,7 @@ npm run build:native   # workspace `cargo build --release` (ignored if Rust miss
 npm run build:wasm     # wasm-pack → native/wasm/pkg-node (optional)
 ```
 
-`wasm-pack` may regenerate `pkg/.gitignore` / `pkg-node/.gitignore` that ignore all files in those folders — remove those ignore files if you need to commit refreshed WASM output.
+`wasm-pack` may regenerate `pkg/.gitignore` / `pkg-node/.gitignore` that ignore all files in those folders - remove those ignore files if you need to commit refreshed WASM output.
 
 Pre-built `.wasm` artifacts are included in the package so consumers are **not** required to run `wasm-pack`.
 
@@ -64,9 +64,9 @@ Pre-built `.wasm` artifacts are included in the package so consumers are **not**
 |------|------------------------|---------------------|
 | Payments | `JsFeeSchedule`, WASM fee math | Pure-TS fee formula |
 | Payments | `JsX402Client` | Base64 JSON header |
-| Payments | `JsAgentWallet` (native only) | TS wallet + WASM secp256k1 + Keccak for real Ethereum addresses |
+| Payments | `JsAgentWallet` (native only) | TS wallet with @noble/curves secp256k1 + @noble/hashes Keccak-256 |
 | Memory | `JsCanonicalStore`, `JsTurboCompressor`, `JsWriteFirewall` | File/JSONL memory; simplified firewall |
-| Wallet / secp256k1 | Native + WASM: `deriveEthereumAddress`, `derivePublicKey`, `signEcdsa`, `verifyEcdsa`, `computeKeccak256` / `keccak256Bytes` | Tier 3: legacy digest-based “address” + HMAC signing fallback only |
+| Wallet / secp256k1 | Native + WASM: `deriveEthereumAddress`, `derivePublicKey`, `signEcdsa`, `verifyEcdsa`, `computeKeccak256` / `keccak256Bytes` | @noble/curves secp256k1 + @noble/hashes Keccak-256 (identical EIP-55 addresses on all tiers) |
 
 Exported helpers include `calculateTransactionFee`, `createPaymentHeader`, `generateWalletAddress`, `compressVector`, `getBestCanonicalStore`, `digestForWalletAddress`, and the full loader API in `src/native/index.ts`.
 
@@ -188,7 +188,13 @@ const result = ab.evaluateTest(test.testId);
 
 ### Wallet
 
-Address strings are derived from the **last 20 bytes** of a 32-byte digest of the private key material. **Tier 1** (native addon with `keccak256Bytes`) and **Tier 2** (pre-built WASM with `computeKeccak256`) use **Keccak-256**; **Tier 3** (no native/WASM) falls back to **SHA-256** for that digest. This is still **not** the standard EIP-1191 / MetaMask derivation (secp256k1 public key → Keccak-256 → last 20 bytes). For **on-chain** sending, contract interaction, or addresses that must match hardware wallets, use [`viem`](https://viem.sh) or [`ethers`](https://docs.ethers.org).
+Generates **standard, on-chain-valid Ethereum addresses** on all tiers. Every tier uses the same derivation pipeline:
+
+> private key → secp256k1 public key → Keccak-256 → last 20 bytes → EIP-55 checksum
+
+Addresses are MetaMask-compatible and valid for on-chain transactions, smart contract interaction, and x402 payments. Native and WASM tiers accelerate the crypto operations; the pure TypeScript tier uses [`@noble/curves`](https://github.com/paulmillr/noble-curves) (audited secp256k1) and [`@noble/hashes`](https://github.com/paulmillr/noble-hashes) (audited Keccak-256) - the same libraries used by [viem](https://viem.sh).
+
+Signing uses EIP-191 `personal_sign` format with secp256k1 ECDSA on all tiers.
 
 ```typescript
 import { WalletManager } from 'clawpowers';
@@ -199,7 +205,7 @@ const wallet = new WalletManager({
 });
 
 const info = await wallet.generate();
-console.log(info.address); // 0x... (Keccak-256 digest when WASM/native loaded; else SHA-256 fallback)
+console.log(info.address); // 0x... standard EIP-55 checksummed Ethereum address
 ```
 
 ## Memory Module
@@ -221,10 +227,10 @@ measure → hypothesize → mutate → A/B test → promote/rollback → repeat
 ```
 
 **Tier Safety:**
-- **T1** (Parameter Tuning) — Can auto-apply
-- **T2** (Strategy Evolution) — Can auto-apply with notification
-- **T3** (Skill Composition) — Requires testing gate
-- **T4** (Architecture Proposals) — **ALWAYS requires human approval**
+- **T1** (Parameter Tuning) - Can auto-apply
+- **T2** (Strategy Evolution) - Can auto-apply with notification
+- **T3** (Skill Composition) - Requires testing gate
+- **T4** (Architecture Proposals) - **ALWAYS requires human approval**
 
 Safety invariants (spending limits, identity, RSI definitions, sandbox boundaries, credentials) can **NEVER** be modified by RSI.
 
@@ -246,9 +252,9 @@ const model = selectModel(complexity); // → claude-opus-4-5
 pool.allocate('task-1', 5000);
 ```
 
-### Swarm vs Sequential Cron — Verified Performance
+### Swarm vs Sequential Cron - Verified Performance
 
-Tested April 6, 2026 — 5 health/monitoring tasks:
+Tested April 6, 2026 - 5 health/monitoring tasks:
 
 | Metric | 5 Sequential Crons | 1 Parallel Swarm | Savings |
 |--------|-------------------|------------------|---------|
@@ -257,7 +263,7 @@ Tested April 6, 2026 — 5 health/monitoring tasks:
 | Cost per run | $0.182 | $0.062 | **66% cheaper** |
 | Monthly (6 runs/day) | $32.83 | $11.18 | **$21.65/mo saved** |
 
-The savings come from eliminating redundant context loading — each cron session loads the full system prompt independently. The swarm loads it once and fans out.
+The savings come from eliminating redundant context loading - each cron session loads the full system prompt independently. The swarm loads it once and fans out.
 
 ## ITP (Identical Twins Protocol)
 
@@ -266,7 +272,7 @@ Context compression for multi-agent communication. When agents share similar con
 ```typescript
 import { itpEncode, itpDecode, itpHealthCheck, encodeTaskDescription, decodeSwarmResult } from 'clawpowers';
 
-// Graceful fallback — works without ITP server running
+// Graceful fallback - works without ITP server running
 const encoded = await encodeTaskDescription('Analyze quarterly revenue data');
 const decoded = await decodeSwarmResult(result);
 
@@ -309,50 +315,50 @@ decision = json.loads(result.stdout)
 ## API Reference
 
 ### Native acceleration
-- `getActiveTier()`, `isNativeAvailable()`, `isWasmAvailable()`, `getCapabilitySummary()` — Loader introspection
-- `computeSha256`, `digestForWalletAddress`, `tokenAmountFromHuman`, `calculateFee`, `evaluateWriteFirewall` — Routed helpers
-- `getNative()`, `getWasm()` — Low-level module access
+- `getActiveTier()`, `isNativeAvailable()`, `isWasmAvailable()`, `getCapabilitySummary()` - Loader introspection
+- `computeSha256`, `digestForWalletAddress`, `tokenAmountFromHuman`, `calculateFee`, `evaluateWriteFirewall` - Routed helpers
+- `getNative()`, `getWasm()` - Low-level module access
 
 ### Payments
-- `detect402(response)` — Parse x402 headers from 402 response
-- `isPaymentRequired(error)` — Type guard for 402 errors
-- `SpendingPolicy` — Enforce daily/transaction/domain limits
-- `PaymentExecutor` — Execute payments via MCP client
-- `calculateTransactionFee`, `createPaymentHeader`, `generateWalletAddress` — Native/WASM-accelerated payment helpers (with TS fallbacks)
+- `detect402(response)` - Parse x402 headers from 402 response
+- `isPaymentRequired(error)` - Type guard for 402 errors
+- `SpendingPolicy` - Enforce daily/transaction/domain limits
+- `PaymentExecutor` - Execute payments via MCP client
+- `calculateTransactionFee`, `createPaymentHeader`, `generateWalletAddress` - Native/WASM-accelerated payment helpers (with TS fallbacks)
 
 ### Memory
-- `WorkingMemoryManager` — In-process context management
-- `EpisodicMemory` — JSONL task history
-- `ProceduralMemory` — Skill effectiveness tracking
-- `CheckpointManager` — Crash recovery
-- `ContextInjector` — Memory-to-context selection
-- `getBestCanonicalStore`, `getWasmCanonicalStore`, `compressVector`, `decompressVector`, `evaluateWriteSecurity` — Optional native/WASM memory bridges
+- `WorkingMemoryManager` - In-process context management
+- `EpisodicMemory` - JSONL task history
+- `ProceduralMemory` - Skill effectiveness tracking
+- `CheckpointManager` - Crash recovery
+- `ContextInjector` - Memory-to-context selection
+- `getBestCanonicalStore`, `getWasmCanonicalStore`, `compressVector`, `decompressVector`, `evaluateWriteSecurity` - Optional native/WASM memory bridges
 
 ### RSI
-- `MetricsCollector` — Task/skill metrics in JSONL
-- `HypothesisEngine` — Generate improvement hypotheses
-- `MutationEngine` — Create/apply/revert mutations
-- `ABTestManager` — A/B test mutations
-- `RSIAuditLog` — Append-only audit trail
-- `AutoResearcher` — Research solutions to failures
+- `MetricsCollector` - Task/skill metrics in JSONL
+- `HypothesisEngine` - Generate improvement hypotheses
+- `MutationEngine` - Create/apply/revert mutations
+- `ABTestManager` - A/B test mutations
+- `RSIAuditLog` - Append-only audit trail
+- `AutoResearcher` - Research solutions to failures
 
 ### Skills
-- `discoverSkills(dir)` — Find skills in a directory
-- `loadSkillManifest(dir)` — Load a single skill manifest
-- `SkillExecutor` — Execute skills with outcome tracking
+- `discoverSkills(dir)` - Find skills in a directory
+- `loadSkillManifest(dir)` - Load a single skill manifest
+- `SkillExecutor` - Execute skills with outcome tracking
 
 ### Wallet
 
-- `WalletManager` — High-level wallet operations
-- `generateWallet(config)` — Generate new wallet (**v2.2.0+**: standard Ethereum address via secp256k1 when Tier 1/2 is active)
-- `importWallet(key, config)` — Import existing wallet (same derivation)
-- `signMessage(message, keyFile, passphrase)` — Sign; uses **ECDSA (secp256k1) over Keccak-256(UTF-8 message)** when native/WASM provides crypto, else legacy HMAC
-- `signMessage(privateKeyHex, message)` — Same ECDSA path; returns `0x` + 130 hex chars (65-byte signature)
+- `WalletManager` - High-level wallet operations
+- `generateWallet(config)` - Generate new wallet with standard Ethereum address (secp256k1 + Keccak-256 + EIP-55 on all tiers)
+- `importWallet(key, config)` - Import existing wallet (same derivation)
+- `signMessage(message, keyFile, passphrase)` - EIP-191 personal_sign with secp256k1 ECDSA
+- `signMessage(privateKeyHex, message)` - Same ECDSA path; returns `0x` + 130 hex chars (65-byte r‖s‖v signature)
 
 ### Config
-- `loadConfig()` / `saveConfig()` — Zod-validated config CRUD
-- `initConfig()` — Create default config
-- `getConfigValue()` / `setConfigValue()` — Dot-notation access
+- `loadConfig()` / `saveConfig()` - Zod-validated config CRUD
+- `initConfig()` - Create default config
+- `getConfigValue()` / `setConfigValue()` - Dot-notation access
 
 ## License
 

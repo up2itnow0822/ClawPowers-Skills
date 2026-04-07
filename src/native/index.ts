@@ -11,6 +11,8 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { keccak_256 } from '@noble/hashes/sha3';
+import { bytesToHex } from '@noble/hashes/utils';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -330,11 +332,13 @@ export function computeSha256(content: string): string {
 }
 
 /**
- * 32-byte digest as `0x` + 64 hex chars for wallet address derivation (last 20 bytes used as address).
+ * 32-byte Keccak-256 digest as `0x` + 64 hex chars for wallet address derivation.
  *
- * Tier 1: native `keccak256Bytes` when the `.node` addon includes it (custom `cargo build` of ffi).
- * Tier 2: WASM `computeKeccak256` (pre-built `pkg-node` ships with the npm package).
- * Tier 3: SHA-256 via Node.js `crypto` (legacy; use native/WASM for keccak256 parity).
+ * Tier 1: native `keccak256Bytes` (fastest).
+ * Tier 2: WASM `computeKeccak256`.
+ * Tier 3: @noble/hashes keccak_256 (pure TypeScript, audited).
+ *
+ * All tiers produce identical Keccak-256 output.
  */
 export function digestForWalletAddress(keyMaterial: Buffer): string {
   loadAll();
@@ -355,15 +359,16 @@ export function digestForWalletAddress(keyMaterial: Buffer): string {
     }
   }
 
-  const { createHash } = require('node:crypto') as typeof import('node:crypto');
-  return '0x' + createHash('sha256').update(keyMaterial).digest('hex');
+  // Pure TS via @noble/hashes — identical Keccak-256 output
+  return '0x' + bytesToHex(keccak_256(new Uint8Array(keyMaterial)));
 }
 
 /**
  * Keccak-256 digest of raw bytes as a 32-byte `Buffer`.
- * Tier 1: native `keccak256Bytes`; Tier 2: WASM `computeKeccak256`; Tier 3: `null`.
+ * Tier 1: native; Tier 2: WASM; Tier 3: @noble/hashes.
+ * Always succeeds — @noble provides the universal fallback.
  */
-export function keccak256Digest(data: Buffer): Buffer | null {
+export function keccak256Digest(data: Buffer): Buffer {
   loadAll();
 
   if (_native && typeof _native.keccak256Bytes === 'function') {
@@ -384,7 +389,8 @@ export function keccak256Digest(data: Buffer): Buffer | null {
     }
   }
 
-  return null;
+  // Pure TS via @noble/hashes
+  return Buffer.from(keccak_256(new Uint8Array(data)));
 }
 
 /**

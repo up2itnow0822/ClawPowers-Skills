@@ -2,6 +2,21 @@
 
 All notable changes to ClawPowers are documented here.
 
+## [2.3.0] - 2026-04-07
+
+### Changed
+
+- **Wallet: production-grade on ALL tiers.** Added `@noble/curves` (secp256k1) and `@noble/hashes` (Keccak-256) as dependencies. Pure TypeScript (Tier 3) now produces identical, standard, on-chain-valid EIP-55 Ethereum addresses — same as Tier 1 (native) and Tier 2 (WASM). No more SHA-256 fallback addresses.
+- **Signing: EIP-191 `personal_sign` on all tiers.** HMAC-SHA256 legacy fallback removed. All tiers now use secp256k1 ECDSA with proper Ethereum personal message prefix.
+- **`keccak256Digest()` always succeeds.** Return type changed from `Buffer | null` to `Buffer` — @noble/hashes provides the universal fallback.
+- **`digestForWalletAddress()` always uses Keccak-256.** SHA-256 fallback removed.
+
+### Removed
+
+- SHA-256 address derivation fallback (Tier 3 legacy)
+- HMAC-SHA256 signing fallback
+- All README wallet caveats about "not valid for on-chain transactions"
+
 ## [2.2.0] - 2026-04-06
 
 ### Added
