@@ -97,6 +97,21 @@ export { encode as itpEncode, decode as itpDecode, healthCheck as itpHealthCheck
 export type { EncodeResult as ItpEncodeResult, DecodeResult as ItpDecodeResult } from './itp/index.js';
 export { encodeTaskDescription, decodeSwarmResult } from './itp/swarm-bridge.js';
 
+// Cache — Prompt caching with Anthropic cache_control
+export { CacheManager } from './cache/index.js';
+export type {
+  CachePolicy,
+  CacheProvider,
+  CacheStats,
+  CacheEconomics,
+  CacheInjectionResult,
+  AnthropicRequest,
+  AnthropicSystemBlock,
+  AnthropicContentBlock,
+  AnthropicMessage,
+  CacheControl,
+} from './cache/index.js';
+
 // Parallel Swarm
 export {
   ConcurrencyManager,

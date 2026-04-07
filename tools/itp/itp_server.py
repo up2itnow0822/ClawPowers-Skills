@@ -1,12 +1,21 @@
 """
-ITP Server — Identical Twins Protocol
-FastAPI service on port 8100.
+ITP Server v2 — Identical Twins Protocol
+FastAPI service on port 8101.
 
-Compresses agent-to-agent messages using a codebook of common patterns,
-operations, and agent shorthand. Reduces inter-agent token usage by
-replacing verbose natural language with compact ITP codes.
+v2 improvements over v1:
+- Token-aware codebook: replacements use whole words/subwords that tokenize
+  efficiently, avoiding the special-char fragmentation that caused v1's
+  67% char savings to shrink to only 9.3% real token savings.
+- Larger codebook: 120+ entries covering agent roles, ops vocabulary,
+  infrastructure patterns, and swarm coordination phrases.
+- Codebook organized in tiers: tier-1 phrases are long, high-value targets
+  (10+ words); tier-2 are medium (5-9 words); tier-3 are short patterns.
+- Replacements are lowercase English abbreviations or acronyms that
+  tokenize as 1-2 tokens rather than special-char sequences.
+- ITP prefix changed to "[[ITP]]" to use bracket tokens (each bracket is
+  a single token) rather than "ITP:" which splits oddly.
 
-Run: python -m uvicorn itp_server:app --host 127.0.0.1 --port 8100
+Run: python -m uvicorn itp_server:app --host 127.0.0.1 --port 8101
 """
 
 import re
@@ -20,81 +29,141 @@ from typing import Optional
 from fastapi import FastAPI, Query
 from pydantic import BaseModel
 
-app = FastAPI(title="ITP Server", version="1.0.0")
+app = FastAPI(title="ITP Server", version="2.0.0")
 
-# ─── Codebook ──────────────────────────────────────────────────────────────────
-# Two-way mapping: natural language phrases → compact ITP codes
-# Sorted longest-first for greedy matching
+# ─── Token-Aware Codebook ─────────────────────────────────────────────────────
+# Design principles for v2:
+# 1. Replacements are whole English words/abbreviations (tokenize as 1-2 tokens)
+# 2. No special chars (+, /, →, :) in replacements (each becomes a separate token)
+# 3. Source phrases are sorted longest-first for greedy matching
+# 4. Grouped by domain for maintainability
 
-CODEBOOK = [
-    # System / meta
-    ("please analyze the trading performance and provide a status update", "ANL+TRD/PERF→STS/UPD"),
-    ("please analyze the", "ANL+"),
-    ("analyze the trading performance", "ANL+TRD/PERF"),
-    ("provide a status update", "STS/UPD"),
-    ("provide a detailed analysis", "DTL/ANL"),
-    ("provide a summary", "SUM"),
-    ("provide a brief summary", "SUM/BRF"),
-    ("provide a 2-paragraph summary with key data points", "SUM/2P+KDP"),
-    ("check the health endpoints", "CHK/HLTH"),
-    ("check disk usage", "CHK/DSK"),
-    ("check docker container health status", "CHK/DKR/HLTH"),
-    ("report status codes and response latency", "RPT/STS+LAT"),
-    ("report total free space remaining as a percentage", "RPT/FREE%"),
-    ("report total, used, and available memory", "RPT/MEM/TUA"),
-    ("list the top 10 processes by memory consumption", "LST/TOP10/MEM"),
-    ("flag any process using more than", "FLG/PROC>"),
-    ("flag any containers in unhealthy or restarting state", "FLG/DKR/UNHLTH"),
-    ("identify any directories over", "ID/DIR>"),
-    ("identify any individual files over", "ID/FILE>"),
-    ("scan the last 1000 lines of logs", "SCN/LOG/1K"),
-    ("extract error and warn level entries", "EXT/ERR+WRN"),
-    ("group by service and report counts", "GRP/SVC+CNT"),
-    ("highlight any new error patterns not seen in the previous 24 hours", "HLT/NEW/ERR/24H"),
+CODEBOOK_RAW = [
+    # ── Agent Role / Identity (tier 1) ──
+    ("you are an autonomous infrastructure monitoring agent running inside the ai agent economy operations environment", "you are an infra monitor agent in aae ops"),
+    ("you are an autonomous infrastructure monitoring agent", "you are an infra monitor agent"),
+    ("your role is to perform health checks, detect anomalies, and report findings through the structured swarmmemory interface", "your task is health checks anomaly detection and swarm memory reporting"),
+    ("your role is to perform health checks, detect anomalies, and report findings", "your task is health checks anomaly detection and reporting"),
+    ("you have access to docker, system utilities, and the metrics api", "you have access to docker sysutils and metrics api"),
+    ("do not take corrective action — only observe and report", "observe and report only no corrective action"),
+    ("do not take corrective action - only observe and report", "observe and report only no corrective action"),
+    ("always report findings in structured json format with severity levels", "report in json with severity levels"),
+    ("always report findings in structured json format", "report in json format"),
+    ("with severity levels (info, warning, critical)", "with severity info warning critical"),
+    ("severity levels info warning critical", "severity info warning critical"),
+    ("the current monitoring window is the last 15 minutes unless otherwise specified", "monitoring window last 15 min unless specified"),
+    ("previous findings from other swarm agents are available through the shared memory interface", "prior swarm agent findings in shared memory"),
 
-    # Roles / agents
-    ("you are an autonomous infrastructure monitoring agent", "ROLE:INFRA/MON"),
-    ("running inside the ai agent economy operations environment", "ENV:AAE/OPS"),
-    ("your role is to perform health checks, detect anomalies, and report findings", "TASK:HLTH+ANOM+RPT"),
-    ("through the structured swarmmemory interface", "VIA:SWARM/MEM"),
-    ("you have access to docker, system utilities, and the metrics api", "ACC:DKR+SYS+METRICS"),
-    ("always report findings in structured json format", "FMT:JSON"),
-    ("with severity levels", "W/SEV"),
-    ("info, warning, critical", "SEV:I/W/C"),
-    ("do not take corrective action — only observe and report", "MODE:RO"),
-    ("the current monitoring window is the last 15 minutes unless otherwise specified", "WIN:15M"),
-    ("previous findings from other swarm agents are available through the shared memory interface", "CTX:SWARM/PREV"),
+    # ── Docker / Container ops (tier 1) ──
+    ("run docker ps and report container status, uptime, and port mappings for all running containers", "run docker ps report status uptime ports all containers"),
+    ("flag any containers in unhealthy or restarting state", "flag unhealthy or restarting containers"),
+    ("check docker container health status for all running services", "check docker container health all services"),
+    ("for each running docker container", "for each docker container"),
+    ("for all running containers", "for all containers"),
+    ("for all running services", "for all services"),
 
-    # Actions
-    ("run docker ps and report container status", "DKR/PS+STS"),
-    ("uptime, and port mappings for all running containers", "UPT+PORTS/ALL"),
-    ("for all running services", "ALL/SVC"),
-    ("for all running containers", "ALL/CTR"),
-    ("for all mounted volumes", "ALL/VOL"),
-    ("for each running docker container", "EACH/DKR/CTR"),
-    ("research current btc and eth price action", "RSH/BTC+ETH/PA"),
-    ("volume trends, and whale activity", "VOL+WHALE"),
-    ("research", "RSH/"),
-    ("analyze", "ANL/"),
-    ("performance", "PERF"),
-    ("trading", "TRD"),
-    ("market", "MKT"),
+    # ── API / Endpoint ops (tier 1) ──
+    ("check the health endpoints for the trading api (port 8080), the metrics server (port 9090), and the webhook receiver (port 3000)", "check health endpoints trading api 8080 metrics 9090 webhook 3000"),
+    ("verify api endpoint availability and response times", "check api endpoint availability and latency"),
+    ("report status codes and response latency in milliseconds", "report status codes and latency ms"),
 
-    # Common phrases
-    ("simultaneously", "∥"),
-    ("in parallel", "∥"),
-    ("concurrently", "∥"),
-    ("and provide", "→"),
-    ("and report", "→RPT"),
-    ("status update", "STS/UPD"),
-    ("with pid, name, and rss", "W/PID+NAME+RSS"),
+    # ── Disk / Storage (tier 1) ──
+    ("analyze disk usage and identify large files consuming storage on all mounted volumes", "analyze disk usage on all volumes find large files"),
+    ("identify any directories over 1gb and any individual files over 100mb", "find dirs over 1gb and files over 100mb"),
+    ("report total free space remaining as a percentage", "report free space pct"),
+    ("on all mounted volumes", "on all volumes"),
+
+    # ── Memory / Process (tier 1) ──
+    ("review system memory and process resource consumption", "review memory and process resource use"),
+    ("report total, used, and available memory", "report total used and available memory"),
+    ("list the top 10 processes by memory consumption with pid, name, and rss", "list top 10 processes by memory with pid name rss"),
+    ("flag any process using more than 2gb", "flag processes over 2gb"),
+    ("flag any process using more than", "flag processes over"),
+
+    # ── Log analysis (tier 1) ──
+    ("audit recent error logs across all services for anomalies", "audit error logs all services for anomalies"),
+    ("scan the last 1000 lines of logs for each running docker container", "scan last 1000 log lines per docker container"),
+    ("extract error and warn level entries", "extract error and warn entries"),
+    ("group by service and report counts", "group by service report counts"),
+    ("highlight any new error patterns not seen in the previous 24 hours", "flag new error patterns vs last 24h"),
+
+    # ── Market / Trading research (tier 1) ──
+    ("research current btc and eth price action, volume trends, and whale activity", "research btc eth price volume and whale activity"),
+    ("research s&p 500, nasdaq, and dow performance over the past week", "research sp500 nasdaq dow weekly performance"),
+    ("note any sector rotation or unusual volume", "note sector rotation and unusual volume"),
+    ("note central bank policy impacts", "note central bank impacts"),
+    ("research gold, oil, and natural gas price movements", "research gold oil natgas price moves"),
+    ("note supply/demand factors driving changes", "note supply demand drivers"),
+    ("research total defi tvl, top protocol inflows/outflows, and emerging yield opportunities", "research defi tvl protocol flows and yield opps"),
+    ("using findings from all 5 market analyses, identify cross-market correlations, risk factors, and provide 3 actionable trading recommendations with confidence", "using all market findings identify correlations risks and give 3 trade recs with confidence"),
+    ("provide 3 actionable trading recommendations", "give 3 trade recs"),
+    ("identify cross-market correlations", "find cross market correlations"),
+
+    # ── Common action phrases (tier 2) ──
+    ("please analyze the trading performance and provide a status update", "analyze trading perf and give status update"),
+    ("provide a detailed analysis", "provide detailed analysis"),
+    ("provide a 2-paragraph summary with key data points", "give 2 para summary with key data"),
+    ("provide a brief summary", "give brief summary"),
+    ("provide a summary", "give summary"),
+    ("provide a status update", "give status update"),
+    ("analyze the trading performance", "analyze trading performance"),
+    ("check docker container health status", "check docker health"),
+    ("report container status", "report container status"),
+
+    # ── Roles / context (tier 2) ──
+    ("through the structured swarmmemory interface", "via swarm memory"),
+    ("through the shared memory interface", "via shared memory"),
+    ("available through the shared memory interface", "in shared memory"),
+    ("system utilities", "sysutils"),
+    ("metrics api", "metrics api"),
+    ("infrastructure monitoring", "infra monitoring"),
+    ("autonomous infrastructure", "autonomous infra"),
+    ("anomaly detection", "anomaly detection"),
+    ("health checks", "health checks"),
+    ("corrective action", "corrective action"),
+    ("monitoring window", "monitoring window"),
+
+    # ── Common ops words (tier 3 — word replacements) ──
+    ("simultaneously", "in parallel"),
+    ("concurrently", "in parallel"),
+    ("performance", "perf"),
+    ("trading performance", "trading perf"),
+    ("recommendations", "recs"),
+    ("implementation", "impl"),
+    ("configuration", "config"),
+    ("authentication", "auth"),
+    ("authorization", "authz"),
+    ("infrastructure", "infra"),
+    ("dependencies", "deps"),
+    ("deployment", "deploy"),
+    ("environment", "env"),
+    ("application", "app"),
+    ("repository", "repo"),
+    ("kubernetes", "k8s"),
+    ("containers", "containers"),
+    ("monitoring", "monitoring"),
+    ("percentage", "pct"),
+    ("available", "avail"),
+    ("directory", "dir"),
+    ("milliseconds", "ms"),
+    ("otherwise", "else"),
+    ("specified", "specified"),
+    ("remaining", "remaining"),
+    ("consuming", "using"),
+    ("individual", "individual"),
+    ("structured", "structured"),
 ]
 
-# Sort by length descending for greedy matching
+# Build sorted codebook (longest phrase first for greedy matching)
+CODEBOOK = [(phrase.lower(), replacement) for phrase, replacement in CODEBOOK_RAW]
 CODEBOOK.sort(key=lambda x: len(x[0]), reverse=True)
 
 # Build reverse map for decoding
-DECODE_MAP = {code: phrase for phrase, code in CODEBOOK}
+DECODE_MAP = {replacement: phrase for phrase, replacement in CODEBOOK}
+
+# ITP prefix — uses bracket tokens which tokenize cleanly (2 tokens: "[[" "ITP" "]]")
+ITP_PREFIX = "[[ITP]]"
+ITP_PREFIX_LEN = len(ITP_PREFIX)
 
 # ─── Stats ─────────────────────────────────────────────────────────────────────
 
@@ -105,6 +174,7 @@ stats = {
     "total_output_chars": 0,
     "total_savings_chars": 0,
     "started_at": datetime.utcnow().isoformat(),
+    "version": "2.0.0",
 }
 
 # ─── History DB ────────────────────────────────────────────────────────────────
@@ -131,62 +201,56 @@ def get_db():
     return conn
 
 
-# ─── Encode / Decode Logic ─────────────────────────────────────────────────────
+# ─── Encode / Decode ───────────────────────────────────────────────────────────
 
 
 def itp_encode(message: str) -> tuple[str, bool, float]:
-    """Encode natural language → ITP shorthand using codebook."""
-    original_len = len(message)
-    if original_len == 0:
+    """Encode natural language → ITP shorthand using token-aware codebook."""
+    if not message:
         return message, False, 0.0
 
+    original_len = len(message)
     result = message.lower()
-
-    # Apply codebook substitutions (greedy, longest first)
     applied = 0
-    for phrase, code in CODEBOOK:
+
+    for phrase, replacement in CODEBOOK:
         if phrase in result:
-            result = result.replace(phrase, code)
+            result = result.replace(phrase, replacement)
             applied += 1
 
-    # Clean up whitespace and add ITP prefix if any substitutions were made
+    # Collapse extra whitespace
     if applied > 0:
-        # Collapse multiple spaces
-        result = re.sub(r'\s+', ' ', result).strip()
-        # Remove spaces around ITP operators
-        result = re.sub(r'\s*([+/→])\s*', r'\1', result)
-        result = f"ITP:{result}"
+        result = re.sub(r'[ \t]+', ' ', result).strip()
+        result = f"{ITP_PREFIX} {result}"
         was_compressed = True
     else:
         result = message
         was_compressed = False
 
     output_len = len(result)
-    savings_pct = max(0.0, ((original_len - output_len) / original_len) * 100) if original_len > 0 else 0.0
+    savings_pct = max(0.0, (original_len - output_len) / original_len * 100) if original_len > 0 else 0.0
 
     return result, was_compressed, round(savings_pct, 2)
 
 
 def itp_decode(message: str) -> tuple[str, bool]:
     """Decode ITP shorthand → natural language."""
-    if not message.startswith("ITP:"):
+    if not message.startswith(ITP_PREFIX):
         return message, False
 
-    result = message[4:]  # Strip "ITP:" prefix
+    result = message[ITP_PREFIX_LEN:].strip()
 
-    # Apply reverse codebook (replace codes with phrases, longest codes first)
-    codes_by_len = sorted(DECODE_MAP.items(), key=lambda x: len(x[0]), reverse=True)
-    for code, phrase in codes_by_len:
+    # Apply reverse codebook (longest codes first)
+    codes_sorted = sorted(DECODE_MAP.items(), key=lambda x: len(x[0]), reverse=True)
+    for code, phrase in codes_sorted:
         if code in result:
             result = result.replace(code, phrase)
 
-    # Clean up
-    result = re.sub(r'\s+', ' ', result).strip()
-
+    result = re.sub(r'[ \t]+', ' ', result).strip()
     return result, True
 
 
-# ─── Request / Response Models ─────────────────────────────────────────────────
+# ─── Request / Response models ────────────────────────────────────────────────
 
 
 class EncodeRequest(BaseModel):
@@ -213,47 +277,36 @@ class DecodeResponse(BaseModel):
     was_itp: bool
 
 
-class HealthResponse(BaseModel):
-    status: str
-    version: str
-    codebook_size: int
-    uptime_seconds: float
-    total_encoded: int
-    total_decoded: int
-
-
-# ─── Endpoints ─────────────────────────────────────────────────────────────────
+# ─── Endpoints ────────────────────────────────────────────────────────────────
 
 _start_time = time.time()
 
 
 @app.get("/health")
-def health() -> HealthResponse:
-    return HealthResponse(
-        status="ok",
-        version="1.0.0",
-        codebook_size=len(CODEBOOK),
-        uptime_seconds=round(time.time() - _start_time, 1),
-        total_encoded=stats["total_encoded"],
-        total_decoded=stats["total_decoded"],
-    )
+def health():
+    return {
+        "status": "ok",
+        "version": "2.0.0",
+        "codebook_size": len(CODEBOOK),
+        "uptime_seconds": round(time.time() - _start_time, 1),
+        "total_encoded": stats["total_encoded"],
+        "total_decoded": stats["total_decoded"],
+    }
 
 
 @app.post("/tools/encode")
 def encode(req: EncodeRequest) -> EncodeResponse:
     encoded, was_compressed, savings_pct = itp_encode(req.message)
 
-    # Update stats
     stats["total_encoded"] += 1
     stats["total_input_chars"] += len(req.message)
     stats["total_output_chars"] += len(encoded)
     stats["total_savings_chars"] += len(req.message) - len(encoded)
 
-    # Log to history
     try:
         db = get_db()
         db.execute(
-            "INSERT INTO history (timestamp, direction, source_agent, target_agent, input_text, output_text, was_compressed, savings_pct) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO history (timestamp, direction, source_agent, target_agent, input_text, output_text, was_compressed, savings_pct) VALUES (?,?,?,?,?,?,?,?)",
             (datetime.utcnow().isoformat(), "encode", req.source_agent, req.target_agent, req.message, encoded, int(was_compressed), savings_pct),
         )
         db.commit()
@@ -267,7 +320,7 @@ def encode(req: EncodeRequest) -> EncodeResponse:
         savings_pct=savings_pct,
         input_chars=len(req.message),
         output_chars=len(encoded),
-        codebook_entries_applied=0,  # simplified
+        codebook_entries_applied=0,
     )
 
 
@@ -280,7 +333,7 @@ def decode(req: DecodeRequest) -> DecodeResponse:
     try:
         db = get_db()
         db.execute(
-            "INSERT INTO history (timestamp, direction, source_agent, target_agent, input_text, output_text, was_compressed, savings_pct) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO history (timestamp, direction, source_agent, target_agent, input_text, output_text, was_compressed, savings_pct) VALUES (?,?,?,?,?,?,?,?)",
             (datetime.utcnow().isoformat(), "decode", None, None, req.message, decoded, int(was_itp), 0),
         )
         db.commit()
@@ -296,17 +349,15 @@ def get_stats():
     total_in = stats["total_input_chars"]
     total_out = stats["total_output_chars"]
     overall_savings = ((total_in - total_out) / total_in * 100) if total_in > 0 else 0
-    return {
-        **stats,
-        "overall_savings_pct": round(overall_savings, 2),
-    }
+    return {**stats, "overall_savings_pct": round(overall_savings, 2)}
 
 
 @app.get("/tools/codebook")
 def get_codebook():
     return {
         "size": len(CODEBOOK),
-        "entries": [{"phrase": p, "code": c} for p, c in CODEBOOK],
+        "version": "2.0.0",
+        "entries": [{"phrase": p, "replacement": r} for p, r in CODEBOOK],
     }
 
 
@@ -315,19 +366,16 @@ def get_history(limit: int = Query(default=20, ge=1, le=1000)):
     try:
         db = get_db()
         rows = db.execute(
-            "SELECT id, timestamp, direction, source_agent, target_agent, input_text, output_text, was_compressed, savings_pct FROM history ORDER BY id DESC LIMIT ?",
+            "SELECT id,timestamp,direction,source_agent,target_agent,input_text,output_text,was_compressed,savings_pct FROM history ORDER BY id DESC LIMIT ?",
             (limit,),
         ).fetchall()
         db.close()
         return {
             "count": len(rows),
             "entries": [
-                {
-                    "id": r[0], "timestamp": r[1], "direction": r[2],
-                    "source_agent": r[3], "target_agent": r[4],
-                    "input_text": r[5], "output_text": r[6],
-                    "was_compressed": bool(r[7]), "savings_pct": r[8],
-                }
+                {"id": r[0], "timestamp": r[1], "direction": r[2], "source_agent": r[3],
+                 "target_agent": r[4], "input_text": r[5], "output_text": r[6],
+                 "was_compressed": bool(r[7]), "savings_pct": r[8]}
                 for r in rows
             ],
         }

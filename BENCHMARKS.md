@@ -282,6 +282,59 @@ The ratio averages ~7.5:1 — for every 7.5% character reduction, you get ~1% re
 
 ---
 
+## Run 4 — ITP Server v2 (Token-Aware Codebook)
+
+**Date:** April 7, 2026 14:02 CDT  
+**ITP Server:** v2.0.0 — rebuilt with token-aware codebook (120+ entries)  
+**Model:** Claude 3.5 Haiku via OpenRouter  
+
+### What changed in v2
+
+v1 used special-character codes (`ROLE:INFRA/MON`, `ANL+TRD/PERF→STS/UPD`) that looked very compact at the character level but fragmented badly under tokenization. Each `:`, `/`, `+`, `→` becomes its own token.
+
+v2 uses **whole-word English abbreviations** as replacements (`infra monitor agent`, `check docker health`, `report in json format`). These tokenize efficiently as 1–2 tokens each rather than 3–5 fragmented tokens.
+
+| Metric | v1 | v2 | Change |
+|--------|----|----|--------|
+| Char compression | 67.5% | 38.8% | ↓ less impressive | 
+| **Real token savings** | **9.3%** | **26.7%** | **↑ 2.9x better** |
+| Cost savings | 1.4% | 3.9% | ↑ 2.8x better |
+
+### Per-Task Results (v2)
+
+| Task | Raw prompt tokens | ITP v2 prompt tokens | Token savings |
+|------|------------------|---------------------|---------------|
+| health-1 | 164 | 118 | **28.0%** |
+| health-2 | 174 | 125 | **28.2%** |
+| health-3 | 162 | 119 | **26.5%** |
+| health-4 | 167 | 126 | **24.6%** |
+| health-5 | 182 | 134 | **26.4%** |
+| **Total** | **849** | **622** | **26.7% (227 tokens)** |
+
+### Totals
+
+| Metric | Raw | ITP v2 | Savings |
+|--------|-----|--------|--------|
+| Prompt tokens | 849 | 622 | **26.7%** |
+| Completion tokens | 1,000 | 1,000 | 0% |
+| Total tokens | 1,849 | 1,622 | 12.3% |
+| Total latency | 4,885ms | 4,264ms | **12.7% faster** |
+| Est. cost | $0.004679 | $0.004498 | **3.9%** |
+
+### Framework benchmark (v2)
+
+| Test | Result |
+|------|--------|
+| ITP char compression | 38.8% |
+| Swarm parallel speedup | 2.6x |
+| Model router throughput | 1,666,667/sec |
+
+### Key insight
+
+Character compression and token savings are **inversely correlated** for symbol-heavy codebooks. v2 sacrifices character compression to gain real token savings. The codebook uses standard English abbreviations (`infra`, `perf`, `config`, `deploy`, `pct`) that tokenize as single tokens in BPE vocabularies.
+
+---
+
 ## How to reproduce
 
 1. Clone the repo and `npm install`

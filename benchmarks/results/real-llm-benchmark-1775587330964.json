@@ -1,0 +1,148 @@
+{
+  "metadata": {
+    "timestamp": "2026-04-07T18:42:10.964Z",
+    "hostname": "BillsPC",
+    "platform": "win32 x64",
+    "model": "anthropic/claude-3.5-haiku",
+    "maxTokens": 200,
+    "itpServerActive": true,
+    "codebookSize": 54
+  },
+  "raw": {
+    "tasks": [
+      {
+        "taskId": "health-1",
+        "mode": "raw",
+        "systemChars": 630,
+        "messageChars": 213,
+        "promptTokens": 164,
+        "completionTokens": 200,
+        "totalTokens": 364,
+        "latencyMs": 1017,
+        "responsePreview": "I'll perform a comprehensive Docker container health check and generate a struct"
+      },
+      {
+        "taskId": "health-2",
+        "mode": "raw",
+        "systemChars": 630,
+        "messageChars": 240,
+        "promptTokens": 174,
+        "completionTokens": 200,
+        "totalTokens": 374,
+        "latencyMs": 913,
+        "responsePreview": "Executing health check and endpoint availability scan...\n\n```json\n{\n    \"timesta"
+      },
+      {
+        "taskId": "health-3",
+        "mode": "raw",
+        "systemChars": 630,
+        "messageChars": 207,
+        "promptTokens": 162,
+        "completionTokens": 200,
+        "totalTokens": 362,
+        "latencyMs": 889,
+        "responsePreview": "I'll perform a comprehensive disk usage analysis using standard Linux utilities."
+      },
+      {
+        "taskId": "health-4",
+        "mode": "raw",
+        "systemChars": 630,
+        "messageChars": 207,
+        "promptTokens": 167,
+        "completionTokens": 200,
+        "totalTokens": 367,
+        "latencyMs": 976,
+        "responsePreview": "I'll retrieve the memory statistics and process resource consumption using stand"
+      },
+      {
+        "taskId": "health-5",
+        "mode": "raw",
+        "systemChars": 630,
+        "messageChars": 268,
+        "promptTokens": 182,
+        "completionTokens": 200,
+        "totalTokens": 382,
+        "latencyMs": 1090,
+        "responsePreview": "Initiating log audit sequence for all running Docker containers. Scanning log st"
+      }
+    ],
+    "totals": {
+      "prompt": 849,
+      "completion": 1000,
+      "total": 1849,
+      "latency": 4885
+    }
+  },
+  "itp": {
+    "tasks": [
+      {
+        "taskId": "health-1",
+        "mode": "itp",
+        "systemChars": 366,
+        "messageChars": 149,
+        "promptTokens": 118,
+        "completionTokens": 200,
+        "totalTokens": 318,
+        "latencyMs": 753,
+        "responsePreview": "Executing docker health check and status report:\n\n```json\n{\n  \"timestamp\": \"2024"
+      },
+      {
+        "taskId": "health-2",
+        "mode": "itp",
+        "systemChars": 366,
+        "messageChars": 155,
+        "promptTokens": 125,
+        "completionTokens": 200,
+        "totalTokens": 325,
+        "latencyMs": 812,
+        "responsePreview": "{\n    \"timestamp\": \"2024-02-21T12:45:32Z\",\n    \"component\": \"trading_api_health_"
+      },
+      {
+        "taskId": "health-3",
+        "mode": "itp",
+        "systemChars": 366,
+        "messageChars": 123,
+        "promptTokens": 119,
+        "completionTokens": 200,
+        "totalTokens": 319,
+        "latencyMs": 1238,
+        "responsePreview": "I'll perform a comprehensive disk usage analysis across volumes. Here's the syst"
+      },
+      {
+        "taskId": "health-4",
+        "mode": "itp",
+        "systemChars": 366,
+        "messageChars": 159,
+        "promptTokens": 126,
+        "completionTokens": 200,
+        "totalTokens": 326,
+        "latencyMs": 779,
+        "responsePreview": "{\n    \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\n    \"memory_overview\": {\n  "
+      },
+      {
+        "taskId": "health-5",
+        "mode": "itp",
+        "systemChars": 366,
+        "messageChars": 200,
+        "promptTokens": 134,
+        "completionTokens": 200,
+        "totalTokens": 334,
+        "latencyMs": 682,
+        "responsePreview": "{\n    \"audit_timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\n    \"scope\": \"docker_"
+      }
+    ],
+    "totals": {
+      "prompt": 622,
+      "completion": 1000,
+      "total": 1622,
+      "latency": 4264
+    }
+  },
+  "comparison": {
+    "promptTokenSavingsPct": 26.7,
+    "promptTokensSaved": 227,
+    "costSavingsPct": 3.9,
+    "rawCostUSD": 0.0046792,
+    "itpCostUSD": 0.0044976
+  }
+}
