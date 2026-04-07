@@ -252,18 +252,20 @@ const model = selectModel(complexity); // → claude-opus-4-5
 pool.allocate('task-1', 5000);
 ```
 
-### Swarm vs Sequential Cron - Verified Performance
+### Swarm vs Sequential Cron — Indicative Performance
 
-Tested April 6, 2026 - 5 health/monitoring tasks:
+Swarm execution can substantially reduce tokens and wall time in workloads with redundant context loading, because the shared preamble is loaded once and fanned out instead of repeated per task.
 
-| Metric | 5 Sequential Crons | 1 Parallel Swarm | Savings |
-|--------|-------------------|------------------|---------|
-| Input tokens | 50,800 | 17,700 | **65% less** |
-| Wall time | ~25s | ~5s | **80% faster** |
-| Cost per run | $0.182 | $0.062 | **66% cheaper** |
-| Monthly (6 runs/day) | $32.83 | $11.18 | **$21.65/mo saved** |
+**Your results will vary.** Savings depend on:
 
-The savings come from eliminating redundant context loading - each cron session loads the full system prompt independently. The swarm loads it once and fans out.
+- How much context is genuinely shared between tasks
+- Model selection (same-model swarms compress best)
+- Workspace state and working-memory footprint
+- Task complexity and output length
+
+In internal testing against a 5-task health-check workload we observed wall-time speedups around 5x and token reductions in the 30–65% range depending on configuration. **These numbers are illustrative, not guaranteed.** We are preparing a reproducible benchmark script so you can measure savings on your own workloads — track progress in [issues](https://github.com/up2itnow0822/ClawPowers-Skills/issues).
+
+The mechanism: each cron session loads the full system prompt independently; the swarm loads it once and fans out.
 
 ## ITP (Identical Twins Protocol)
 
@@ -280,7 +282,7 @@ const decoded = await decodeSwarmResult(result);
 const serverUp = await itpHealthCheck(); // false = passthrough mode
 ```
 
-ITP is most effective in parallel swarm scenarios where multiple tasks share the same model context. Cross-model savings (e.g., Opus → Sonnet) also compound because LLM providers inject similar preambles across model tiers.
+ITP is most effective in parallel swarm scenarios where multiple tasks share the same model context. Cross-model savings (e.g., Opus → Sonnet) can also compound because LLM providers inject similar preambles across model tiers, but actual compression ratios vary widely by workload — expect best results when tasks share substantial context and the same target model.
 
 ## Fee Structure
 
