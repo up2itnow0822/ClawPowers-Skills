@@ -1,0 +1,36 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const __wbg_wasmcanonicalstore_free: (a: number, b: number) => void;
+export const approximateDistance: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
+export const calculateFee: (a: number, b: number, c: number, d: number, e: number, f: bigint, g: number, h: bigint) => [number, number, number, number];
+export const compressVector: (a: number, b: number, c: number) => [number, number, number, number];
+export const computeKeccak256: (a: number, b: number) => [number, number];
+export const computeSha256: (a: number, b: number) => [number, number];
+export const decompressVector: (a: number, b: number, c: number) => [number, number, number, number];
+export const evaluateWriteFirewall: (a: number, b: number) => [number, number, number, number];
+export const getAvailableModules: () => [number, number];
+export const getDefaultTokenRegistry: () => [number, number, number, number];
+export const getVersion: () => [number, number];
+export const tokenAmountAdd: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const tokenAmountFromHuman: (a: number, b: number) => [number, number, number, number];
+export const tokenAmountMulBps: (a: number, b: number, c: bigint) => [number, number, number, number];
+export const tokenAmountSub: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const tokenAmountToHuman: (a: number, b: number) => [number, number, number];
+export const wasmcanonicalstore_exportJson: (a: number) => [number, number, number, number];
+export const wasmcanonicalstore_get: (a: number, b: number, c: number) => [number, number, number, number];
+export const wasmcanonicalstore_getByHash: (a: number, b: number, c: number) => [number, number, number, number];
+export const wasmcanonicalstore_importJson: (a: number, b: number, c: number) => [number, number, number];
+export const wasmcanonicalstore_insert: (a: number, b: number, c: number) => [number, number, number, number];
+export const wasmcanonicalstore_new: () => [number, number, number];
+export const wasmcanonicalstore_queryNamespace: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const wasmcanonicalstore_softDelete: (a: number, b: number, c: number) => [number, number, number];
+export const wasmcanonicalstore_verifyIntegrity: (a: number, b: number, c: number) => [number, number, number];
+export const __wbindgen_exn_store: (a: number) => void;
+export const __externref_table_alloc: () => number;
+export const __wbindgen_externrefs: WebAssembly.Table;
+export const __wbindgen_malloc: (a: number, b: number) => number;
+export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+export const __externref_table_dealloc: (a: number) => void;
+export const __wbindgen_free: (a: number, b: number, c: number) => void;
+export const __wbindgen_start: () => void;

@@ -1,0 +1,38 @@
+[package]
+name = "clawpowers-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "WASM bindings for ClawPowers core — tokens, fees, policy, compression, index, canonical, verification, security"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde-wasm-bindgen = "0.6"
+
+# Crates that compile cleanly to WASM
+clawpowers-tokens = { path = "../crates/tokens" }
+clawpowers-fee = { path = "../crates/fee" }
+clawpowers-policy = { path = "../crates/policy" }
+clawpowers-compression = { path = "../crates/compression" }
+clawpowers-index = { path = "../crates/index" }
+
+# Crates that need WASM feature flag
+clawpowers-canonical = { path = "../crates/canonical", default-features = false, features = ["wasm"] }
+clawpowers-verification = { path = "../crates/verification", default-features = false, features = ["wasm"] }
+clawpowers-security = { path = "../crates/security", default-features = false, features = ["wasm"] }
+
+# alloy-primitives needed for Address type
+alloy-primitives = { workspace = true }
+uuid = { version = "1", features = ["v4", "serde", "js"] }
+chrono = { workspace = true }
+
+# WASM-compatible random number generation
+getrandom = { version = "0.3", features = ["wasm_js"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"

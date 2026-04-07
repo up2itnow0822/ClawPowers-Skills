@@ -1,0 +1,32 @@
+[package]
+name = "clawpowers-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { workspace = true }
+napi-derive = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+alloy-primitives = { workspace = true }
+uuid = { workspace = true }
+clawpowers-wallet = { path = "../crates/wallet" }
+clawpowers-policy = { path = "../crates/policy" }
+clawpowers-tokens = { path = "../crates/tokens" }
+clawpowers-fee = { path = "../crates/fee" }
+clawpowers-x402 = { path = "../crates/x402" }
+clawpowers-canonical = { path = "../crates/canonical" }
+clawpowers-compression = { path = "../crates/compression" }
+clawpowers-index = { path = "../crates/index" }
+clawpowers-verification = { path = "../crates/verification" }
+clawpowers-security = { path = "../crates/security" }
+
+[build-dependencies]
+napi-build = "2"
+
+[dev-dependencies]

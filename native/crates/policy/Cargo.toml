@@ -1,0 +1,17 @@
+[package]
+name = "clawpowers-policy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+alloy-primitives = { workspace = true }
+clawpowers-tokens = { path = "../tokens" }
+
+[dev-dependencies]
+tokio = { workspace = true }

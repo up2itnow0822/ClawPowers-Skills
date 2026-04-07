@@ -1,13 +1,14 @@
 /**
  * ClawPowers Skills — Wallet Crypto
- * Ethereum-compatible wallet generation, import, and signing using Node.js crypto.
- * No external dependencies for key generation.
+ * Ethereum-oriented wallet generation, import, and signing using Node.js crypto.
+ * Address derivation: Keccak-256 when Tier 1 (native `keccak256Bytes`) or Tier 2 (WASM) is available; SHA-256 fallback (Tier 3) only when neither is loaded.
  */
 
-import { randomBytes, createCipheriv, createDecipheriv, scryptSync, createHash } from 'node:crypto';
+import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from 'node:crypto';
 import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { digestForWalletAddress } from '../native/index.js';
 import type { WalletConfig, WalletInfo, SignedMessage } from './types.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -19,14 +20,10 @@ const KEY_LENGTH = 32;
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
-/**
- * Minimal keccak256 using Node.js built-in sha256 as fallback.
- * For production Ethereum address derivation, a proper keccak256 library
- * should be used. This implementation uses sha256 for address generation
- * which is sufficient for key management but NOT for on-chain interaction.
- */
-function addressHash(publicKeyBytes: Buffer): string {
-  const hash = createHash('sha256').update(publicKeyBytes).digest();
+/** Last 20 bytes of the 32-byte digest as `0x`-prefixed address (pseudo-derivation from key material). */
+function addressFromKeyMaterial(keyMaterial: Buffer): string {
+  const digestHex = digestForWalletAddress(keyMaterial);
+  const hash = Buffer.from(digestHex.replace(/^0x/, ''), 'hex');
   return '0x' + hash.subarray(hash.length - 20).toString('hex');
 }
 
@@ -101,10 +98,8 @@ function decryptPrivateKey(
 }
 
 function generateAddress(privateKeyHex: string): string {
-  // Derive a pseudo-public-key from the private key via hashing
-  // For real Ethereum, this would use secp256k1 curve multiplication
   const privBuf = Buffer.from(privateKeyHex, 'hex');
-  return addressHash(privBuf);
+  return addressFromKeyMaterial(privBuf);
 }
 
 async function ensureDir(dir: string): Promise<void> {

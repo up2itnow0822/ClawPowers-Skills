@@ -1,0 +1,3 @@
+native/target/
+native/**/target/
+.DS_Store

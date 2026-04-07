@@ -2,6 +2,22 @@
 
 All notable changes to ClawPowers are documented here.
 
+## [2.1.0] - 2026-04-06
+
+### Added
+
+- **Native acceleration layer** (parity with ClawPowers-Agent): `native/` Rust workspace (wallet, tokens, policy, fee, x402, canonical, compression, index, verification, security, ffi, WASM crate, PyO3 bindings).
+- **Pre-built WASM** in `native/wasm/pkg-node` and `native/wasm/pkg` so npm installs work **without** `wasm-pack` or Rust.
+- **3-tier TypeScript loader** (`src/native/index.ts`): Tier 1 optional `.node` addon, Tier 2 WASM, Tier 3 pure TypeScript fallbacks. Exported from the package root (`getActiveTier`, `isNativeAvailable`, `isWasmAvailable`, `getCapabilitySummary`, `computeSha256`, `digestForWalletAddress`, `tokenAmountFromHuman`, `calculateFee`, `evaluateWriteFirewall`, etc.).
+- **Payment bridges** (`calculateTransactionFee`, `createPaymentHeader`, `generateWalletAddress`) and **memory bridges** (`getBestCanonicalStore`, `compressVector`, `evaluateWriteSecurity`, …) via `src/payments/native-bridge.ts` and `src/memory/native-store.ts`.
+- **npm scripts:** `build:native`, `build:wasm`.
+- **WASM / native Keccak-256** for wallet address digest when Tier 1 or Tier 2 is active; **SHA-256** remains the Tier 3 fallback only.
+
+### Notes
+
+- Tier 1 (native) is **optional**; building `native/ffi` requires Rust locally. Published tarballs focus on Tier 2 WASM + Tier 3 TS.
+- Backward compatible at the **API** level for v2.0.0 importers; wallet **address strings** for newly generated keys may differ from v2.0.0 when WASM/native is loaded (Keccak-256 vs former SHA-256-only digest). Existing keyfiles keep their stored `address` field.
+
 ## [2.0.0] - 2026-04-03
 
 ### Breaking Changes

@@ -1,0 +1,26 @@
+[package]
+name = "clawpowers-pyo3"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "clawpowers_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+alloy-primitives = { workspace = true }
+uuid = { workspace = true }
+clawpowers-wallet = { path = "../crates/wallet" }
+clawpowers-tokens = { path = "../crates/tokens" }
+clawpowers-fee = { path = "../crates/fee" }
+clawpowers-x402 = { path = "../crates/x402" }
+clawpowers-canonical = { path = "../crates/canonical" }
+clawpowers-compression = { path = "../crates/compression" }
+clawpowers-index = { path = "../crates/index" }
+clawpowers-verification = { path = "../crates/verification" }
+clawpowers-security = { path = "../crates/security" }
+clawpowers-policy = { path = "../crates/policy" }

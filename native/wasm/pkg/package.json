@@ -1,0 +1,17 @@
+{
+  "name": "clawpowers-wasm",
+  "type": "module",
+  "description": "WASM bindings for ClawPowers core — tokens, fees, policy, compression, index, canonical, verification, security",
+  "version": "0.1.0",
+  "license": "BUSL-1.1",
+  "files": [
+    "clawpowers_wasm_bg.wasm",
+    "clawpowers_wasm.js",
+    "clawpowers_wasm.d.ts"
+  ],
+  "main": "clawpowers_wasm.js",
+  "types": "clawpowers_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

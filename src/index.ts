@@ -3,7 +3,7 @@
  * Drop-in capability layer: payments, memory, RSI, wallet.
  * No agent control loop — bring your own agent.
  *
- * @version 2.0.0
+ * @version 2.1.0
  * @license BSL-1.1
  * @patent-pending
  */
@@ -30,14 +30,51 @@ export type {
   Profile,
 } from './types.js';
 
+// Native acceleration (3-tier: Rust .node → WASM → TypeScript)
+export {
+  getNative,
+  getWasm,
+  getActiveTier,
+  isNativeAvailable,
+  isWasmAvailable,
+  getCapabilitySummary,
+  computeSha256,
+  digestForWalletAddress,
+  tokenAmountFromHuman,
+  calculateFee,
+  evaluateWriteFirewall,
+} from './native/index.js';
+export type { LoadTier, NativeModule, WasmModule } from './native/index.js';
+
 // Payments
-export { detect402, isPaymentRequired } from './payments/discovery.js';
-export { SpendingPolicy } from './payments/spending.js';
-export { PaymentExecutor } from './payments/executor.js';
-export type { MCPPaymentClient } from './payments/executor.js';
+export {
+  detect402,
+  isPaymentRequired,
+  SpendingPolicy,
+  PaymentExecutor,
+  calculateTransactionFee,
+  createPaymentHeader,
+  generateWalletAddress,
+} from './payments/index.js';
+export type { MCPPaymentClient } from './payments/index.js';
 
 // Memory
-export { WorkingMemoryManager, EpisodicMemory, ProceduralMemory, CheckpointManager, ContextInjector } from './memory/index.js';
+export {
+  WorkingMemoryManager,
+  EpisodicMemory,
+  ProceduralMemory,
+  CheckpointManager,
+  ContextInjector,
+  getNativeCanonicalStore,
+  getNativeCanonicalStoreInMemory,
+  getWasmCanonicalStore,
+  getBestCanonicalStore,
+  compressVector,
+  decompressVector,
+  approximateDistance,
+  evaluateWriteSecurity,
+} from './memory/index.js';
+export type { CompressionResult } from './memory/index.js';
 
 // RSI
 export { MetricsCollector, HypothesisEngine, MutationEngine, ABTestManager, RSIAuditLog, AutoResearcher, runAutoResearch } from './rsi/index.js';
