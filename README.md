@@ -9,6 +9,34 @@
 npm install clawpowers
 ```
 
+## 60-Second Demo
+
+```bash
+npm install clawpowers
+node -e "
+const { generateWallet, detect402, SpendingPolicy, signMessage } = await import('clawpowers');
+
+// 1. Generate a real Ethereum wallet (MetaMask-compatible)
+const wallet = await generateWallet({ chain: 'base', dataDir: './demo-wallet' });
+console.log('Address:', wallet.address);
+
+// 2. Detect an x402 payment-required response
+const req = detect402({ status: 402, headers: {
+  'x-payment-amount': '0.10',
+  'x-payment-currency': 'USD',
+  'x-payment-recipient': '0xabc',
+  'x-payment-network': 'base'
+}});
+console.log('Payment required:', req);
+
+// 3. Enforce a spending policy
+const policy = new SpendingPolicy({ dailyLimitUsd: 25, allowedDomains: ['api.example.com'] });
+console.log('Allowed:', policy.checkTransaction(0.10, 'api.example.com').allowed);
+"
+```
+
+That's a real Ethereum wallet, real x402 detection, and a real spending policy check — all in 60 seconds, zero config, zero Rust toolchain. The `native/` Rust acceleration is optional; the WASM tier ships pre-built in the npm package.
+
 > **⚠️ Patent Pending:** The x402 payment detection, autonomous spending policy enforcement, and recursive self-improvement (RSI) systems described in this library are subject to pending patent applications. Use is governed by the BSL 1.1 license.
 
 ---
@@ -20,7 +48,7 @@ ClawPowers extracts the core capabilities from [ClawPowers-Agent](https://github
 - **x402 Payments** — Detect HTTP 402 responses, enforce spending policies, execute payments
 - **Three-Tier Memory** — Working, episodic, procedural memory with crash recovery
 - **RSI Engine** — Metrics collection, hypothesis generation, mutation, A/B testing
-- **Wallet** — Generate, import, and sign with **MetaMask-compatible** Ethereum addresses (secp256k1 + Keccak-256) when the native or WASM tier is active
+- **Wallet** — Generate, import, and sign with **MetaMask-compatible** Ethereum addresses out of the box (secp256k1 + Keccak-256 via pre-built WASM, no Rust toolchain required)
 - **Skills** — Discover, load, and track skill execution outcomes
 - **Parallel Swarm** — Concurrent task execution with intelligent model routing and token budgeting
 - **ITP (Identical Twins Protocol)** — Context compression that eliminates redundant token usage across agent sessions
@@ -188,19 +216,34 @@ const result = ab.evaluateTest(test.testId);
 
 ### Wallet
 
-Address strings are derived from the **last 20 bytes** of a 32-byte digest of the private key material. **Tier 1** (native addon with `keccak256Bytes`) and **Tier 2** (pre-built WASM with `computeKeccak256`) use **Keccak-256**; **Tier 3** (no native/WASM) falls back to **SHA-256** for that digest. This is still **not** the standard EIP-1191 / MetaMask derivation (secp256k1 public key → Keccak-256 → last 20 bytes). For **on-chain** sending, contract interaction, or addresses that must match hardware wallets, use [`viem`](https://viem.sh) or [`ethers`](https://docs.ethers.org).
+**v2.2.0+ produces real MetaMask-compatible Ethereum addresses** via the standard derivation chain: secp256k1 private key → uncompressed public key → Keccak-256 → last 20 bytes, with EIP-55 checksum case. Verified against the Hardhat default test vector (`0xac09...ff80` → `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`). Addresses are importable into MetaMask, Etherscan, and any EVM wallet.
+
+**Tier behavior:**
+- **Tier 1** (native `.node` addon, built locally with `cargo`): full secp256k1 + ECDSA + Keccak-256 via the `k256` Rust crate
+- **Tier 2** (pre-built WASM, ships in the npm package): same secp256k1 + ECDSA + Keccak-256 via `k256` compiled to WebAssembly
+- **Tier 3** (pure TypeScript, used only if Tier 1 AND Tier 2 both fail to load): legacy SHA-256 digest and HMAC signing — **not production-safe for on-chain use**
+
+Since Tier 2 WASM artifacts ship pre-built in the npm package, **every install gets real Ethereum wallets out of the box** — no Rust toolchain required.
 
 ```typescript
-import { WalletManager } from 'clawpowers';
+import { WalletManager, generateWallet, signMessage } from 'clawpowers';
 
+// High-level API
 const wallet = new WalletManager({
   chain: 'base',
   dataDir: '~/.clawpowers/wallet',
 });
 
 const info = await wallet.generate();
-console.log(info.address); // 0x... (Keccak-256 digest when WASM/native loaded; else SHA-256 fallback)
+console.log(info.address); // 0x... — real Ethereum address, EIP-55 checksummed
+
+// Low-level API for direct key handling
+const sig = await signMessage(privateKeyHex, 'Hello, Ethereum');
+// Returns 65-byte ECDSA signature (r || s || recovery) as 0x-prefixed hex
+// Verifiable by any Ethereum node, ethers.js, viem, or MetaMask
 ```
+
+For production on-chain sending and transaction construction, you can still use [`viem`](https://viem.sh) or [`ethers`](https://docs.ethers.org) alongside ClawPowers — our wallet produces the same addresses they do.
 
 ## Memory Module
 
