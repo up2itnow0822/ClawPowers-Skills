@@ -7,3 +7,6 @@ node_modules/
 native/target/
 native/ffi/index.node
 native/ffi/clawpowers_ffi.node
+__pycache__/
+*.pyc
+tools/itp/itp_history.db

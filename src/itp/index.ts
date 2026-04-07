@@ -6,7 +6,7 @@
  * Falls back gracefully if server not running (returns original message).
  */
 
-const ITP_BASE_URL = 'http://localhost:8100';
+const ITP_BASE_URL = process.env.ITP_BASE_URL ?? 'http://localhost:8100';
 const TIMEOUT_MS = 3000;
 
 export interface EncodeResult {

@@ -1,0 +1,180 @@
+{
+  "metadata": {
+    "timestamp": "2026-04-07T17:24:37.575Z",
+    "hostname": "BillsPC",
+    "platform": "win32 x64",
+    "osRelease": "10.0.26200",
+    "cpuModel": "AMD Ryzen Threadripper 9970X 32-Cores          ",
+    "cpuCores": 64,
+    "totalMemoryGB": 127.4,
+    "nodeVersion": "v24.14.1",
+    "clawpowersTier": "wasm",
+    "nativeCapabilities": {
+      "tier": "wasm",
+      "nativeModules": [],
+      "wasmModules": [
+        "tokens",
+        "fee",
+        "compression",
+        "canonical",
+        "verification",
+        "security",
+        "index"
+      ],
+      "typescriptFallback": [
+        "wallet",
+        "x402",
+        "tokens",
+        "fee",
+        "policy"
+      ]
+    },
+    "itpServerAvailable": true
+  },
+  "itp": {
+    "serverStatus": "available",
+    "encodeTests": [
+      {
+        "taskId": "health-1",
+        "inputChars": 851,
+        "inputTokensEst": 213,
+        "outputChars": 218,
+        "outputTokensEst": 55,
+        "wasCompressed": true,
+        "savingsPct": 74.38,
+        "latencyMs": 12
+      },
+      {
+        "taskId": "health-2",
+        "inputChars": 878,
+        "inputTokensEst": 220,
+        "outputChars": 343,
+        "outputTokensEst": 86,
+        "wasCompressed": true,
+        "savingsPct": 60.93,
+        "latencyMs": 8
+      },
+      {
+        "taskId": "health-3",
+        "inputChars": 863,
+        "inputTokensEst": 216,
+        "outputChars": 304,
+        "outputTokensEst": 76,
+        "wasCompressed": true,
+        "savingsPct": 64.77,
+        "latencyMs": 9
+      },
+      {
+        "taskId": "health-4",
+        "inputChars": 845,
+        "inputTokensEst": 212,
+        "outputChars": 266,
+        "outputTokensEst": 67,
+        "wasCompressed": true,
+        "savingsPct": 68.52,
+        "latencyMs": 8
+      },
+      {
+        "taskId": "health-5",
+        "inputChars": 906,
+        "inputTokensEst": 227,
+        "outputChars": 280,
+        "outputTokensEst": 70,
+        "wasCompressed": true,
+        "savingsPct": 69.09,
+        "latencyMs": 8
+      }
+    ],
+    "decodeTests": [
+      {
+        "taskId": "health-1",
+        "inputChars": 218,
+        "outputChars": 8,
+        "wasItp": false,
+        "latencyMs": 7
+      },
+      {
+        "taskId": "health-2",
+        "inputChars": 343,
+        "outputChars": 8,
+        "wasItp": false,
+        "latencyMs": 7
+      },
+      {
+        "taskId": "health-3",
+        "inputChars": 304,
+        "outputChars": 8,
+        "wasItp": false,
+        "latencyMs": 7
+      },
+      {
+        "taskId": "health-4",
+        "inputChars": 266,
+        "outputChars": 8,
+        "wasItp": false,
+        "latencyMs": 8
+      },
+      {
+        "taskId": "health-5",
+        "inputChars": 280,
+        "outputChars": 8,
+        "wasItp": false,
+        "latencyMs": 6
+      }
+    ],
+    "summary": {
+      "avgEncodeSavingsPct": 67.5,
+      "avgEncodeLatencyMs": 9,
+      "avgDecodeLatencyMs": 7,
+      "totalInputTokensEst": 1088,
+      "totalOutputTokensEst": 354,
+      "overallCompressionPct": 67.5
+    }
+  },
+  "swarm": {
+    "sequentialMs": 546,
+    "parallelMs": 205,
+    "speedupFactor": 2.7,
+    "concurrencyUsed": 5,
+    "tokenPool": {
+      "totalBudget": 100000,
+      "totalAllocated": 0,
+      "totalConsumed": 0
+    }
+  },
+  "modelRouter": {
+    "classificationsPerSecond": 1612903,
+    "classifications": [
+      {
+        "taskId": "health-1",
+        "description": "Check Docker container health status for all running services",
+        "classified": "simple",
+        "expectedModel": "claude-3-haiku-20240307"
+      },
+      {
+        "taskId": "health-2",
+        "description": "Verify API endpoint availability and response times",
+        "classified": "simple",
+        "expectedModel": "claude-3-haiku-20240307"
+      },
+      {
+        "taskId": "health-3",
+        "description": "Analyze disk usage and identify large files consuming storage",
+        "classified": "simple",
+        "expectedModel": "claude-3-haiku-20240307"
+      },
+      {
+        "taskId": "health-4",
+        "description": "Review system memory and process resource consumption",
+        "classified": "simple",
+        "expectedModel": "claude-3-haiku-20240307"
+      },
+      {
+        "taskId": "health-5",
+        "description": "Audit recent error logs across all services for anomalies",
+        "classified": "simple",
+        "expectedModel": "claude-3-haiku-20240307"
+      }
+    ]
+  }
+}
