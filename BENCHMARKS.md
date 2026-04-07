@@ -1,6 +1,6 @@
 # ClawPowers — Performance Benchmarks
 
-> **Status: Initial findings.** Automated benchmark runs on BillsPC hardware. Two runs: ITP offline (passthrough baseline) and ITP server active (real compression). We will continue adding runs across different hardware and real-world workloads.
+> **Status: Initial findings.** Three benchmark runs on BillsPC hardware: ITP offline (passthrough baseline), ITP server active (character-level compression), and **real LLM API calls** (actual tokenizer-measured savings). We will continue adding runs across different hardware and real-world workloads.
 
 ## Methodology
 
@@ -37,6 +37,15 @@ Results are written to `benchmarks/results/benchmark-<timestamp>.json`.
 - Disk I/O for memory persistence (episodic/procedural writes)
 
 These are planned for future benchmark rounds.
+
+### Important: Character Compression vs Token Savings
+
+ITP compresses at the **character level** — replacing verbose English phrases with compact codes. However, LLM tokenizers don't compress linearly with characters. ITP codes like `ROLE:INFRA/MON` use special characters (`:`, `/`, `+`) that each become their own token. This means:
+
+- **Character-level savings**: 60–77% (impressive but misleading)
+- **Real token-level savings**: ~9% (what actually matters for cost)
+
+We report both, but **the real LLM benchmark (Run 3) is the number that matters.**
 
 ### Test Workload
 
@@ -205,13 +214,71 @@ ITP_BASE_URL=http://127.0.0.1:8101 npx tsx benchmarks/itp-swarm-benchmark.ts
 
 ## Pending Tests
 
-- [ ] **Real LLM API calls** — Replace simulated tasks with actual Claude/GPT API calls to measure end-to-end token usage and cost savings
+- [x] **Real LLM API calls** — ✅ Completed in Run 3 (see below)
 - [ ] **Native tier comparison** — Compile the Rust native addon and compare crypto/compression performance against WASM and pure-TS tiers
 - [ ] **Mac hardware** — Run the same benchmark on Apple Silicon for cross-platform comparison
 - [ ] **Larger workloads** — Scale to 10, 20, and 50 concurrent tasks to measure ConcurrencyManager behavior under load
 - [ ] **Diverse workloads** — Test ITP compression on non-infrastructure tasks (code review, content generation, research)
 - [ ] **Codebook expansion** — Measure compression improvement as codebook grows beyond 54 entries
 - [ ] **Memory persistence** — Benchmark episodic (JSONL append) and procedural (JSON atomic write) memory operations at scale
+
+---
+
+## Run 3 — Real LLM API Calls (Actual Token Savings)
+
+**Date:** April 7, 2026 12:56 CDT  
+**Model:** Claude 3.5 Haiku via OpenRouter  
+**ITP server:** Active on port 8101 (54-entry codebook)  
+**Max output tokens:** 200 per call
+
+This is the benchmark that matters — real API calls through a real tokenizer.
+
+### Per-Task Results
+
+| Task | Raw prompt tokens | ITP prompt tokens | Token savings | Char savings |
+|------|------------------|------------------|---------------|-------------|
+| health-1 | 164 | 151 | **7.9%** | 74.4% |
+| health-2 | 174 | 162 | **6.9%** | 60.9% |
+| health-3 | 162 | 142 | **12.3%** | 64.8% |
+| health-4 | 167 | 150 | **10.2%** | 68.5% |
+| health-5 | 182 | 165 | **9.3%** | 69.1% |
+
+### Totals
+
+| Metric | Raw | ITP | Savings |
+|--------|-----|-----|---------|
+| **Prompt tokens** | 849 | 770 | **9.3% (79 tokens)** |
+| Completion tokens | 1,000 | 1,000 | 0% (same output cap) |
+| Total tokens | 1,849 | 1,770 | 4.3% |
+| Total latency | 4,574ms | 3,981ms | 13% faster |
+| Estimated cost | $0.004679 | $0.004616 | **1.4%** |
+
+### Key Insights
+
+1. **Character compression ≠ token savings.** ITP achieves 67.5% character reduction but only 9.3% token reduction. The tokenizer treats ITP codes (with `/`, `+`, `:`, `→` characters) as multiple tokens, partially undoing the character-level compression.
+
+2. **System preamble compresses best.** The shared 630-char system preamble compressed to 148 chars (77%) because it's full of exact codebook matches. Individual task messages varied from 20–68% character savings.
+
+3. **ITP was slightly faster.** 13% lower total latency — fewer input tokens means faster prefill. This is a real operational benefit beyond cost.
+
+4. **Cost savings are modest** at current codebook size. 1.4% cost reduction won't move the needle for small workloads. However, at scale (thousands of swarm tasks per day), the 9.3% prompt token reduction adds up.
+
+5. **The path to better savings** is either:
+   - **Larger codebook** tuned to common agent-to-agent phrases (could push token savings to 15–20%)
+   - **Provider prompt caching** (Anthropic cache_control) which can reduce repeated system prompt costs by 90% — a much bigger lever than ITP compression
+   - **Both combined** — ITP compresses unique per-task content, caching handles repeated system context
+
+### Comparison: Character Savings vs Real Token Savings
+
+| Task | Char savings | Token savings | Ratio |
+|------|-------------|---------------|-------|
+| health-1 | 74.4% | 7.9% | 9.4:1 |
+| health-2 | 60.9% | 6.9% | 8.8:1 |
+| health-3 | 64.8% | 12.3% | 5.3:1 |
+| health-4 | 68.5% | 10.2% | 6.7:1 |
+| health-5 | 69.1% | 9.3% | 7.4:1 |
+
+The ratio averages ~7.5:1 — for every 7.5% character reduction, you get ~1% real token savings. This is important for setting expectations.
 
 ---
 

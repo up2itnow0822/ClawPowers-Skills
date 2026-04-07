@@ -1,0 +1,148 @@
+{
+  "metadata": {
+    "timestamp": "2026-04-07T18:16:48.004Z",
+    "hostname": "BillsPC",
+    "platform": "win32 x64",
+    "model": "anthropic/claude-3.5-haiku",
+    "maxTokens": 200,
+    "itpServerActive": true,
+    "codebookSize": 54
+  },
+  "raw": {
+    "tasks": [
+      {
+        "taskId": "health-1",
+        "mode": "raw",
+        "systemChars": 630,
+        "messageChars": 213,
+        "promptTokens": 164,
+        "completionTokens": 200,
+        "totalTokens": 364,
+        "latencyMs": 1165,
+        "responsePreview": "I'll execute the Docker container health check and provide a comprehensive JSON "
+      },
+      {
+        "taskId": "health-2",
+        "mode": "raw",
+        "systemChars": 630,
+        "messageChars": 240,
+        "promptTokens": 174,
+        "completionTokens": 200,
+        "totalTokens": 374,
+        "latencyMs": 992,
+        "responsePreview": "I'll perform a comprehensive health check on the specified API endpoints using c"
+      },
+      {
+        "taskId": "health-3",
+        "mode": "raw",
+        "systemChars": 630,
+        "messageChars": 207,
+        "promptTokens": 162,
+        "completionTokens": 200,
+        "totalTokens": 362,
+        "latencyMs": 912,
+        "responsePreview": "I'll perform a comprehensive disk usage analysis with a structured JSON report. "
+      },
+      {
+        "taskId": "health-4",
+        "mode": "raw",
+        "systemChars": 630,
+        "messageChars": 207,
+        "promptTokens": 167,
+        "completionTokens": 200,
+        "totalTokens": 367,
+        "latencyMs": 685,
+        "responsePreview": "I'll retrieve the memory usage information and process details using standard Li"
+      },
+      {
+        "taskId": "health-5",
+        "mode": "raw",
+        "systemChars": 630,
+        "messageChars": 268,
+        "promptTokens": 182,
+        "completionTokens": 200,
+        "totalTokens": 382,
+        "latencyMs": 820,
+        "responsePreview": "I'll perform a comprehensive log scan across all Docker containers, focusing on "
+      }
+    ],
+    "totals": {
+      "prompt": 849,
+      "completion": 1000,
+      "total": 1849,
+      "latency": 4574
+    }
+  },
+  "itp": {
+    "tasks": [
+      {
+        "taskId": "health-1",
+        "mode": "itp",
+        "systemChars": 148,
+        "messageChars": 68,
+        "promptTokens": 151,
+        "completionTokens": 200,
+        "totalTokens": 351,
+        "latencyMs": 687,
+        "responsePreview": "I'll help you check the Docker services health, status, and identify any unhealt"
+      },
+      {
+        "taskId": "health-2",
+        "mode": "itp",
+        "systemChars": 148,
+        "messageChars": 193,
+        "promptTokens": 162,
+        "completionTokens": 200,
+        "totalTokens": 362,
+        "latencyMs": 758,
+        "responsePreview": "Here's a comprehensive health check script to verify API endpoint availability a"
+      },
+      {
+        "taskId": "health-3",
+        "mode": "itp",
+        "systemChars": 148,
+        "messageChars": 145,
+        "promptTokens": 142,
+        "completionTokens": 200,
+        "totalTokens": 342,
+        "latencyMs": 931,
+        "responsePreview": "Here's a comprehensive script to analyze disk usage and identify large files:\n\n`"
+      },
+      {
+        "taskId": "health-4",
+        "mode": "itp",
+        "systemChars": 148,
+        "messageChars": 116,
+        "promptTokens": 150,
+        "completionTokens": 200,
+        "totalTokens": 350,
+        "latencyMs": 778,
+        "responsePreview": "I'll help you review the system memory and process resource consumption with a f"
+      },
+      {
+        "taskId": "health-5",
+        "mode": "itp",
+        "systemChars": 148,
+        "messageChars": 130,
+        "promptTokens": 165,
+        "completionTokens": 200,
+        "totalTokens": 365,
+        "latencyMs": 827,
+        "responsePreview": "Here's a comprehensive log analysis script targeting Docker container error logs"
+      }
+    ],
+    "totals": {
+      "prompt": 770,
+      "completion": 1000,
+      "total": 1770,
+      "latency": 3981
+    }
+  },
+  "comparison": {
+    "promptTokenSavingsPct": 9.3,
+    "promptTokensSaved": 79,
+    "costSavingsPct": 1.4,
+    "rawCostUSD": 0.0046792,
+    "itpCostUSD": 0.004616
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "timestamp": "2026-04-07T18:15:41.747Z",
+    "hostname": "BillsPC",
+    "platform": "win32 x64",
+    "model": "anthropic/claude-3-5-haiku-20241022",
+    "maxTokens": 200,
+    "itpServerActive": true,
+    "codebookSize": 54
+  },
+  "raw": {
+    "tasks": [],
+    "totals": {
+      "prompt": 0,
+      "completion": 0,
+      "total": 0,
+      "latency": 0
+    }
+  },
+  "itp": {
+    "tasks": [],
+    "totals": {
+      "prompt": 0,
+      "completion": 0,
+      "total": 0,
+      "latency": 0
+    }
+  },
+  "comparison": {
+    "promptTokenSavingsPct": 0,
+    "promptTokensSaved": 0,
+    "costSavingsPct": 0,
+    "rawCostUSD": 0,
+    "itpCostUSD": 0
+  }
+}
