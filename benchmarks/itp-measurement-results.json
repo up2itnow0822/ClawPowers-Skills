@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-04-07T12:13:26.825Z",
+  "host": "MacBook Pro M1 (Apple Silicon)",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.4.0 arm64",
+  "node": "v25.8.1",
+  "itpServer": "localhost:8100 (FastAPI, codebook v1.0.0)",
+  "corpusSize": 15,
+  "compressedCount": 6,
+  "passthroughCount": 9,
+  "totalOriginalChars": 1764,
+  "totalEncodedChars": 1554,
+  "charReduction": 210,
+  "charReductionPct": 11.9,
+  "totalOriginalTokens": 437,
+  "totalEncodedTokens": 383,
+  "tokenReduction": 54,
+  "tokenReductionPct": 12.36,
+  "totalRoundTripMs": 172,
+  "msPerMessage": 11.47,
+  "byCategory": {
+    "delegation": {
+      "count": 3,
+      "origTokens": 110,
+      "encTokens": 84,
+      "compressed": 3
+    },
+    "status": {
+      "count": 3,
+      "origTokens": 124,
+      "encTokens": 109,
+      "compressed": 2
+    },
+    "ops": {
+      "count": 3,
+      "origTokens": 114,
+      "encTokens": 101,
+      "compressed": 1
+    },
+    "research": {
+      "count": 2,
+      "origTokens": 81,
+      "encTokens": 81,
+      "compressed": 0
+    },
+    "short": {
+      "count": 4,
+      "origTokens": 8,
+      "encTokens": 8,
+      "compressed": 0
+    }
+  },
+  "tokenEstimator": "Math.ceil(chars / 4)",
+  "note": "Token numbers are estimated, not tokenized via a real LLM tokenizer. Real LLM token counts may differ by 5-15%."
+}
