@@ -1,0 +1,13 @@
+[package]
+name = "clawpowers-evm-eth"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "secp256k1 + Keccak Ethereum address and ECDSA helpers (pure Rust, WASM-safe)"
+
+[dependencies]
+k256 = { version = "0.13", features = ["ecdsa", "sha2"] }
+alloy-primitives = { workspace = true }
+
+[dev-dependencies]
+hex = "0.4"

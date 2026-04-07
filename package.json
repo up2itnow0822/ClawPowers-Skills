@@ -1,6 +1,6 @@
 {
   "name": "clawpowers",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Skills library for AI agents — payments, memory, RSI, wallet. Drop-in capability layer for any agent framework.",
   "type": "module",
   "main": "./dist/index.js",

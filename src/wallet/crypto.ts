@@ -1,15 +1,25 @@
 /**
  * ClawPowers Skills — Wallet Crypto
- * Ethereum-oriented wallet generation, import, and signing using Node.js crypto.
- * Address derivation: Keccak-256 when Tier 1 (native `keccak256Bytes`) or Tier 2 (WASM) is available; SHA-256 fallback (Tier 3) only when neither is loaded.
+ * Ethereum-oriented wallet generation, import, and signing.
+ * Address derivation: secp256k1 public key → Keccak-256 → last 20 bytes (MetaMask-compatible)
+ * when Tier 1 (native) or Tier 2 (WASM) is available; legacy hash-of-key digest only on Tier 3.
  */
 
 import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from 'node:crypto';
+import { debuglog } from 'node:util';
 import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { digestForWalletAddress } from '../native/index.js';
+import {
+  digestForWalletAddress,
+  deriveEthereumAddress as deriveEthAddressNative,
+  keccak256Digest,
+  signEcdsa as signEcdsaNative,
+  getActiveTier,
+} from '../native/index.js';
 import type { WalletConfig, WalletInfo, SignedMessage } from './types.js';
+
+const dlog = debuglog('clawpowers:wallet');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -20,7 +30,7 @@ const KEY_LENGTH = 32;
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
-/** Last 20 bytes of the 32-byte digest as `0x`-prefixed address (pseudo-derivation from key material). */
+/** Tier 3: last 20 bytes of the 32-byte digest as `0x`-prefixed address (legacy). */
 function addressFromKeyMaterial(keyMaterial: Buffer): string {
   const digestHex = digestForWalletAddress(keyMaterial);
   const hash = Buffer.from(digestHex.replace(/^0x/, ''), 'hex');
@@ -98,7 +108,14 @@ function decryptPrivateKey(
 }
 
 function generateAddress(privateKeyHex: string): string {
-  const privBuf = Buffer.from(privateKeyHex, 'hex');
+  const cleaned = privateKeyHex.replace(/^0x/i, '');
+  const privBuf = Buffer.from(cleaned, 'hex');
+  const eth = deriveEthAddressNative(privBuf);
+  if (eth) {
+    dlog('address derivation: secp256k1+keccak (tier %s)', getActiveTier());
+    return eth;
+  }
+  dlog('address derivation: tier3 legacy digest (tier %s)', getActiveTier());
   return addressFromKeyMaterial(privBuf);
 }
 
@@ -106,6 +123,64 @@ async function ensureDir(dir: string): Promise<void> {
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true });
   }
+}
+
+async function signMessageFromKeyFile(
+  message: string,
+  keyFile: string,
+  passphrase: string
+): Promise<SignedMessage> {
+  const content = await readFile(keyFile, 'utf-8');
+  const keyFileData = JSON.parse(content) as EncryptedKeyFile;
+
+  const privateKey = decryptPrivateKey(
+    keyFileData.crypto.ciphertext,
+    keyFileData.crypto.iv,
+    keyFileData.crypto.authTag,
+    keyFileData.crypto.salt,
+    passphrase
+  );
+
+  const msgBuf = Buffer.from(message, 'utf8');
+  const hash = keccak256Digest(msgBuf);
+  const sigEcdsa = hash ? signEcdsaNative(privateKey, hash) : null;
+  if (sigEcdsa) {
+    dlog('signMessage (keyfile): secp256k1 ECDSA (tier %s)', getActiveTier());
+    return {
+      message,
+      signature: '0x' + sigEcdsa.toString('hex'),
+      address: keyFileData.address,
+    };
+  }
+
+  const { createHmac } = await import('node:crypto');
+  dlog('signMessage (keyfile): HMAC-SHA256 legacy (no secp256k1/keccak tier)');
+  const signature = createHmac('sha256', privateKey).update(message).digest('hex');
+
+  return {
+    message,
+    signature: '0x' + signature,
+    address: keyFileData.address,
+  };
+}
+
+async function signMessageFromPrivateKey(privateKeyHex: string, message: string): Promise<string> {
+  const cleaned = privateKeyHex.replace(/^0x/i, '');
+  if (cleaned.length !== 64 || !/^[0-9a-fA-F]+$/.test(cleaned)) {
+    throw new Error('Invalid private key: must be 32 bytes (64 hex characters)');
+  }
+  const priv = Buffer.from(cleaned, 'hex');
+  const hash = keccak256Digest(Buffer.from(message, 'utf8'));
+  if (!hash) {
+    throw new Error(
+      'Ethereum signing requires Keccak-256 (Tier 1 native or Tier 2 WASM). Pure TypeScript tier has no Keccak.',
+    );
+  }
+  const sig = signEcdsaNative(priv, hash);
+  if (!sig) {
+    throw new Error('Ethereum signing requires secp256k1 (Tier 1 native or Tier 2 WASM).');
+  }
+  return '0x' + sig.toString('hex');
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -158,7 +233,7 @@ export async function generateWallet(config: WalletConfig): Promise<WalletInfo> 
  */
 export async function importWallet(privateKeyHex: string, config: WalletConfig): Promise<WalletInfo> {
   // Validate private key format
-  const cleaned = privateKeyHex.replace(/^0x/, '');
+  const cleaned = privateKeyHex.replace(/^0x/i, '');
   if (cleaned.length !== 64 || !/^[0-9a-fA-F]+$/.test(cleaned)) {
     throw new Error('Invalid private key: must be 32 bytes (64 hex characters)');
   }
@@ -201,33 +276,29 @@ export async function importWallet(privateKeyHex: string, config: WalletConfig):
 }
 
 /**
- * Sign a message using an encrypted key file and passphrase.
+ * Sign a message using an encrypted key file and passphrase (returns structured result).
+ * Uses secp256k1 ECDSA over Keccak-256(UTF-8 message) when native/WASM tiers provide it;
+ * otherwise falls back to HMAC-SHA256 for backward compatibility.
  */
 export async function signMessage(
   message: string,
   keyFile: string,
-  passphrase: string
-): Promise<SignedMessage> {
-  const content = await readFile(keyFile, 'utf-8');
-  const keyFileData = JSON.parse(content) as EncryptedKeyFile;
+  passphrase: string,
+): Promise<SignedMessage>;
 
-  const privateKey = decryptPrivateKey(
-    keyFileData.crypto.ciphertext,
-    keyFileData.crypto.iv,
-    keyFileData.crypto.authTag,
-    keyFileData.crypto.salt,
-    passphrase
-  );
+/**
+ * Sign a message with a raw hex private key. Returns 65-byte ECDSA signature (r‖s‖v) as hex.
+ * Requires Tier 1 or Tier 2 (Keccak + secp256k1).
+ */
+export async function signMessage(privateKeyHex: string, message: string): Promise<string>;
 
-  // Sign: HMAC-SHA256 of the message with the private key
-  const { createHmac } = await import('node:crypto');
-  const signature = createHmac('sha256', privateKey)
-    .update(message)
-    .digest('hex');
-
-  return {
-    message,
-    signature: '0x' + signature,
-    address: keyFileData.address,
-  };
+export async function signMessage(
+  a: string,
+  b: string,
+  c?: string,
+): Promise<SignedMessage | string> {
+  if (c !== undefined) {
+    return signMessageFromKeyFile(a, b, c);
+  }
+  return signMessageFromPrivateKey(a, b);
 }

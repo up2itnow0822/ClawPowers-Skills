@@ -78,6 +78,16 @@ export function computeSha256(content: string): string;
 export function decompressVector(compressed_json: string, dimensions: number): string;
 
 /**
+ * Ethereum address from 32-byte secp256k1 private key (`0x` + 20 bytes, EIP-55 checksum).
+ */
+export function deriveEthereumAddress(private_key: Uint8Array): string;
+
+/**
+ * Uncompressed public key: 64 bytes (x || y), no `0x04` prefix.
+ */
+export function derivePublicKey(private_key: Uint8Array): Uint8Array;
+
+/**
  * Evaluate a write request against a firewall.
  * Input JSON: {namespace, content, trust_level, source, allowed_namespaces?, blocked_patterns?, max_content_length?}
  * Returns JSON: {"decision": "allow"|"deny"|"sanitize", "reason"?: ..., "sanitized"?: ...}
@@ -98,6 +108,11 @@ export function getDefaultTokenRegistry(): string;
  * Returns the version and build info.
  */
 export function getVersion(): string;
+
+/**
+ * ECDSA sign 32-byte message hash → 65 bytes (r || s || recovery_id).
+ */
+export function signEcdsa(private_key: Uint8Array, message_hash: Uint8Array): Uint8Array;
 
 /**
  * Add two TokenAmount JSONs. Returns the sum as JSON.
@@ -124,3 +139,5 @@ export function tokenAmountSub(a_json: string, b_json: string): string;
  * Convert a TokenAmount JSON back to a human-readable f64.
  */
 export function tokenAmountToHuman(json: string): number;
+
+export function verifyEcdsa(public_key: Uint8Array, message_hash: Uint8Array, signature: Uint8Array): boolean;

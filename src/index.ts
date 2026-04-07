@@ -3,7 +3,7 @@
  * Drop-in capability layer: payments, memory, RSI, wallet.
  * No agent control loop — bring your own agent.
  *
- * @version 2.1.0
+ * @version 2.2.0
  * @license BSL-1.1
  * @patent-pending
  */
@@ -40,6 +40,11 @@ export {
   getCapabilitySummary,
   computeSha256,
   digestForWalletAddress,
+  keccak256Digest,
+  deriveEthereumAddress,
+  derivePublicKey,
+  signEcdsa,
+  verifyEcdsa,
   tokenAmountFromHuman,
   calculateFee,
   evaluateWriteFirewall,

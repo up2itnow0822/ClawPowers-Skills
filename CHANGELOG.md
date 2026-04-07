@@ -2,6 +2,22 @@
 
 All notable changes to ClawPowers are documented here.
 
+## [2.2.0] - 2026-04-06
+
+### Added
+
+- **Full secp256k1 Ethereum wallet derivation** (MetaMask-compatible): private key → uncompressed public key (64 bytes) → Keccak-256 → last 20 bytes as EIP-55 checksummed address.
+- **Pure Rust `k256`** (RustCrypto) in `native/crates/evm-eth`, wired into **WASM** and **FFI** with exports: `deriveEthereumAddress`, `derivePublicKey`, `signEcdsa`, `verifyEcdsa`.
+- **TypeScript loader** (`src/native/index.ts`): `keccak256Digest`, `deriveEthereumAddress`, `derivePublicKey`, `signEcdsa`, `verifyEcdsa` (Tier 1 → Tier 2 → `null` / `false` as documented).
+- **`signMessage` overload**: `(privateKeyHex, message)` returns a 65-byte ECDSA signature hex (`r‖s‖v`); existing `(message, keyFile, passphrase)` unchanged in shape, now uses ECDSA+Keccak when tiers allow, else HMAC fallback.
+- **Tests**: `tests/wallet/secp256k1.test.ts` (Hardhat default account #0 vector).
+
+### Notes
+
+- **WASM**: `getrandom` 0.2 `js` feature enabled for `wasm32` so `k256` builds under `wasm-pack`.
+- **Loader**: If Tier 1 (native) loads, Tier 2 (WASM) is still initialized when available so newer exports (e.g. secp256k1) work when an older `.node` lacks them. `getActiveTier()` remains `native` when the addon is present.
+- Existing keyfiles still use the stored `address` field as the source of truth; newly generated/imported keys use real Ethereum addresses when native or WASM is loaded.
+
 ## [2.1.0] - 2026-04-06
 
 ### Added

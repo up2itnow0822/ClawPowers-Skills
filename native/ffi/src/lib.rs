@@ -16,6 +16,41 @@ pub fn keccak256_bytes(data: Buffer) -> String {
     format!("0x{:x}", h)
 }
 
+/// Ethereum address from 32-byte secp256k1 private key (`0x` + 20 bytes, EIP-55 checksum).
+#[napi(js_name = "deriveEthereumAddress")]
+pub fn derive_ethereum_address_ffi(private_key: Buffer) -> Result<String> {
+    clawpowers_evm_eth::derive_ethereum_address(private_key.as_ref()).map_err(to_napi_err)
+}
+
+/// Uncompressed public key: 64 bytes (x || y), no `0x04` prefix.
+#[napi(js_name = "derivePublicKey")]
+pub fn derive_public_key_ffi(private_key: Buffer) -> Result<Buffer> {
+    let v = clawpowers_evm_eth::derive_public_key(private_key.as_ref()).map_err(to_napi_err)?;
+    Ok(Buffer::from(v))
+}
+
+/// ECDSA sign 32-byte message hash → 65 bytes (r || s || recovery_id).
+#[napi(js_name = "signEcdsa")]
+pub fn sign_ecdsa_ffi(private_key: Buffer, message_hash: Buffer) -> Result<Buffer> {
+    let v = clawpowers_evm_eth::sign_ecdsa(private_key.as_ref(), message_hash.as_ref())
+        .map_err(to_napi_err)?;
+    Ok(Buffer::from(v))
+}
+
+#[napi(js_name = "verifyEcdsa")]
+pub fn verify_ecdsa_ffi(
+    public_key: Buffer,
+    message_hash: Buffer,
+    signature: Buffer,
+) -> Result<bool> {
+    clawpowers_evm_eth::verify_ecdsa(
+        public_key.as_ref(),
+        message_hash.as_ref(),
+        signature.as_ref(),
+    )
+    .map_err(to_napi_err)
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // WALLET
 // ═══════════════════════════════════════════════════════════════════════════════

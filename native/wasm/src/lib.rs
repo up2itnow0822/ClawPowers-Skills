@@ -191,6 +191,33 @@ pub fn compute_keccak256(bytes: &[u8]) -> String {
     format!("0x{:x}", h)
 }
 
+/// Ethereum address from 32-byte secp256k1 private key (`0x` + 20 bytes, EIP-55 checksum).
+#[wasm_bindgen(js_name = "deriveEthereumAddress")]
+pub fn derive_ethereum_address_wasm(private_key: &[u8]) -> Result<String, JsError> {
+    clawpowers_evm_eth::derive_ethereum_address(private_key).map_err(|e| JsError::new(&e))
+}
+
+/// Uncompressed public key: 64 bytes (x || y), no `0x04` prefix.
+#[wasm_bindgen(js_name = "derivePublicKey")]
+pub fn derive_public_key_wasm(private_key: &[u8]) -> Result<Vec<u8>, JsError> {
+    clawpowers_evm_eth::derive_public_key(private_key).map_err(|e| JsError::new(&e))
+}
+
+/// ECDSA sign 32-byte message hash → 65 bytes (r || s || recovery_id).
+#[wasm_bindgen(js_name = "signEcdsa")]
+pub fn sign_ecdsa_wasm(private_key: &[u8], message_hash: &[u8]) -> Result<Vec<u8>, JsError> {
+    clawpowers_evm_eth::sign_ecdsa(private_key, message_hash).map_err(|e| JsError::new(&e))
+}
+
+#[wasm_bindgen(js_name = "verifyEcdsa")]
+pub fn verify_ecdsa_wasm(
+    public_key: &[u8],
+    message_hash: &[u8],
+    signature: &[u8],
+) -> Result<bool, JsError> {
+    clawpowers_evm_eth::verify_ecdsa(public_key, message_hash, signature).map_err(|e| JsError::new(&e))
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Canonical Store
 // ═══════════════════════════════════════════════════════════════════════════════

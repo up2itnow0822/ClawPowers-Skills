@@ -957,6 +957,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clawpowers-evm-eth"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "hex",
+ "k256",
+]
+
+[[package]]
 name = "clawpowers-fee"
 version = "0.1.0"
 dependencies = [
@@ -975,6 +984,7 @@ dependencies = [
  "alloy-primitives",
  "clawpowers-canonical",
  "clawpowers-compression",
+ "clawpowers-evm-eth",
  "clawpowers-fee",
  "clawpowers-index",
  "clawpowers-policy",
@@ -983,6 +993,7 @@ dependencies = [
  "clawpowers-verification",
  "clawpowers-wallet",
  "clawpowers-x402",
+ "k256",
  "napi",
  "napi-build",
  "napi-derive",
@@ -1104,13 +1115,16 @@ dependencies = [
  "chrono",
  "clawpowers-canonical",
  "clawpowers-compression",
+ "clawpowers-evm-eth",
  "clawpowers-fee",
  "clawpowers-index",
  "clawpowers-policy",
  "clawpowers-security",
  "clawpowers-tokens",
  "clawpowers-verification",
+ "getrandom 0.2.17",
  "getrandom 0.3.4",
+ "k256",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -1823,8 +1837,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff2abc00be7fca6ebc474524697ae276ad847ad0a6b3faa4bcb027e9a4614ad0"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "wasi",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2373,6 +2389,7 @@ dependencies = [
  "once_cell",
  "serdect",
  "sha2",
+ "signature",
 ]
 
 [[package]]

@@ -14,6 +14,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 alloy-primitives = { workspace = true }
+k256 = { version = "0.13", features = ["ecdsa", "sha2"] }
+clawpowers-evm-eth = { path = "../crates/evm-eth" }
 uuid = { workspace = true }
 clawpowers-wallet = { path = "../crates/wallet" }
 clawpowers-policy = { path = "../crates/policy" }

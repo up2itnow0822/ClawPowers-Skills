@@ -75,6 +75,11 @@ export interface NativeModule {
   JsWriteFirewall: NativeWriteFirewallConstructor;
   /** Present when `clawpowers-ffi` was built with keccak helper (ClawPowers-Skills ≥2.1.0). */
   keccak256Bytes?: (data: Buffer) => string;
+  /** secp256k1 + Keccak address (ClawPowers-Skills ≥2.2.0). */
+  deriveEthereumAddress?: (privateKey: Buffer) => string;
+  derivePublicKey?: (privateKey: Buffer) => Buffer;
+  signEcdsa?: (privateKey: Buffer, messageHash: Buffer) => Buffer;
+  verifyEcdsa?: (publicKey: Buffer, messageHash: Buffer, signature: Buffer) => boolean;
 }
 
 // ─── WASM Module Types ───────────────────────────────────────────────────────
@@ -113,6 +118,12 @@ export interface WasmModule {
   computeSha256(content: string): string;
   /** Keccak-256 over raw bytes (`0x` + 64 hex). Present in wasm builds from ClawPowers-Skills ≥2.1.0. */
   computeKeccak256?(bytes: Uint8Array): string;
+
+  /** secp256k1 Ethereum address (ClawPowers-Skills ≥2.2.0). */
+  deriveEthereumAddress?(privateKey: Uint8Array): string;
+  derivePublicKey?(privateKey: Uint8Array): Uint8Array;
+  signEcdsa?(privateKey: Uint8Array, messageHash: Uint8Array): Uint8Array;
+  verifyEcdsa?(publicKey: Uint8Array, messageHash: Uint8Array, signature: Uint8Array): boolean;
 
   // Info
   getVersion(): string;
@@ -194,14 +205,17 @@ function loadAll(): void {
   if (_attempted) return;
   _attempted = true;
 
-  // Tier 1: Try native
+  // Tier 1: Try native (primary tier for getActiveTier())
   _native = tryLoadNative();
   if (_native) {
     _activeTier = 'native';
+    // Still load WASM when present: native builds may omit newer exports (e.g. secp256k1)
+    // while prebuilt WASM provides them. Helpers try native first, then WASM.
+    _wasm = tryLoadWasm();
     return;
   }
 
-  // Tier 2: Try WASM
+  // Tier 2: WASM only
   _wasm = tryLoadWasm();
   if (_wasm) {
     _activeTier = 'wasm';
@@ -343,6 +357,136 @@ export function digestForWalletAddress(keyMaterial: Buffer): string {
 
   const { createHash } = require('node:crypto') as typeof import('node:crypto');
   return '0x' + createHash('sha256').update(keyMaterial).digest('hex');
+}
+
+/**
+ * Keccak-256 digest of raw bytes as a 32-byte `Buffer`.
+ * Tier 1: native `keccak256Bytes`; Tier 2: WASM `computeKeccak256`; Tier 3: `null`.
+ */
+export function keccak256Digest(data: Buffer): Buffer | null {
+  loadAll();
+
+  if (_native && typeof _native.keccak256Bytes === 'function') {
+    try {
+      const hex = _native.keccak256Bytes(data);
+      return Buffer.from(hex.replace(/^0x/i, ''), 'hex');
+    } catch {
+      // fall through
+    }
+  }
+
+  if (_wasm && typeof _wasm.computeKeccak256 === 'function') {
+    try {
+      const hex = _wasm.computeKeccak256(new Uint8Array(data));
+      return Buffer.from(hex.replace(/^0x/i, ''), 'hex');
+    } catch {
+      // fall through
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Ethereum address from 32-byte secp256k1 private key (EIP-55). Tier 1 → Tier 2 → `null`.
+ */
+export function deriveEthereumAddress(privateKey: Buffer): string | null {
+  loadAll();
+
+  if (_native && typeof _native.deriveEthereumAddress === 'function') {
+    try {
+      return _native.deriveEthereumAddress(privateKey);
+    } catch {
+      // fall through
+    }
+  }
+
+  if (_wasm && typeof _wasm.deriveEthereumAddress === 'function') {
+    try {
+      return _wasm.deriveEthereumAddress(new Uint8Array(privateKey));
+    } catch {
+      // fall through
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Uncompressed public key (64 bytes, no `0x04` prefix). Tier 1 → Tier 2 → `null`.
+ */
+export function derivePublicKey(privateKey: Buffer): Buffer | null {
+  loadAll();
+
+  if (_native && typeof _native.derivePublicKey === 'function') {
+    try {
+      return Buffer.from(_native.derivePublicKey(privateKey));
+    } catch {
+      // fall through
+    }
+  }
+
+  if (_wasm && typeof _wasm.derivePublicKey === 'function') {
+    try {
+      return Buffer.from(_wasm.derivePublicKey(new Uint8Array(privateKey)));
+    } catch {
+      // fall through
+    }
+  }
+
+  return null;
+}
+
+/**
+ * ECDSA sign a 32-byte message hash (65 bytes: r‖s‖recovery_id). Tier 1 → Tier 2 → `null`.
+ */
+export function signEcdsa(privateKey: Buffer, messageHash: Buffer): Buffer | null {
+  loadAll();
+
+  if (_native && typeof _native.signEcdsa === 'function') {
+    try {
+      return Buffer.from(_native.signEcdsa(privateKey, messageHash));
+    } catch {
+      // fall through
+    }
+  }
+
+  if (_wasm && typeof _wasm.signEcdsa === 'function') {
+    try {
+      return Buffer.from(_wasm.signEcdsa(new Uint8Array(privateKey), new Uint8Array(messageHash)));
+    } catch {
+      // fall through
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Verify ECDSA over a 32-byte prehash. Tier 1 → Tier 2; otherwise `false`.
+ */
+export function verifyEcdsa(
+  publicKey: Buffer,
+  messageHash: Buffer,
+  signature: Buffer,
+): boolean {
+  loadAll();
+
+  try {
+    if (_native && typeof _native.verifyEcdsa === 'function') {
+      return _native.verifyEcdsa(publicKey, messageHash, signature);
+    }
+    if (_wasm && typeof _wasm.verifyEcdsa === 'function') {
+      return _wasm.verifyEcdsa(
+        new Uint8Array(publicKey),
+        new Uint8Array(messageHash),
+        new Uint8Array(signature),
+      );
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }
 
 /**

@@ -336,6 +336,51 @@ function decompressVector(compressed_json, dimensions) {
 exports.decompressVector = decompressVector;
 
 /**
+ * Ethereum address from 32-byte secp256k1 private key (`0x` + 20 bytes, EIP-55 checksum).
+ * @param {Uint8Array} private_key
+ * @returns {string}
+ */
+function deriveEthereumAddress(private_key) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passArray8ToWasm0(private_key, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.deriveEthereumAddress(ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+exports.deriveEthereumAddress = deriveEthereumAddress;
+
+/**
+ * Uncompressed public key: 64 bytes (x || y), no `0x04` prefix.
+ * @param {Uint8Array} private_key
+ * @returns {Uint8Array}
+ */
+function derivePublicKey(private_key) {
+    const ptr0 = passArray8ToWasm0(private_key, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.derivePublicKey(ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+exports.derivePublicKey = derivePublicKey;
+
+/**
  * Evaluate a write request against a firewall.
  * Input JSON: {namespace, content, trust_level, source, allowed_namespaces?, blocked_patterns?, max_content_length?}
  * Returns JSON: {"decision": "allow"|"deny"|"sanitize", "reason"?: ..., "sanitized"?: ...}
@@ -423,6 +468,27 @@ function getVersion() {
     }
 }
 exports.getVersion = getVersion;
+
+/**
+ * ECDSA sign 32-byte message hash → 65 bytes (r || s || recovery_id).
+ * @param {Uint8Array} private_key
+ * @param {Uint8Array} message_hash
+ * @returns {Uint8Array}
+ */
+function signEcdsa(private_key, message_hash) {
+    const ptr0 = passArray8ToWasm0(private_key, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(message_hash, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.signEcdsa(ptr0, len0, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v3 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v3;
+}
+exports.signEcdsa = signEcdsa;
 
 /**
  * Add two TokenAmount JSONs. Returns the sum as JSON.
@@ -554,6 +620,27 @@ function tokenAmountToHuman(json) {
     return ret[0];
 }
 exports.tokenAmountToHuman = tokenAmountToHuman;
+
+/**
+ * @param {Uint8Array} public_key
+ * @param {Uint8Array} message_hash
+ * @param {Uint8Array} signature
+ * @returns {boolean}
+ */
+function verifyEcdsa(public_key, message_hash, signature) {
+    const ptr0 = passArray8ToWasm0(public_key, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(message_hash, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passArray8ToWasm0(signature, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.verifyEcdsa(ptr0, len0, ptr1, len1, ptr2, len2);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+exports.verifyEcdsa = verifyEcdsa;
 
 function __wbg_get_imports() {
     const import0 = {

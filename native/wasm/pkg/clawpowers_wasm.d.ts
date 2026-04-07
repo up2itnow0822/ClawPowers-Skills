@@ -78,6 +78,16 @@ export function computeSha256(content: string): string;
 export function decompressVector(compressed_json: string, dimensions: number): string;
 
 /**
+ * Ethereum address from 32-byte secp256k1 private key (`0x` + 20 bytes, EIP-55 checksum).
+ */
+export function deriveEthereumAddress(private_key: Uint8Array): string;
+
+/**
+ * Uncompressed public key: 64 bytes (x || y), no `0x04` prefix.
+ */
+export function derivePublicKey(private_key: Uint8Array): Uint8Array;
+
+/**
  * Evaluate a write request against a firewall.
  * Input JSON: {namespace, content, trust_level, source, allowed_namespaces?, blocked_patterns?, max_content_length?}
  * Returns JSON: {"decision": "allow"|"deny"|"sanitize", "reason"?: ..., "sanitized"?: ...}
@@ -98,6 +108,11 @@ export function getDefaultTokenRegistry(): string;
  * Returns the version and build info.
  */
 export function getVersion(): string;
+
+/**
+ * ECDSA sign 32-byte message hash → 65 bytes (r || s || recovery_id).
+ */
+export function signEcdsa(private_key: Uint8Array, message_hash: Uint8Array): Uint8Array;
 
 /**
  * Add two TokenAmount JSONs. Returns the sum as JSON.
@@ -125,6 +140,8 @@ export function tokenAmountSub(a_json: string, b_json: string): string;
  */
 export function tokenAmountToHuman(json: string): number;
 
+export function verifyEcdsa(public_key: Uint8Array, message_hash: Uint8Array, signature: Uint8Array): boolean;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -136,15 +153,19 @@ export interface InitOutput {
     readonly computeKeccak256: (a: number, b: number) => [number, number];
     readonly computeSha256: (a: number, b: number) => [number, number];
     readonly decompressVector: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly deriveEthereumAddress: (a: number, b: number) => [number, number, number, number];
+    readonly derivePublicKey: (a: number, b: number) => [number, number, number, number];
     readonly evaluateWriteFirewall: (a: number, b: number) => [number, number, number, number];
     readonly getAvailableModules: () => [number, number];
     readonly getDefaultTokenRegistry: () => [number, number, number, number];
     readonly getVersion: () => [number, number];
+    readonly signEcdsa: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly tokenAmountAdd: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly tokenAmountFromHuman: (a: number, b: number) => [number, number, number, number];
     readonly tokenAmountMulBps: (a: number, b: number, c: bigint) => [number, number, number, number];
     readonly tokenAmountSub: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly tokenAmountToHuman: (a: number, b: number) => [number, number, number];
+    readonly verifyEcdsa: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly wasmcanonicalstore_exportJson: (a: number) => [number, number, number, number];
     readonly wasmcanonicalstore_get: (a: number, b: number, c: number) => [number, number, number, number];
     readonly wasmcanonicalstore_getByHash: (a: number, b: number, c: number) => [number, number, number, number];

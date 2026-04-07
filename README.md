@@ -20,14 +20,14 @@ ClawPowers extracts the core capabilities from [ClawPowers-Agent](https://github
 - **x402 Payments** — Detect HTTP 402 responses, enforce spending policies, execute payments
 - **Three-Tier Memory** — Working, episodic, procedural memory with crash recovery
 - **RSI Engine** — Metrics collection, hypothesis generation, mutation, A/B testing
-- **Wallet** — Generate, import, and sign with Ethereum-compatible wallets
+- **Wallet** — Generate, import, and sign with **MetaMask-compatible** Ethereum addresses (secp256k1 + Keccak-256) when the native or WASM tier is active
 - **Skills** — Discover, load, and track skill execution outcomes
 - **Parallel Swarm** — Concurrent task execution with intelligent model routing and token budgeting
 - **ITP (Identical Twins Protocol)** — Context compression that eliminates redundant token usage across agent sessions
 
 ## Native Acceleration
 
-ClawPowers ships the same optional **Rust + WASM + PyO3** stack as [ClawPowers-Agent](https://github.com/up2itnow0822/ClawPowers-Agent), exposed through a **3-tier loader** in TypeScript:
+ClawPowers ships the same optional **Rust + WASM + PyO3** stack as [ClawPowers-Agent](https://github.com/up2itnow0822/ClawPowers-Agent), exposed through a **3-tier loader** in TypeScript. **v2.2.0+:** when a native `.node` addon is present, the WASM bundle is still loaded if available so helpers such as secp256k1 stay available even if your local addon predates those exports; `getActiveTier()` remains `native` in that case.
 
 | Tier | Backend | When it loads |
 |------|---------|----------------|
@@ -64,9 +64,9 @@ Pre-built `.wasm` artifacts are included in the package so consumers are **not**
 |------|------------------------|---------------------|
 | Payments | `JsFeeSchedule`, WASM fee math | Pure-TS fee formula |
 | Payments | `JsX402Client` | Base64 JSON header |
-| Payments | `JsAgentWallet` (native only) | TS wallet + WASM-backed keccak where available |
+| Payments | `JsAgentWallet` (native only) | TS wallet + WASM secp256k1 + Keccak for real Ethereum addresses |
 | Memory | `JsCanonicalStore`, `JsTurboCompressor`, `JsWriteFirewall` | File/JSONL memory; simplified firewall |
-| Hashing / wallet digest | WASM `computeKeccak256`, native `keccak256Bytes` (when built) | SHA-256 for wallet address digest only |
+| Wallet / secp256k1 | Native + WASM: `deriveEthereumAddress`, `derivePublicKey`, `signEcdsa`, `verifyEcdsa`, `computeKeccak256` / `keccak256Bytes` | Tier 3: legacy digest-based “address” + HMAC signing fallback only |
 
 Exported helpers include `calculateTransactionFee`, `createPaymentHeader`, `generateWalletAddress`, `compressVector`, `getBestCanonicalStore`, `digestForWalletAddress`, and the full loader API in `src/native/index.ts`.
 
@@ -344,9 +344,10 @@ decision = json.loads(result.stdout)
 ### Wallet
 
 - `WalletManager` — High-level wallet operations
-- `generateWallet(config)` — Generate new wallet
-- `importWallet(key, config)` — Import existing wallet
-- `signMessage(msg, keyFile, passphrase)` — Sign a message
+- `generateWallet(config)` — Generate new wallet (**v2.2.0+**: standard Ethereum address via secp256k1 when Tier 1/2 is active)
+- `importWallet(key, config)` — Import existing wallet (same derivation)
+- `signMessage(message, keyFile, passphrase)` — Sign; uses **ECDSA (secp256k1) over Keccak-256(UTF-8 message)** when native/WASM provides crypto, else legacy HMAC
+- `signMessage(privateKeyHex, message)` — Same ECDSA path; returns `0x` + 130 hex chars (65-byte signature)
 
 ### Config
 - `loadConfig()` / `saveConfig()` — Zod-validated config CRUD

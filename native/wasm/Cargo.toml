@@ -28,11 +28,17 @@ clawpowers-security = { path = "../crates/security", default-features = false, f
 
 # alloy-primitives needed for Address type
 alloy-primitives = { workspace = true }
+k256 = { version = "0.13", features = ["ecdsa", "sha2"] }
+clawpowers-evm-eth = { path = "../crates/evm-eth" }
 uuid = { version = "1", features = ["v4", "serde", "js"] }
 chrono = { workspace = true }
 
 # WASM-compatible random number generation
 getrandom = { version = "0.3", features = ["wasm_js"] }
+
+# k256 → rand_core pulls getrandom 0.2; enable `js` for wasm32-unknown-unknown
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
