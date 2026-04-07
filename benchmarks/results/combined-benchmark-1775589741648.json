@@ -1,0 +1,286 @@
+{
+  "timestamp": "2026-04-07T19:22:21.648Z",
+  "host": "BillsPC",
+  "model": "anthropic/claude-3.5-haiku",
+  "maxTokens": 150,
+  "taskCount": 5,
+  "systemPromptChars": 1180,
+  "conditions": {
+    "A: Raw baseline": {
+      "name": "A: Raw baseline",
+      "tasks": [
+        {
+          "id": "docker-health",
+          "promptTokens": 49,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006392,
+          "latencyMs": 971,
+          "systemChars": 1180,
+          "messageChars": 208
+        },
+        {
+          "id": "api-endpoints",
+          "promptTokens": 65,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.000652,
+          "latencyMs": 886,
+          "systemChars": 1180,
+          "messageChars": 241
+        },
+        {
+          "id": "disk-analysis",
+          "promptTokens": 52,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006416,
+          "latencyMs": 693,
+          "systemChars": 1180,
+          "messageChars": 228
+        },
+        {
+          "id": "memory-procs",
+          "promptTokens": 57,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006456,
+          "latencyMs": 1326,
+          "systemChars": 1180,
+          "messageChars": 231
+        },
+        {
+          "id": "log-audit",
+          "promptTokens": 67,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006536,
+          "latencyMs": 744,
+          "systemChars": 1180,
+          "messageChars": 268
+        }
+      ],
+      "totalPromptTokens": 290,
+      "totalCompletionTokens": 750,
+      "totalCachedTokens": 0,
+      "totalCacheWriteTokens": 0,
+      "totalCost": 0.003232,
+      "totalLatencyMs": 4620,
+      "wallTimeMs": 19993
+    },
+    "B: ITP only": {
+      "name": "B: ITP only",
+      "tasks": [
+        {
+          "id": "docker-health",
+          "promptTokens": 41,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006328,
+          "latencyMs": 877,
+          "systemChars": 1020,
+          "messageChars": 163
+        },
+        {
+          "id": "api-endpoints",
+          "promptTokens": 52,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006416,
+          "latencyMs": 643,
+          "systemChars": 1020,
+          "messageChars": 164
+        },
+        {
+          "id": "disk-analysis",
+          "promptTokens": 44,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006352,
+          "latencyMs": 722,
+          "systemChars": 1020,
+          "messageChars": 144
+        },
+        {
+          "id": "memory-procs",
+          "promptTokens": 51,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006408,
+          "latencyMs": 885,
+          "systemChars": 1020,
+          "messageChars": 183
+        },
+        {
+          "id": "log-audit",
+          "promptTokens": 55,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.000644,
+          "latencyMs": 646,
+          "systemChars": 1020,
+          "messageChars": 200
+        }
+      ],
+      "totalPromptTokens": 243,
+      "totalCompletionTokens": 750,
+      "totalCachedTokens": 0,
+      "totalCacheWriteTokens": 0,
+      "totalCost": 0.0031944,
+      "totalLatencyMs": 3773,
+      "wallTimeMs": 18386
+    },
+    "C: Cache only": {
+      "name": "C: Cache only",
+      "tasks": [
+        {
+          "id": "docker-health",
+          "promptTokens": 49,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006392,
+          "latencyMs": 743,
+          "systemChars": 1180,
+          "messageChars": 208
+        },
+        {
+          "id": "api-endpoints",
+          "promptTokens": 65,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.000652,
+          "latencyMs": 691,
+          "systemChars": 1180,
+          "messageChars": 241
+        },
+        {
+          "id": "disk-analysis",
+          "promptTokens": 52,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006416,
+          "latencyMs": 701,
+          "systemChars": 1180,
+          "messageChars": 228
+        },
+        {
+          "id": "memory-procs",
+          "promptTokens": 57,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006456,
+          "latencyMs": 668,
+          "systemChars": 1180,
+          "messageChars": 231
+        },
+        {
+          "id": "log-audit",
+          "promptTokens": 67,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006536,
+          "latencyMs": 767,
+          "systemChars": 1180,
+          "messageChars": 268
+        }
+      ],
+      "totalPromptTokens": 290,
+      "totalCompletionTokens": 750,
+      "totalCachedTokens": 0,
+      "totalCacheWriteTokens": 0,
+      "totalCost": 0.003232,
+      "totalLatencyMs": 3570,
+      "wallTimeMs": 15743
+    },
+    "D: ITP + Cache combined": {
+      "name": "D: ITP + Cache combined",
+      "tasks": [
+        {
+          "id": "docker-health",
+          "promptTokens": 41,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006328,
+          "latencyMs": 889,
+          "systemChars": 1020,
+          "messageChars": 163
+        },
+        {
+          "id": "api-endpoints",
+          "promptTokens": 52,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006416,
+          "latencyMs": 808,
+          "systemChars": 1020,
+          "messageChars": 164
+        },
+        {
+          "id": "disk-analysis",
+          "promptTokens": 44,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006352,
+          "latencyMs": 1297,
+          "systemChars": 1020,
+          "messageChars": 144
+        },
+        {
+          "id": "memory-procs",
+          "promptTokens": 51,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.0006408,
+          "latencyMs": 694,
+          "systemChars": 1020,
+          "messageChars": 183
+        },
+        {
+          "id": "log-audit",
+          "promptTokens": 55,
+          "completionTokens": 150,
+          "cachedTokens": 0,
+          "cacheWriteTokens": 0,
+          "cost": 0.000644,
+          "latencyMs": 807,
+          "systemChars": 1020,
+          "messageChars": 200
+        }
+      ],
+      "totalPromptTokens": 243,
+      "totalCompletionTokens": 750,
+      "totalCachedTokens": 0,
+      "totalCacheWriteTokens": 0,
+      "totalCost": 0.0031944,
+      "totalLatencyMs": 4495,
+      "wallTimeMs": 18460
+    }
+  },
+  "comparison": {
+    "baselinePromptTokens": 290,
+    "baselineCost": 0.003232,
+    "itpPromptSavingsPct": 16.2,
+    "cacheCostSavingsPct": 0,
+    "combinedCostSavingsPct": 1.2,
+    "combinedPromptSavingsPct": 16.2
+  }
+}
