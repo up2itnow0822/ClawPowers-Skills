@@ -71,7 +71,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "zod": "^3.23.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
