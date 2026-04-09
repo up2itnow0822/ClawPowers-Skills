@@ -1,15 +1,37 @@
 #!/usr/bin/env node
-// Verifies that required WASM fallback artifacts are present in the npm tarball.
-// Run after: npm pack --dry-run --json > pack.json
-import { execSync } from 'child_process';
+/**
+ * Verifies required WASM fallback artifacts are present in the npm tarball.
+ *
+ * npm pack --dry-run --json interleaves prepack build output (from tsup) on stdout
+ * before the JSON array. We find the LAST '[' that starts a valid JSON array.
+ */
+import { spawnSync } from 'child_process';
 
-const raw = execSync('npm pack --dry-run --json 2>/dev/null', { encoding: 'utf8' });
-const idx = raw.indexOf('[');
-if (idx < 0) {
-  console.error('ERROR: Could not find JSON array in npm pack output');
+const result = spawnSync('npm', ['pack', '--dry-run', '--json'], {
+  encoding: 'utf8',
+  stdio: ['ignore', 'pipe', 'inherit'], // let prepack stderr go to terminal, capture stdout
+});
+
+const stdout = result.stdout ?? '';
+
+// Find the last '[' in stdout -- npm pack JSON array always comes after prepack output
+let pack;
+let pos = stdout.lastIndexOf('[');
+while (pos >= 0) {
+  try {
+    pack = JSON.parse(stdout.slice(pos));
+    break;
+  } catch {
+    pos = stdout.lastIndexOf('[', pos - 1);
+  }
+}
+
+if (!pack) {
+  console.error('ERROR: Could not parse JSON array from npm pack --dry-run --json output');
+  console.error('stdout (first 400 chars):', stdout.slice(0, 400));
   process.exit(1);
 }
-const pack = JSON.parse(raw.slice(idx));
+
 const files = (pack[0]?.files ?? []).map(f => f.path);
 
 const required = [
