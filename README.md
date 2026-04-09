@@ -2,6 +2,11 @@
 
 **Launch surface:** `clawpowers` is the capability library. It is not the stock OpenClaw wrapper runtime. For the wrapper runtime, install `clawpowers-agent`.
 
+## Canonical Links
+- Product site: https://clawpowers.ai
+- Docs: https://clawpowers.ai/docs
+- Agent runtime: https://clawpowers.ai/agent
+
 **Recommended pairing:** `clawpowers` 2.2.x with `clawpowers-agent` 1.1.x.
 
 **More docs:** [SECURITY](./SECURITY.md) · [Compatibility](./COMPATIBILITY.md) · [Known Limitations](./KNOWN_LIMITATIONS.md) · [Licensing](./LICENSING.md) · [Releasing](./RELEASING.md) · [Demo](./DEMO.md) · [Roadmap](./ROADMAP.md)

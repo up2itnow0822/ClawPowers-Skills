@@ -1,7 +1,7 @@
 {
   "name": "clawpowers",
   "version": "2.2.4",
-  "description": "Skills library for AI agents — payments, memory, RSI, wallet. Drop-in capability layer for any agent framework.",
+  "description": "Skills library for AI agents \u2014 payments, memory, RSI, wallet. Drop-in capability layer for any agent framework.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -67,7 +67,7 @@
   "bugs": {
     "url": "https://github.com/up2itnow0822/ClawPowers-Skills/issues"
   },
-  "homepage": "https://www.npmjs.com/package/clawpowers",
+  "homepage": "https://clawpowers.ai",
   "engines": {
     "node": ">=20.0.0"
   },
