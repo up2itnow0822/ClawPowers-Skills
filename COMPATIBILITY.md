@@ -4,7 +4,7 @@
 
 | clawpowers | Recommended consumer |
 | --- | --- |
-| 2.2.x (latest: 2.2.1) | capability-library consumers and `clawpowers-agent` 1.1.x |
+| 2.2.x (latest: 2.2.2) | capability-library consumers and `clawpowers-agent` 1.1.x |
 
 ## Notes
 

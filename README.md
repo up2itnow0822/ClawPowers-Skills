@@ -4,12 +4,13 @@
 
 **Recommended pairing:** `clawpowers` 2.2.x with `clawpowers-agent` 1.1.x.
 
-**More docs:** [SECURITY](./SECURITY.md) · [Compatibility](./COMPATIBILITY.md) · [Known Limitations](./KNOWN_LIMITATIONS.md) · [Licensing](./LICENSING.md) · [Releasing](./RELEASING.md) · [Demo](./DEMO.md)
+**More docs:** [SECURITY](./SECURITY.md) · [Compatibility](./COMPATIBILITY.md) · [Known Limitations](./KNOWN_LIMITATIONS.md) · [Licensing](./LICENSING.md) · [Releasing](./RELEASING.md) · [Demo](./DEMO.md) · [Roadmap](./ROADMAP.md)
 
 **Skills library for AI agents — payments, memory, RSI, wallet, parallel swarm, ITP.** Drop-in capability layer for any agent framework.
 
 [![npm version](https://img.shields.io/npm/v/clawpowers)](https://www.npmjs.com/package/clawpowers)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
+[![CI](https://github.com/up2itnow0822/ClawPowers-Skills/actions/workflows/ci.yml/badge.svg)](https://github.com/up2itnow0822/ClawPowers-Skills/actions/workflows/ci.yml)
 
 ```bash
 npm install clawpowers
@@ -233,6 +234,7 @@ const result = ab.evaluateTest(test.testId);
 **Tier behavior:**
 - **Tier 1** (native `.node` addon, built locally with `cargo`): full secp256k1 + ECDSA + Keccak-256 via the `k256` Rust crate
 - **Tier 2** (pre-built WASM, ships in the npm package): same secp256k1 + ECDSA + Keccak-256 via `k256` compiled to WebAssembly
+> **⚠️ Wallet safety:** If both Tier 1 (native) and Tier 2 (WASM) fail to load, the library falls back to Tier 3 pure-TypeScript signing, which uses a legacy SHA-256 digest and HMAC — **not standard secp256k1, not production-safe for on-chain use.** Because Tier 2 WASM ships pre-built in every npm tarball, this fallback should only occur in heavily sandboxed environments. Call `getActiveTier()` at startup to verify you are running Tier 1 or Tier 2 before sending any real funds.
 - **Tier 3** (pure TypeScript, used only if Tier 1 AND Tier 2 both fail to load): legacy SHA-256 digest and HMAC signing — **not production-safe for on-chain use**
 
 Since Tier 2 WASM artifacts ship pre-built in the npm package, **every install gets real Ethereum wallets out of the box** — no Rust toolchain required.
