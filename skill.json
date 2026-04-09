@@ -1,106 +1,20 @@
 {
   "name": "clawpowers",
-  "version": "1.1.1",
-  "description": "Runtime-powered skills framework \u2014 26 skills with persistent memory, self-improvement (RSI), outcome tracking, and autonomous agent payments (x402). Works on Claude Code, Cursor, Codex, OpenCode, Gemini CLI.",
-  "author": {
-    "name": "AI Agent Economy",
-    "url": "https://github.com/up2itnow0822"
+  "version": "2.2.0",
+  "description": "Capability library for AI agents: payments, memory, RSI, wallet, swarm, and ITP primitives.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/up2itnow0822/ClawPowers-Skills"
   },
-  "repository": "https://github.com/up2itnow0822/clawpowers",
-  "keywords": [
-    "skills",
-    "agent",
-    "runtime",
-    "rsi",
-    "self-improvement",
-    "persistence",
-    "payments",
-    "x402",
-    "tdd",
-    "debugging",
-    "code-review",
-    "security-audit",
-    "content-pipeline",
-    "market-intelligence",
-    "prospecting",
-    "subagent"
-  ],
-  "config": {},
-  "triggers": [
-    "plan this feature",
-    "debug this",
-    "write tests",
-    "code review",
-    "brainstorm",
-    "security audit",
-    "fix this bug",
-    "refactor this",
-    "pay for this API",
-    "402",
-    "paywall",
-    "payment required",
-    "buy",
-    "order",
-    "subscribe",
-    "credits",
-    "pricing",
-    "market research",
-    "find leads",
-    "analyze performance",
-    "improve my skills",
-    "what went wrong",
-    "setup payments",
-    "enable wallet",
-    "configure spending",
-    "payment log",
-    "spending history",
-    "demo x402",
-    "test payments",
-    "mock merchant"
-  ],
-  "platforms": [
-    "macos",
-    "linux",
-    "windows"
-  ],
-  "category": "development",
-  "runtime": {
-    "init": "node bin/clawpowers.js init",
-    "status": "node bin/clawpowers.js status",
-    "stateDir": "~/.clawpowers"
+  "homepage": "https://github.com/up2itnow0822/ClawPowers-Skills#readme",
+  "license": "BSL-1.1",
+  "packageManager": "npm",
+  "entrypoints": {
+    "library": "dist/index.js",
+    "types": "dist/index.d.ts"
   },
-  "skills": {
-    "core": [
-      "subagent-driven-development",
-      "test-driven-development",
-      "writing-plans",
-      "executing-plans",
-      "brainstorming",
-      "systematic-debugging",
-      "verification-before-completion",
-      "finishing-a-development-branch",
-      "requesting-code-review",
-      "receiving-code-review",
-      "using-git-worktrees",
-      "using-clawpowers",
-      "writing-skills",
-      "dispatching-parallel-agents"
-    ],
-    "extended": [
-      "agent-payments",
-      "security-audit",
-      "content-pipeline",
-      "learn-how-to-learn",
-      "market-intelligence",
-      "prospecting"
-    ],
-    "rsi_intelligence": [
-      "meta-skill-evolution",
-      "self-healing-code",
-      "cross-project-knowledge",
-      "formal-verification-lite",
-      "economic-code-optimization",
-      "agent-bounties"
-    ]
-  }
+  "notes": [
+    "ClawPowers is a capability library, not a standalone OpenClaw wrapper.",
+    "For the stock OpenClaw wrapper runtime, use the clawpowers-agent package."
+  ]
 }

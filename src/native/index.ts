@@ -164,7 +164,6 @@ function tryLoadNative(): NativeModule | null {
 
   for (const p of candidates) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const mod = require(p) as NativeModule;
       console.log(`[clawpowers] Tier 1: Native acceleration enabled (${p})`);
       return mod;
@@ -188,7 +187,6 @@ function tryLoadWasm(): WasmModule | null {
 
   for (const p of wasmCandidates) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const mod = require(p) as WasmModule;
       console.log(`[clawpowers] Tier 2: WASM module loaded (${p})`);
       return mod;

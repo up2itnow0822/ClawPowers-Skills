@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest an improvement for ClawPowers-Skills
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Why this matters
+      description: Note API, packaging, security, or interoperability impact if relevant.

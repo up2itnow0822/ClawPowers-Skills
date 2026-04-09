@@ -1,5 +1,11 @@
 # ClawPowers
 
+**Launch surface:** `clawpowers` is the capability library. It is not the stock OpenClaw wrapper runtime. For the wrapper runtime, install `clawpowers-agent`.
+
+**Recommended pairing:** `clawpowers` 2.2.x with `clawpowers-agent` 1.1.x.
+
+**More docs:** [SECURITY](./SECURITY.md) · [Compatibility](./COMPATIBILITY.md) · [Known Limitations](./KNOWN_LIMITATIONS.md) · [Licensing](./LICENSING.md) · [Releasing](./RELEASING.md) · [Demo](./DEMO.md)
+
 **Skills library for AI agents — payments, memory, RSI, wallet, parallel swarm, ITP.** Drop-in capability layer for any agent framework.
 
 [![npm version](https://img.shields.io/npm/v/clawpowers)](https://www.npmjs.com/package/clawpowers)
@@ -44,6 +50,12 @@ That's a real Ethereum wallet, real x402 detection, and a real spending policy c
 ## What Is This?
 
 ClawPowers extracts the core capabilities from [ClawPowers-Agent](https://github.com/up2itnow0822/ClawPowers-Agent) into a standalone library. **No agent control loop** — bring your own agent framework and get:
+
+That separation is intentional:
+
+- **`clawpowers`** owns the shared capability implementation.
+- **`clawpowers-agent`** owns the stock OpenClaw wrapper runtime.
+- Downstream wrappers should consume this package rather than duplicating capability logic.
 
 - **x402 Payments** — Detect HTTP 402 responses, enforce spending policies, execute payments
 - **Three-Tier Memory** — Working, episodic, procedural memory with crash recovery
@@ -297,21 +309,40 @@ Running N tasks as a single parallel swarm instead of N separate LLM sessions av
 - **Wall time:** parallel fan-out is significantly faster than sequential execution, scaling with task count and concurrency limit
 - **Token usage:** shared-context overhead is paid once per swarm run instead of once per task
 
-**What we haven't yet measured:**
-- Exact token reduction varies with context size, task complexity, and model. We are collecting real API traces to publish concrete numbers in `MEASUREMENTS.md`. Treat any prior "X% savings" numbers in blog posts or decks as modeled estimates until we publish the measured set.
+**Current measurement snapshot:**
 
-**Reproduce the model:** `node benchmarks/swarm-vs-sequential.mjs` — runs a cost-model comparison with configurable overhead values. Adjust the constants to match your own gateway traces.
+**Live ITP compression measurements:**
+- **25-message corpus:** 11 of 25 messages compressed, `862` to `759` estimated tokens, **11.95% token reduction**, **7.8 ms/message** round-trip
+- **5-task live swarm payload:** `183` to `133` task tokens, **27.32% payload reduction**, **5 of 5 tasks compressed**, **10.8 ms** average encode latency
 
-## ITP (Identical Twins Protocol) — Experimental
+**Modeled prompt-cache economics on those same live prompt sizes:**
 
-> **Status: Experimental, pending production measurement.** The compression mechanism is implemented and has verified speed improvements in internal tests, but token-savings magnitude varies significantly by workload and has not yet been validated across enough real runs to publish a headline number. Use it, benchmark it in your own workloads, and tell us what you measure.
+| Scenario | Effective input units | Reduction vs baseline | Source type |
+|----------|-----------------------|-----------------------|-------------|
+| Baseline | 1902.00 | 0.00% | Derived from live prompt sizes |
+| ITP only | 1848.00 | 2.84% | Live ITP server compression applied to full prompts |
+| Prompt cache only | 752.95 | 60.41% | Anthropic cache-pricing model |
+| ITP + prompt cache | 698.95 | 63.25% | Hybrid result: live ITP compression + modeled cache pricing |
 
-Context compression for multi-agent communication. When agents share similar context (same model, same workspace), ITP deduplicates the common payload before transmission. The library ships with a graceful passthrough fallback, so code using ITP works even when the ITP server is offline — messages are simply forwarded unchanged.
+- **Shared prompt prefix in swarm test:** 1,372 characters, about 343 estimated input tokens
+- **Three-set hybrid validation on a MacBook Pro (Apple M1, 16 GB RAM) with benchmark runner model `openai-codex/gpt-5.4`:** combined reduction ranged from **61.89%** to **63.25%**, with a **62.56%** mean and **0.56** standard deviation
+
+**Reproduce:**
+- `node benchmarks/itp-measurement.mjs` for the live ITP corpus benchmark
+- `node benchmarks/swarm-vs-sequential.mjs` for the structure-only swarm cost model
+- `node benchmarks/itp-cache-swarm-benchmark.mjs` for the hybrid benchmark (live ITP compression + modeled cache economics)
+- `node benchmarks/itp-cache-multi-swarm-benchmark.mjs` for the same hybrid methodology across three swarm sets
+
+## ITP (Identical Twins Protocol) - Experimental
+
+> **Status: Experimental.** ITP compression and latency numbers below are measured against the running server. Any prompt-cache numbers are modeled Anthropic cache economics applied to those same live prompt sizes.
+
+Context compression for multi-agent communication. When agents share similar context (same model, same workspace), ITP deduplicates the common payload before transmission. The library ships with a graceful passthrough fallback, so code using ITP works even when the ITP server is offline. Messages are simply forwarded unchanged.
 
 ```typescript
 import { itpEncode, itpDecode, itpHealthCheck, encodeTaskDescription, decodeSwarmResult } from 'clawpowers';
 
-// Graceful fallback — works without ITP server running
+// Graceful fallback, works without ITP server running
 const encoded = await encodeTaskDescription('Analyze quarterly revenue data');
 const decoded = await decodeSwarmResult(result);
 
@@ -319,10 +350,13 @@ const decoded = await decodeSwarmResult(result);
 const serverUp = await itpHealthCheck(); // false = passthrough mode
 ```
 
-**What we've measured:** speed improvement on identical-context parallel tasks.
-**What we haven't measured yet:** exact token-reduction percentage across diverse workloads. Preliminary numbers vary from ~15% to ~40% depending on context overlap; we'll publish the measured distribution in `MEASUREMENTS.md` as we collect more data.
+**Live ITP benchmark snapshot:**
+- **Codebook:** `v1.0.0`, 99 entries
+- **Corpus benchmark:** **11.95%** token reduction on 25 messages
+- **Swarm payload benchmark:** **27.32%** task-token reduction on a 5-task swarm
+- **Hybrid swarm benchmark:** **63.25%** effective input-cost reduction from live ITP compression plus modeled prompt caching
 
-ITP is most effective in parallel swarm scenarios where multiple tasks share the same model context. Cross-model savings (e.g., Opus → Sonnet) also compound because LLM providers inject similar preambles across model tiers.
+ITP is most effective in parallel swarm scenarios where multiple tasks share the same model context. Prompt caching handles repeated prompt structure, and ITP reduces the changing task payload inside that structure. Cross-model savings can also compound because providers inject similar preambles across nearby model tiers.
 
 ## Fee Structure
 
@@ -417,3 +451,5 @@ See [LICENSE](LICENSE) for full terms.
 ---
 
 Built by [AI Agent Economy](https://github.com/up2itnow0822) 🦅
+
+For commercial use, review [LICENSING.md](./LICENSING.md).

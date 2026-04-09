@@ -2,71 +2,51 @@
 
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 2.0.x   | ✅ Active support  |
-| < 2.0   | ❌ No support      |
+| Version | Supported |
+| ------- | --------- |
+| 2.2.x   | ✅ |
+| 2.1.x   | ✅ |
+| < 2.1.0 | ❌ |
 
 ## Reporting a Vulnerability
 
-**Do NOT open a public GitHub issue for security vulnerabilities.**
-
-Please report security vulnerabilities via email:
-
-📧 **security@ai-agent-economy.com**
+Please report security issues privately to **bill@ai-agent-economy.com**.
 
 Include:
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact assessment
-- Suggested fix (if any)
+- affected version
+- reproduction steps
+- impact assessment
+- whether the issue affects native, WASM, or TypeScript fallback paths
 
-## Response Timeline
+Please do not open public GitHub issues for unpatched vulnerabilities.
 
-- **Acknowledgment:** Within 48 hours
-- **Initial Assessment:** Within 5 business days
-- **Fix Timeline:** Critical vulnerabilities within 7 days
+## Response Expectations
 
-## Security Design Principles
+- initial acknowledgement: within 3 business days
+- severity triage: within 5 business days
+- fix target: depends on impact and exploitability
 
-### Spending Policy (Financial Safety)
-- **Fail-closed:** Any policy error results in payment rejection
-- **Never auto-retry:** Failed payments are logged but never automatically retried
-- **Daily limits:** Hard-enforced, cannot be overridden by RSI
-- **Domain allowlists:** When configured, only listed domains can receive payments
+## Scope Notes
 
-### RSI Safety Invariants
-The following can **NEVER** be modified by the RSI engine:
-1. Spending limits and SpendingPolicy configuration
-2. Core identity and directives
-3. RSI safety tier definitions
-4. Sandbox boundaries
-5. Authentication credentials
+ClawPowers ships wallet, payment, memory, and RSI primitives. Security-sensitive areas include:
+- private key generation and storage
+- payment policy enforcement
+- x402 header creation and parsing
+- native and WASM crypto fallbacks
+- local file-backed memory stores
 
-### T4 Gate
-T4 (Architecture Proposals) mutations **always** require human approval. The `'auto'` mode is rejected at the type system level and the validation layer.
+## Data Handling
 
-### Wallet Security
-- Private keys are encrypted at rest using AES-256-GCM
-- Key derivation uses scrypt (N=16384, r=8, p=1)
-- Atomic file writes prevent corruption
-- Backup files created before overwrites
+ClawPowers is designed for local-first operation.
 
-### Memory Integrity
-- Episodic memory is append-only (JSONL)
-- Procedural memory uses atomic writes with backup
-- Checkpoint files use write-to-temp-then-rename pattern
-- Corruption recovery is built into episodic memory
+- no telemetry is sent by the library itself
+- secrets are not intentionally exfiltrated by package code
+- payment, wallet, and memory data storage behavior depends on the consuming application configuration
 
-## Dependencies
+## Disclosure Policy
 
-This library has minimal runtime dependencies:
-- `zod` — Schema validation (no known vulnerabilities)
-- Node.js built-in `crypto` — For wallet operations
-
-## Audit
-
-The codebase enforces:
-- Zero `any` types in TypeScript
-- Strict mode enabled
-- All financial operations logged to audit trail
+We prefer coordinated disclosure. After a fix is available, we may publish:
+- affected versions
+- impact summary
+- remediation guidance
+- CVE or advisory references when applicable

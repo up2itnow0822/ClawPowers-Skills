@@ -65,32 +65,45 @@ async function decode(message) {
 const estimateTokens = (s) => Math.max(1, Math.ceil(s.length / 4));
 
 // ─── Test Corpus ──────────────────────────────────────────────────────
-// Realistic agent-to-agent messages across common patterns
+// Realistic agent-to-agent messages across common patterns.
+// Expanded corpus for more stable aggregate numbers.
 const CORPUS = [
-  // 1. Task delegation
+  // 1. Task delegation — codebook sweet spot (operations + targets + agents)
   { category: 'delegation', message: 'Delegate to Rex: review the ClawPowers-Skills repo, run the validator agent, and report status. Priority: P0. Deliverable: completion report in reports/.' },
   { category: 'delegation', message: 'Delegate to Business Strategy Director: execute the 5-phase Scout cycle for competitive intelligence on the agent wallet space. Include pre-positioning actions.' },
   { category: 'delegation', message: 'Max, please delegate to Intelligence Director: research Nvidia NemoClaw payment integration opportunities and file the findings.' },
+  { category: 'delegation', message: 'Delegate to Engineering Director: rebuild the ClawPowers-Agent dependency graph, test the import chain, deploy to npm, and report status with completion report.' },
+  { category: 'delegation', message: 'Rex, please execute the audit on agentwallet-sdk, fix the high severity findings, and merge the PR. Priority P1. Status report when done.' },
 
-  // 2. Status reports
+  // 2. Status reports — codebook covers common status vocabulary
   { category: 'status', message: 'Status report: trading bots all healthy, btc-perp-trader balance $9617, paper-trader-v5 at 44.6% drawdown which exceeds the 30% threshold. Alert level P0.' },
   { category: 'status', message: 'Status: ClawPowers-Skills tests passing 261 of 261, ClawPowers-Agent tests passing 132 of 132, both repos committed and pushed to main. Ready for npm publish.' },
-  { category: 'status', message: 'Status report: all 8 swarm cron groups running clean, exit code 0 across the board. Infrastructure monitor flagged 10KB of stderr warnings but they are cosmetic (gh CLI JSON field mismatch).' },
+  { category: 'status', message: 'Status report: all 8 swarm cron groups running clean, exit code 0 across the board. Infrastructure monitor flagged 10KB of stderr warnings but they are cosmetic.' },
+  { category: 'status', message: 'Status report to Max: AlphaWolf orchestrator up and healthy, AlphaWolf trend-watcher up, AlphaWolf ready-trader up. All 7 trading containers green. No action required.' },
+  { category: 'status', message: 'Status: ClawPowers wallet now produces real MetaMask-compatible Ethereum addresses. secp256k1 test vector passing. Ready to review and publish.' },
 
-  // 3. Operations commands
-  { category: 'ops', message: 'Execute: deploy ClawPowers-Skills v2.2.0 to npm, then update ClawPowers-Agent dependency to ^2.2.0, then publish ClawPowers-Agent v1.1.0.' },
+  // 3. Operations commands — mixed codebook coverage
+  { category: 'ops', message: 'Execute: deploy ClawPowers-Skills v2.2.0 to npm, then update ClawPowers-Agent dependency to 2.2.0, then publish ClawPowers-Agent v1.1.0.' },
   { category: 'ops', message: 'Run the validator agent on ClawPowers-Skills before publishing. Check compile gate, lint, tests, security audit, type coverage, docs, changelog, and final review.' },
   { category: 'ops', message: 'Deploy the parallel swarm health check to replace the 18 individual trading crons. Schedule: every 30 minutes. Model: deterministic shell script, no LLM required.' },
+  { category: 'ops', message: 'Execute: monitor btc-perp-trader, check trading status, fix any unhealthy containers, and report status back to Max within 5 minutes. Priority P0.' },
+  { category: 'ops', message: 'Scan ClawPowers-Agent for security issues, audit the dependency tree, remove any critical vulnerabilities, and update the changelog. Priority P1.' },
 
-  // 4. Research requests
+  // 4. Research requests — codebook gap area
   { category: 'research', message: 'Research the current state of x402 payment adapters across the Ethereum ecosystem. Focus on Base, Optimism, Arbitrum. Include fee structures and integration complexity.' },
   { category: 'research', message: 'Research autonomous agent wallet security architectures. Compare non-custodial approaches to custodial agent platforms like LangChain AgentKit and competitors.' },
+  { category: 'research', message: 'Research competitive positioning for autonomous coding agents. Look at Cursor, Claude Code, Cline, Aider, and summarize differentiators for the agent economy space.' },
 
-  // 5. Short messages (should pass through unchanged)
+  // 5. Long-form technical messages — worst case for v1 codebook
+  { category: 'technical', message: 'The parallel swarm executor wraps N concurrent workers behind a ConcurrencyManager and a shared TokenPool. When the pool reaches threshold, new tasks queue behind a semaphore until completed tasks free their allocations. The ModelRouter classifies each task by heuristic complexity (simple, moderate, complex) and routes to the appropriate Claude model tier.' },
+  { category: 'technical', message: 'The Rust crypto layer uses k256 for secp256k1 operations with ECDSA signing and recovery. Keccak-256 runs through sha3 in the same workspace crate. All private key material is zeroized on drop via the Zeroize trait. The native addon builds via napi-rs and falls back to pre-built WASM when rustc is unavailable.' },
+
+  // 6. Short messages — designed to pass through unchanged
   { category: 'short', message: 'OK' },
   { category: 'short', message: 'Done' },
   { category: 'short', message: 'Trading healthy' },
   { category: 'short', message: 'Build failed' },
+  { category: 'short', message: 'Tests passing' },
 ];
 
 async function runBenchmark() {
@@ -102,7 +115,7 @@ async function runBenchmark() {
   const serverUp = await healthCheck();
   if (!serverUp) {
     console.error('❌ ITP server not reachable at', ITP_BASE_URL);
-    console.error('   Start it: ~/.openclaw-rex/workspace/tools/itp/start_itp_server.sh');
+    console.error('   Start it: ~/.openclaw/workspace/tools/itp/start_itp_server.sh');
     process.exit(2);
   }
   console.log('✅ ITP server reachable at', ITP_BASE_URL, '\n');

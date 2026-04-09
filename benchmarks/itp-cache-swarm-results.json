@@ -1,0 +1,173 @@
+{
+  "timestamp": "2026-04-08T02:54:11.893Z",
+  "benchmark": "itp-cache-swarm-benchmark",
+  "corpus": {
+    "tasks": 5,
+    "swarmSize": 5,
+    "sharedPrefixChars": 1372,
+    "sharedPrefixTokensEstimated": 343
+  },
+  "server": {
+    "baseUrl": "http://127.0.0.1:8100",
+    "health": {
+      "status": "ok",
+      "version": "1.0.0",
+      "protocol": "ITP — Identical Twins Protocol",
+      "codebook": {
+        "version": "1.0.0",
+        "total_entries": 99,
+        "categories": {
+          "operations": 20,
+          "targets": 31,
+          "agents": 12,
+          "priorities": 4,
+          "status_codes": 9,
+          "report_formats": 5,
+          "common_phrases": 15
+        },
+        "compression_threshold": 30,
+        "examples": 3
+      }
+    },
+    "stats": {
+      "total_messages": 133,
+      "compressed_messages": 57,
+      "passthrough_messages": 76,
+      "average_savings_pct": 12.6,
+      "total_original_tokens": 4142,
+      "total_compressed_tokens": 4194,
+      "total_tokens_saved": -52,
+      "overall_compression_ratio": 1.013,
+      "codebook": {
+        "version": "1.0.0",
+        "total_entries": 99,
+        "categories": {
+          "operations": 20,
+          "targets": 31,
+          "agents": 12,
+          "priorities": 4,
+          "status_codes": 9,
+          "report_formats": 5,
+          "common_phrases": 15
+        },
+        "compression_threshold": 30,
+        "examples": 3
+      }
+    },
+    "codebook": {
+      "version": "1.0.0",
+      "totalEntries": 99,
+      "compressionThreshold": 30,
+      "categories": {
+        "operations": 20,
+        "targets": 31,
+        "agents": 12,
+        "priorities": 4,
+        "status_codes": 9,
+        "report_formats": 5,
+        "common_phrases": 15
+      }
+    }
+  },
+  "messageCompression": {
+    "rawTokens": 183,
+    "encodedTokens": 133,
+    "tokensSaved": 50,
+    "reductionPct": 27.32,
+    "compressedTasks": 5,
+    "avgLatencyMs": 10.8
+  },
+  "scenarios": {
+    "baselineNoCacheNoItp": {
+      "effectiveInputTokenUnits": 1902
+    },
+    "itpOnly": {
+      "effectiveInputTokenUnits": 1848,
+      "reductionPctVsBaseline": 2.84
+    },
+    "promptCacheOnly": {
+      "effectiveInputTokenUnits": 752.95,
+      "reductionPctVsBaseline": 60.41,
+      "pricingModel": {
+        "firstPrefixWriteMultiplier": 1.25,
+        "subsequentPrefixReadMultiplier": 0.1
+      }
+    },
+    "combinedItpPlusPromptCache": {
+      "effectiveInputTokenUnits": 698.95,
+      "reductionPctVsBaseline": 63.25
+    }
+  },
+  "tasks": [
+    {
+      "id": "task-1",
+      "category": "delegation",
+      "rawMessage": "Delegate to Rex: review the ClawPowers-Skills repo, run the validator agent, and report status. Priority: P0. Deliverable: completion report in reports/.",
+      "encoded": "ITP:DL Rex: RV the CPS repo, run the validator agent, and RP status. Priority: P0. Deliverable: completion RP in reports/.",
+      "rawTokens": 38,
+      "encodedTokens": 30,
+      "rawPromptTokens": 386,
+      "encodedPromptTokens": 378,
+      "wasCompressed": true,
+      "savingsPct": 21.1,
+      "latencyMs": 15
+    },
+    {
+      "id": "task-2",
+      "category": "ops",
+      "rawMessage": "Execute: deploy ClawPowers-Skills v2.2.0 to npm, then update ClawPowers-Agent dependency to 2.2.0, then publish ClawPowers-Agent v1.1.0.",
+      "encoded": "ITP:EX: DP CPS v2.2.0 to NM, then UP CPA dependency to 2.2.0, then publish CPA v1.1.0.",
+      "rawTokens": 34,
+      "encodedTokens": 21,
+      "rawPromptTokens": 382,
+      "encodedPromptTokens": 369,
+      "wasCompressed": true,
+      "savingsPct": 38.2,
+      "latencyMs": 10
+    },
+    {
+      "id": "task-3",
+      "category": "status",
+      "rawMessage": "Status report to Max: AlphaWolf orchestrator up and healthy, AlphaWolf trend-watcher up, AlphaWolf ready-trader up. All 7 trading containers green. No action required.",
+      "encoded": "ITP:ST to Max: AW-O up and healthy, AW-TW up, AW-RT up. All 7 trading containers green. No action required.",
+      "rawTokens": 41,
+      "encodedTokens": 26,
+      "rawPromptTokens": 389,
+      "encodedPromptTokens": 374,
+      "wasCompressed": true,
+      "savingsPct": 36.6,
+      "latencyMs": 5
+    },
+    {
+      "id": "task-4",
+      "category": "ops",
+      "rawMessage": "Execute: monitor btc-perp-trader, check trading status, fix any unhealthy containers, and report status back to Max within 5 minutes. Priority P0.",
+      "encoded": "ITP:EX: MN BPT, CK trading status, FX any unhealthy containers, and RP status back to Max within 5 minutes. Priority P0.",
+      "rawTokens": 36,
+      "encodedTokens": 30,
+      "rawPromptTokens": 384,
+      "encodedPromptTokens": 378,
+      "wasCompressed": true,
+      "savingsPct": 16.7,
+      "latencyMs": 15
+    },
+    {
+      "id": "task-5",
+      "category": "delegation",
+      "rawMessage": "Rex, please execute the audit on agentwallet-sdk, fix the high severity findings, and merge the PR. Priority P1. Status report when done.",
+      "encoded": "ITP:Rex, please EX the AU on AW, FX the high severity findings, and MG the PR. Priority P1. ST when done.",
+      "rawTokens": 34,
+      "encodedTokens": 26,
+      "rawPromptTokens": 382,
+      "encodedPromptTokens": 374,
+      "wasCompressed": true,
+      "savingsPct": 23.5,
+      "latencyMs": 9
+    }
+  ],
+  "notes": [
+    "ITP encode path, server health, codebook metadata, and encode latency are live measurements against the running server.",
+    "Prompt caching economics are modeled using Anthropic cache-write (1.25x) and cache-read (0.10x) input pricing multipliers.",
+    "Token counts are estimated as ceil(chars/4), matching the existing ITP benchmark convention. Output tokens are excluded."
+  ]
+}

@@ -11,9 +11,8 @@ import { EpisodicMemory } from '../../src/memory/episodic.js';
 import { ProceduralMemory } from '../../src/memory/procedural.js';
 import { CheckpointManager } from '../../src/memory/checkpoint.js';
 import { ContextInjector } from '../../src/memory/context-injector.js';
-import { WorkingMemoryManager } from '../../src/memory/working.js';
 import { MetricsCollector } from '../../src/rsi/metrics.js';
-import type { EpisodicEntry, Goal, CheckpointState, WorkingMemory } from '../../src/types.js';
+import type { EpisodicEntry, Goal, CheckpointState } from '../../src/types.js';
 
 function makeEpisodic(overrides: Partial<EpisodicEntry> = {}): EpisodicEntry {
   return {

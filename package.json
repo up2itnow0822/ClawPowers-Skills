@@ -1,6 +1,6 @@
 {
   "name": "clawpowers",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Skills library for AI agents — payments, memory, RSI, wallet. Drop-in capability layer for any agent framework.",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,16 +14,22 @@
   },
   "files": [
     "dist",
+    "src/skills",
     "native/Cargo.toml",
     "native/Cargo.lock",
     "native/crates",
     "native/ffi",
     "native/wasm",
+    "native/wasm/pkg",
+    "native/wasm/pkg-node",
     "native/pyo3",
     "README.md",
     "LICENSE",
     "CHANGELOG.md",
-    "SECURITY.md"
+    "SECURITY.md",
+    "COMPATIBILITY.md",
+    "KNOWN_LIMITATIONS.md",
+    "LICENSING.md"
   ],
   "scripts": {
     "build:native": "cd native && cargo build --release --workspace || echo 'Rust not installed - using WASM/TS fallback'",
@@ -32,8 +38,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests benchmarks",
+    "verify:pack": "npm pack --dry-run",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "prepack": "npm run build"
   },
   "keywords": [
     "ai-agent",
@@ -52,7 +61,7 @@
   "license": "BSL-1.1",
   "repository": {
     "type": "git",
-    "url": "https://github.com/up2itnow0822/ClawPowers-Skills"
+    "url": "git+https://github.com/up2itnow0822/ClawPowers-Skills.git"
   },
   "bugs": {
     "url": "https://github.com/up2itnow0822/ClawPowers-Skills/issues"

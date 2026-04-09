@@ -11,7 +11,6 @@ import {
   getConfigValue, setConfigValue,
 } from '../src/config.js';
 import { DEFAULT_CONFIG } from '../src/constants.js';
-import type { ConfigFile } from '../src/types.js';
 
 describe('Config Manager', () => {
   let testDir: string;

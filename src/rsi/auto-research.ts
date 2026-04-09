@@ -288,7 +288,6 @@ export class AutoResearcher {
   private searchSkillCatalog(failure: FailureTrace): CandidateSolution[] {
     // Import is dynamic to avoid circular deps — we use the static catalog if available
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { SKILLS_CATALOG } = require('../skills/catalog.js') as {
         SKILLS_CATALOG: Array<{ name: string; description: string; category: string }>;
       };

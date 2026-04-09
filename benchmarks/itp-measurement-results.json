@@ -1,52 +1,58 @@
 {
-  "timestamp": "2026-04-07T12:13:26.825Z",
+  "timestamp": "2026-04-08T02:48:46.416Z",
   "host": "MacBook Pro M1 (Apple Silicon)",
   "cpu": "Apple M1",
   "os": "Darwin 25.4.0 arm64",
   "node": "v25.8.1",
   "itpServer": "localhost:8100 (FastAPI, codebook v1.0.0)",
-  "corpusSize": 15,
-  "compressedCount": 6,
-  "passthroughCount": 9,
-  "totalOriginalChars": 1764,
-  "totalEncodedChars": 1554,
-  "charReduction": 210,
-  "charReductionPct": 11.9,
-  "totalOriginalTokens": 437,
-  "totalEncodedTokens": 383,
-  "tokenReduction": 54,
-  "tokenReductionPct": 12.36,
-  "totalRoundTripMs": 172,
-  "msPerMessage": 11.47,
+  "corpusSize": 25,
+  "compressedCount": 11,
+  "passthroughCount": 14,
+  "totalOriginalChars": 3478,
+  "totalEncodedChars": 3072,
+  "charReduction": 406,
+  "charReductionPct": 11.67,
+  "totalOriginalTokens": 862,
+  "totalEncodedTokens": 759,
+  "tokenReduction": 103,
+  "tokenReductionPct": 11.95,
+  "totalRoundTripMs": 195,
+  "msPerMessage": 7.8,
   "byCategory": {
     "delegation": {
-      "count": 3,
-      "origTokens": 110,
-      "encTokens": 84,
-      "compressed": 3
+      "count": 5,
+      "origTokens": 184,
+      "encTokens": 136,
+      "compressed": 5
     },
     "status": {
-      "count": 3,
-      "origTokens": 124,
-      "encTokens": 109,
-      "compressed": 2
+      "count": 5,
+      "origTokens": 193,
+      "encTokens": 163,
+      "compressed": 3
     },
     "ops": {
-      "count": 3,
-      "origTokens": 114,
-      "encTokens": 101,
-      "compressed": 1
+      "count": 5,
+      "origTokens": 186,
+      "encTokens": 161,
+      "compressed": 3
     },
     "research": {
+      "count": 3,
+      "origTokens": 122,
+      "encTokens": 122,
+      "compressed": 0
+    },
+    "technical": {
       "count": 2,
-      "origTokens": 81,
-      "encTokens": 81,
+      "origTokens": 166,
+      "encTokens": 166,
       "compressed": 0
     },
     "short": {
-      "count": 4,
-      "origTokens": 8,
-      "encTokens": 8,
+      "count": 5,
+      "origTokens": 11,
+      "encTokens": 11,
       "compressed": 0
     }
   },

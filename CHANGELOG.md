@@ -2,7 +2,7 @@
 
 All notable changes to ClawPowers are documented here.
 
-## [2.2.0] - 2026-04-06
+## [2.2.0] - 2026-04-08
 
 ### Added
 

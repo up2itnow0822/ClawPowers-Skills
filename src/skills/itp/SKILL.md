@@ -1,6 +1,6 @@
 ---
 name: itp
-description: "Identical Twins Protocol — compressed agent-to-agent messaging. Reduces inter-agent token usage 40-80% via shared codebook. Use when sending messages between Claude instances."
+description: "Identical Twins Protocol — compressed agent-to-agent messaging for repeated operational language. Use when sending messages between agents."
 metadata:
   openclaw:
     requires:
@@ -11,7 +11,9 @@ metadata:
 
 # ITP — Identical Twins Protocol
 
-Compressed agent-to-agent messaging protocol that reduces inter-agent token usage by 40-80% using a shared codebook of common patterns, operations, and agent shorthand.
+Compressed agent-to-agent messaging protocol that uses a shared codebook of common patterns, operations, and agent shorthand.
+
+Current measured performance is workload-dependent. The live v1 corpus benchmark shows **11.9% aggregate token reduction** across 25 messages, with delegation and status traffic compressing best. Separate swarm docs also include **modeled** prompt-cache economics layered on top of those live prompt sizes. Keep those two measurement types distinct.
 
 ## Quick Start
 
@@ -24,7 +26,7 @@ The ITP server runs as a FastAPI service on port 8100:
 launchctl load ~/Library/LaunchAgents/com.agenteconomy.itp-server.plist
 
 # Or manually
-cd /Users/billwilson/.openclaw-rex/workspace/tools/itp
+cd /Users/billwilson/.openclaw/workspace/tools/itp
 python3 -m uvicorn itp_server:app --host 127.0.0.1 --port 8100
 ```
 

@@ -2,15 +2,31 @@ import globals from "globals";
 import tsParser from "@typescript-eslint/parser";
 import tsPlugin from "@typescript-eslint/eslint-plugin";
 
+const vitestGlobals = {
+  afterAll: "readonly",
+  afterEach: "readonly",
+  beforeAll: "readonly",
+  beforeEach: "readonly",
+  describe: "readonly",
+  expect: "readonly",
+  it: "readonly",
+  test: "readonly",
+  vi: "readonly",
+};
+
 export default [
   {
-    files: ["src/**/*.ts"],
+    ignores: ["dist/**", "node_modules/**", "native/wasm/pkg/**", "native/wasm/pkg-node/**"],
+  },
+  {
+    files: ["src/**/*.ts", "tests/**/*.ts"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
       parser: tsParser,
       globals: {
         ...globals.node,
+        ...vitestGlobals,
       }
     },
     plugins: {
@@ -28,10 +44,29 @@ export default [
       "eqeqeq": "warn",
       "no-var": "warn",
       "prefer-const": "warn",
-      "no-throw-literal": "off",
-      "@typescript-eslint/no-throw-literal": "error",
+      "no-throw-literal": "warn",
       "no-eval": "error",
       "no-implied-eval": "error",
     }
+  },
+  {
+    files: ["benchmarks/**/*.mjs"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      "no-constant-condition": "warn",
+      "no-empty": "warn",
+      "no-unreachable": "error",
+      "eqeqeq": "warn",
+      "no-var": "warn",
+      "prefer-const": "warn",
+      "no-eval": "error",
+      "no-implied-eval": "error",
+    },
   }
 ];

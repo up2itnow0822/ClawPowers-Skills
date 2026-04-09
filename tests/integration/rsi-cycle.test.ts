@@ -12,7 +12,7 @@ import { HypothesisEngine } from '../../src/rsi/hypothesis.js';
 import { MutationEngine } from '../../src/rsi/mutation.js';
 import { ABTestManager } from '../../src/rsi/ab-test.js';
 import { RSIAuditLog } from '../../src/rsi/audit.js';
-import type { TaskMetrics, SkillMetrics, RSIHypothesis, RSITierLabel } from '../../src/types.js';
+import type { TaskMetrics, SkillMetrics, RSIHypothesis } from '../../src/types.js';
 
 function makeTaskMetrics(overrides: Partial<TaskMetrics> = {}): TaskMetrics {
   return {

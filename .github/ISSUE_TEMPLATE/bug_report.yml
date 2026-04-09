@@ -1,0 +1,40 @@
+name: Bug report
+description: Report a reproducible defect in ClawPowers-Skills
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please include exact versions, platform details, and whether the issue affects native, WASM, or TypeScript fallback behavior.
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: 2.2.0
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: OS, Node version, install method, native/WASM availability
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true

@@ -5,10 +5,17 @@
  * Tier 2: WASM module (portable — wasm-pack compiled)
  * Tier 3: Pure TypeScript fallback (universal)
  *
- * Note: Wallet and x402 are NOT available in WASM (excluded from wasm crate);
- * those functions fall back directly to TypeScript when native is unavailable.
+ * Note: x402 remains native/TypeScript only, but wallet address derivation is
+ * available in both Tier 1 native and Tier 2 WASM via the shared secp256k1 +
+ * Keccak implementation in src/native/index.ts.
  */
-import { getNative, getWasm, calculateFee as wasmCalculateFee } from '../native/index.js';
+import { randomBytes } from 'node:crypto';
+import {
+  calculateFee as wasmCalculateFee,
+  deriveEthereumAddress,
+  getNative,
+  getWasm,
+} from '../native/index.js';
 
 export interface FeeCalculation {
   gross: number;
@@ -98,8 +105,8 @@ export function createPaymentHeader(paymentJson: string, signature: string): str
  * Generate a new EVM agent wallet address.
  *
  * Tier 1: Native Rust wallet crate (JsAgentWallet.generate)
- * Tier 2: Not available in WASM (wallet excluded from wasm crate)
- * Tier 3: Returns zero address (no crypto wallet available without native)
+ * Tier 2: WASM secp256k1 + Keccak derivation via the shared loader
+ * Tier 3: throws, because returning a fake zero address would be misleading
  */
 export function generateWalletAddress(): string {
   // Tier 1: Native
@@ -108,10 +115,16 @@ export function generateWalletAddress(): string {
     try {
       return native.JsAgentWallet.generate().address();
     } catch {
-      // Fall through to Tier 3 (WASM does not expose wallet)
+      // Fall through to shared loader path
     }
   }
 
-  // Tier 3: TypeScript fallback (wallet excluded from WASM build)
-  return '0x0000000000000000000000000000000000000000';
+  const address = deriveEthereumAddress(randomBytes(32));
+  if (address) {
+    return address;
+  }
+
+  throw new Error(
+    'Unable to derive a real Ethereum address. Native or WASM wallet support is required for generateWalletAddress().'
+  );
 }

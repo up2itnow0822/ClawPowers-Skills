@@ -8,13 +8,12 @@
  * - Type shape validation for SwarmRun, SwarmTask, SwarmResult
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { ConcurrencyManager } from '../../src/swarm/concurrency.js';
 import { TokenPool } from '../../src/swarm/token_pool.js';
 import { classifyHeuristic, selectModel, classifyTasks } from '../../src/swarm/model_router.js';
 import type {
   SwarmTask,
-  SwarmResult,
   SwarmRun,
   SwarmConfig,
   ModelComplexity,

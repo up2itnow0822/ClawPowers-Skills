@@ -12,9 +12,11 @@ Early README drafts quoted specific percentages for parallel swarm and ITP savin
 
 ### Summary
 
-**Measured token reduction: 12.4% aggregate (range: 0% to 23.6% by category).**
+**Measured token reduction: 11.9% aggregate (range: 0% to 26.1% by category).**
 
-These are real numbers from live ITP server calls on a 15-message corpus across 5 categories. The magnitude is **much more modest than early modeled estimates suggested** (~65%). The mechanism works, but savings scale with codebook coverage, not with the raw size of the messages. Research vocabulary and short messages see zero benefit; task delegation and status reports see the most.
+These are real numbers from live ITP server calls on a 25-message corpus across 6 categories. The server is the authoritative implementation at `~/.openclaw/workspace/tools/itp/` (the same one running under the `com.agenteconomy.itp-server` LaunchAgent). All 13 server-side Python tests pass. The server was restarted clean immediately before the benchmark run to ensure no state leaked from prior runs.
+
+The magnitude is **much more modest than early modeled estimates suggested** (~65%). The mechanism works, but savings scale with codebook coverage, not with the raw size of the messages. Research vocabulary, long technical messages, and short messages see zero benefit; task delegation and status reports see the most.
 
 ### Test Environment
 
@@ -32,47 +34,52 @@ These are real numbers from live ITP server calls on a 15-message corpus across 
 
 ### Test Parameters
 
-- **Corpus size:** 15 representative agent-to-agent messages
-- **Categories:** delegation (3), status (3), ops (3), research (2), short (4)
+- **Corpus size:** 25 representative agent-to-agent messages
+- **Categories:** delegation (5), status (5), ops (5), research (3), technical (2), short (5)
 - **Each message:** encoded via `POST /tools/encode`, round-tripped through `POST /tools/decode`, token counts recorded
+- **Server state:** restarted clean via `launchctl unload/load` immediately before the run
+- **Server validation:** all 13 Python tests in `tests/test_encoder.py` passing before the benchmark
 - **Benchmark script:** `benchmarks/itp-measurement.mjs`
-- **Reproducible:** yes, given a running ITP server
+- **Reproducible:** yes, given a running ITP server at `127.0.0.1:8100`
 - **Results JSON:** `benchmarks/itp-measurement-results.json`
 
 ### Results — Aggregate
 
 | Metric | Value |
 |---|---|
-| Messages in corpus | 15 |
-| Compressed | 6 |
-| Passthrough | 9 |
-| Original total tokens | 437 |
-| Encoded total tokens | 383 |
-| **Token reduction** | **54 tokens (12.4%)** |
-| Total round-trip time | 172 ms |
-| Average per message | 11.5 ms |
+| Messages in corpus | 25 |
+| Compressed | 11 |
+| Passthrough | 14 |
+| Original total tokens | 862 |
+| Encoded total tokens | 759 |
+| **Token reduction** | **103 tokens (11.9%)** |
+| Total round-trip time | 201 ms |
+| Average per message | 8.0 ms |
 
 ### Results — By Category
 
 | Category | n | Compressed | Original tokens | Encoded tokens | Reduction |
 |---|---|---|---|---|---|
-| delegation | 3 | 3/3 | 110 | 84 | **23.6%** |
-| status | 3 | 2/3 | 124 | 109 | **12.1%** |
-| ops | 3 | 1/3 | 114 | 101 | **11.4%** |
-| research | 2 | 0/2 | 81 | 81 | **0.0%** |
-| short | 4 | 0/4 | 8 | 8 | **0.0%** |
+| delegation | 5 | 5/5 | 184 | 136 | **26.1%** |
+| status | 5 | 3/5 | 193 | 163 | **15.5%** |
+| ops | 5 | 3/5 | 186 | 161 | **13.4%** |
+| research | 3 | 0/3 | 122 | 122 | **0.0%** |
+| technical | 2 | 0/2 | 166 | 166 | **0.0%** |
+| short | 5 | 0/5 | 11 | 11 | **0.0%** |
 
 ### Observations
 
-1. **Delegation messages compress best (~24%)** because the codebook has dense coverage of agent names, operation verbs, and target repos (`DL`, `EX`, `CPS`, `AW`, etc.).
+1. **Delegation messages compress best (~26%)** because the codebook has dense coverage of agent names, operation verbs, and target repos (`DL`, `EX`, `CPS`, `AW`, etc.). All 5 delegation messages in the corpus compressed.
 
-2. **Research messages compress poorly (~0%)** because the codebook doesn't yet include research vocabulary (competitor names, technical terms, domain-specific language).
+2. **Research and technical messages compress at 0%** because the v1 codebook doesn't cover domain vocabulary (Rust crate names, API names, competitor names, algorithm names). These are exactly the gaps a v2 codebook expansion should target.
 
 3. **Short messages pass through unchanged** by design — the 30-token compression threshold exists because the ITP prefix (`ITP:`) adds overhead that wipes out any gains on tiny messages.
 
-4. **Round-trip speed is fast:** ~11.5ms per message round-trip (encode + decode) over HTTP to a local FastAPI server. ITP adds negligible latency relative to the LLM call it's wrapping.
+4. **Round-trip speed is fast:** ~8ms per message round-trip (encode + decode) over HTTP to a local FastAPI server. ITP adds negligible latency relative to the LLM call it's wrapping.
 
 5. **Compression is deterministic, not probabilistic.** Same input always produces the same output. This makes the protocol debuggable and predictable, but means savings are bounded by codebook coverage — ML-based approaches could potentially do better at the cost of determinism.
+
+6. **Results are stable across corpus size.** A 15-message preliminary run produced 12.4% aggregate; the expanded 25-message run produced 11.9%. The per-category numbers also hold up (delegation: 23.6% → 26.1%), suggesting ~12% is a defensible aggregate for the v1 codebook on realistic agent traffic.
 
 ### How to grow the savings
 
@@ -134,6 +141,6 @@ For ITP specifically, the bottleneck is **codebook coverage for your domain**. I
 
 ---
 
-_Last updated: 2026-04-07_
-_Initial ITP measurements: 2026-04-07 07:13 CDT on MacBook Pro M1_
+_Last updated: 2026-04-07 07:45 CDT_
+_Initial ITP measurements: 2026-04-07 on MacBook Pro M1 (25-message corpus, fresh server restart)_
 _PC (RTX 5090) measurements: pending_

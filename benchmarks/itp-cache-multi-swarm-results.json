@@ -1,0 +1,291 @@
+{
+  "timestamp": "2026-04-08T04:42:37.400Z",
+  "benchmark": "itp-cache-multi-swarm-benchmark",
+  "benchmarkRunnerModel": "openai-codex/gpt-5.4",
+  "hardware": {
+    "hostname": "Bills-MacBook-Pro.local",
+    "machine": "MacBook Pro",
+    "chip": "Apple M1",
+    "cores": 8,
+    "memoryGb": 16,
+    "platform": "darwin 25.4.0 arm64",
+    "node": "v25.8.1"
+  },
+  "server": {
+    "baseUrl": "http://127.0.0.1:8100",
+    "health": {
+      "status": "ok",
+      "version": "1.0.0",
+      "protocol": "ITP — Identical Twins Protocol",
+      "codebook": {
+        "version": "1.0.0",
+        "total_entries": 99,
+        "categories": {
+          "operations": 20,
+          "targets": 31,
+          "agents": 12,
+          "priorities": 4,
+          "status_codes": 9,
+          "report_formats": 5,
+          "common_phrases": 15
+        },
+        "compression_threshold": 30,
+        "examples": 3
+      }
+    },
+    "codebook": {
+      "version": "1.0.0",
+      "totalEntries": 99,
+      "compressionThreshold": 30,
+      "categories": {
+        "operations": 20,
+        "targets": 31,
+        "agents": 12,
+        "priorities": 4,
+        "status_codes": 9,
+        "report_formats": 5,
+        "common_phrases": 15
+      }
+    }
+  },
+  "cacheModel": {
+    "providerAssumption": "Anthropic-style prompt caching multipliers",
+    "firstPrefixWriteMultiplier": 1.25,
+    "laterPrefixReadMultiplier": 0.1,
+    "note": "Cache economics are modeled from live prompt sizes, not billed API receipts."
+  },
+  "swarmSets": [
+    {
+      "id": "set-a",
+      "name": "Launch ops swarm",
+      "taskCount": 5,
+      "sharedPrefixTokensEstimated": 343,
+      "messageCompression": {
+        "rawTokens": 183,
+        "encodedTokens": 133,
+        "tokensSaved": 50,
+        "reductionPct": 27.32,
+        "compressedTasks": 5,
+        "avgLatencyMs": 12.2
+      },
+      "scenarios": {
+        "baselineNoCacheNoItp": 1902,
+        "itpOnly": 1848,
+        "itpOnlyReductionPct": 2.84,
+        "promptCacheOnly": 752.95,
+        "promptCacheOnlyReductionPct": 60.41,
+        "combinedItpPlusPromptCache": 698.95,
+        "combinedReductionPct": 63.25
+      },
+      "tasks": [
+        {
+          "category": "delegation",
+          "rawTokens": 38,
+          "encodedTokens": 30,
+          "wasCompressed": true,
+          "latencyMs": 36,
+          "savingsPct": 21.1,
+          "encoded": "ITP:DL Rex: RV the CPS repo, run the validator agent, and RP status. Priority: P0. Deliverable: completion RP in reports/.",
+          "original": "Delegate to Rex: review the ClawPowers-Skills repo, run the validator agent, and report status. Priority: P0. Deliverable: completion report in reports/."
+        },
+        {
+          "category": "ops",
+          "rawTokens": 34,
+          "encodedTokens": 21,
+          "wasCompressed": true,
+          "latencyMs": 4,
+          "savingsPct": 38.2,
+          "encoded": "ITP:EX: DP CPS v2.2.0 to NM, then UP CPA dependency to 2.2.0, then publish CPA v1.1.0.",
+          "original": "Execute: deploy ClawPowers-Skills v2.2.0 to npm, then update ClawPowers-Agent dependency to 2.2.0, then publish ClawPowers-Agent v1.1.0."
+        },
+        {
+          "category": "status",
+          "rawTokens": 41,
+          "encodedTokens": 26,
+          "wasCompressed": true,
+          "latencyMs": 10,
+          "savingsPct": 36.6,
+          "encoded": "ITP:ST to Max: AW-O up and healthy, AW-TW up, AW-RT up. All 7 trading containers green. No action required.",
+          "original": "Status report to Max: AlphaWolf orchestrator up and healthy, AlphaWolf trend-watcher up, AlphaWolf ready-trader up. All 7 trading containers green. No action required."
+        },
+        {
+          "category": "ops",
+          "rawTokens": 36,
+          "encodedTokens": 30,
+          "wasCompressed": true,
+          "latencyMs": 6,
+          "savingsPct": 16.7,
+          "encoded": "ITP:EX: MN BPT, CK trading status, FX any unhealthy containers, and RP status back to Max within 5 minutes. Priority P0.",
+          "original": "Execute: monitor btc-perp-trader, check trading status, fix any unhealthy containers, and report status back to Max within 5 minutes. Priority P0."
+        },
+        {
+          "category": "delegation",
+          "rawTokens": 34,
+          "encodedTokens": 26,
+          "wasCompressed": true,
+          "latencyMs": 5,
+          "savingsPct": 23.5,
+          "encoded": "ITP:Rex, please EX the AU on AW, FX the high severity findings, and MG the PR. Priority P1. ST when done.",
+          "original": "Rex, please execute the audit on agentwallet-sdk, fix the high severity findings, and merge the PR. Priority P1. Status report when done."
+        }
+      ]
+    },
+    {
+      "id": "set-b",
+      "name": "Release readiness swarm",
+      "taskCount": 5,
+      "sharedPrefixTokensEstimated": 343,
+      "messageCompression": {
+        "rawTokens": 195,
+        "encodedTokens": 163,
+        "tokensSaved": 32,
+        "reductionPct": 16.41,
+        "compressedTasks": 4,
+        "avgLatencyMs": 4.4
+      },
+      "scenarios": {
+        "baselineNoCacheNoItp": 1913,
+        "itpOnly": 1878,
+        "itpOnlyReductionPct": 1.83,
+        "promptCacheOnly": 763.95,
+        "promptCacheOnlyReductionPct": 60.07,
+        "combinedItpPlusPromptCache": 728.95,
+        "combinedReductionPct": 61.89
+      },
+      "tasks": [
+        {
+          "category": "ops",
+          "rawTokens": 40,
+          "encodedTokens": 40,
+          "wasCompressed": false,
+          "latencyMs": 4,
+          "savingsPct": 0,
+          "encoded": "Run the validator agent on ClawPowers-Skills before publishing. Check compile gate, lint, tests, security audit, type coverage, docs, changelog, and final review.",
+          "original": "Run the validator agent on ClawPowers-Skills before publishing. Check compile gate, lint, tests, security audit, type coverage, docs, changelog, and final review."
+        },
+        {
+          "category": "delegation",
+          "rawTokens": 40,
+          "encodedTokens": 26,
+          "wasCompressed": true,
+          "latencyMs": 5,
+          "savingsPct": 35,
+          "encoded": "ITP:DL ED: RB the CPA dependency graph, TS the import chain, DP to NM, and RP status with completion RP.",
+          "original": "Delegate to Engineering Director: rebuild the ClawPowers-Agent dependency graph, test the import chain, deploy to npm, and report status with completion report."
+        },
+        {
+          "category": "status",
+          "rawTokens": 39,
+          "encodedTokens": 33,
+          "wasCompressed": true,
+          "latencyMs": 3,
+          "savingsPct": 15.4,
+          "encoded": "ITP:Status: CPS tests passing 261 of 261, CPA tests passing 132 of 132, both repos committed and pushed to main. Ready for NM publish.",
+          "original": "Status: ClawPowers-Skills tests passing 261 of 261, ClawPowers-Agent tests passing 132 of 132, both repos committed and pushed to main. Ready for npm publish."
+        },
+        {
+          "category": "ops",
+          "rawTokens": 36,
+          "encodedTokens": 30,
+          "wasCompressed": true,
+          "latencyMs": 5,
+          "savingsPct": 16.7,
+          "encoded": "ITP:SC CPA for security issues, AU the dependency tree, RM any critical vulnerabilities, and UP the changelog. Priority P1.",
+          "original": "Scan ClawPowers-Agent for security issues, audit the dependency tree, remove any critical vulnerabilities, and update the changelog. Priority P1."
+        },
+        {
+          "category": "delegation",
+          "rawTokens": 40,
+          "encodedTokens": 34,
+          "wasCompressed": true,
+          "latencyMs": 5,
+          "savingsPct": 15,
+          "encoded": "ITP:DL Rex: RV the release checklist, verify NM package contents, CK version tags, and RP status. Priority: P0. Deliverable: completion RP.",
+          "original": "Delegate to Rex: review the release checklist, verify npm package contents, check version tags, and report status. Priority: P0. Deliverable: completion report."
+        }
+      ]
+    },
+    {
+      "id": "set-c",
+      "name": "Infra and trading swarm",
+      "taskCount": 5,
+      "sharedPrefixTokensEstimated": 343,
+      "messageCompression": {
+        "rawTokens": 194,
+        "encodedTokens": 151,
+        "tokensSaved": 43,
+        "reductionPct": 22.16,
+        "compressedTasks": 4,
+        "avgLatencyMs": 5.2
+      },
+      "scenarios": {
+        "baselineNoCacheNoItp": 1914,
+        "itpOnly": 1866,
+        "itpOnlyReductionPct": 2.51,
+        "promptCacheOnly": 764.95,
+        "promptCacheOnlyReductionPct": 60.03,
+        "combinedItpPlusPromptCache": 716.95,
+        "combinedReductionPct": 62.54
+      },
+      "tasks": [
+        {
+          "category": "status",
+          "rawTokens": 38,
+          "encodedTokens": 29,
+          "wasCompressed": true,
+          "latencyMs": 9,
+          "savingsPct": 23.7,
+          "encoded": "ITP:ST: trading bots all healthy, BPT balance $9617, PT5 at 44.6% DD which exceeds the 30% threshold. Alert level P0.",
+          "original": "Status report: trading bots all healthy, btc-perp-trader balance $9617, paper-trader-v5 at 44.6% drawdown which exceeds the 30% threshold. Alert level P0."
+        },
+        {
+          "category": "status",
+          "rawTokens": 40,
+          "encodedTokens": 40,
+          "wasCompressed": false,
+          "latencyMs": 4,
+          "savingsPct": 0,
+          "encoded": "Status report: all 8 swarm cron groups running clean, exit code 0 across the board. Infrastructure monitor flagged 10KB of stderr warnings but they are cosmetic.",
+          "original": "Status report: all 8 swarm cron groups running clean, exit code 0 across the board. Infrastructure monitor flagged 10KB of stderr warnings but they are cosmetic."
+        },
+        {
+          "category": "ops",
+          "rawTokens": 36,
+          "encodedTokens": 30,
+          "wasCompressed": true,
+          "latencyMs": 4,
+          "savingsPct": 16.7,
+          "encoded": "ITP:EX: MN BPT, CK trading status, FX any unhealthy containers, and RP status back to Max within 5 minutes. Priority P0.",
+          "original": "Execute: monitor btc-perp-trader, check trading status, fix any unhealthy containers, and report status back to Max within 5 minutes. Priority P0."
+        },
+        {
+          "category": "delegation",
+          "rawTokens": 39,
+          "encodedTokens": 26,
+          "wasCompressed": true,
+          "latencyMs": 6,
+          "savingsPct": 33.3,
+          "encoded": "ITP:DL TD: CK DK, AN current regime, UP position status, and RP status in metrics-only format. Priority P0.",
+          "original": "Delegate to Trading Director: check Docker containers, analyze current regime, update position status, and report status in metrics-only format. Priority P0."
+        },
+        {
+          "category": "status",
+          "rawTokens": 41,
+          "encodedTokens": 26,
+          "wasCompressed": true,
+          "latencyMs": 3,
+          "savingsPct": 36.6,
+          "encoded": "ITP:ST to Max: AW-O up and healthy, AW-TW up, AW-RT up. All 7 trading containers green. No action required.",
+          "original": "Status report to Max: AlphaWolf orchestrator up and healthy, AlphaWolf trend-watcher up, AlphaWolf ready-trader up. All 7 trading containers green. No action required."
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "setCount": 3,
+    "combinedReductionPctMean": 62.56,
+    "combinedReductionPctStdDev": 0.56,
+    "payloadReductionPctMean": 21.96,
+    "payloadReductionPctStdDev": 4.46
+  }
+}
