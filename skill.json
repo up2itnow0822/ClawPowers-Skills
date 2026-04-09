@@ -1,6 +1,6 @@
 {
   "name": "clawpowers",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "description": "Capability library for AI agents: payments, memory, RSI, wallet, swarm, and ITP primitives.",
   "repository": {
     "type": "git",
