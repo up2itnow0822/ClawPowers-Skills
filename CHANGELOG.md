@@ -2,6 +2,30 @@
 
 All notable changes to ClawPowers are documented here.
 
+## [2.2.4] - 2026-04-09
+
+### Fixed
+
+- GitHub Actions CI WASM-artifact verification now correctly handles `npm pack --dry-run --json` output when `prepack` logs are present
+- Added `scripts/verify-wasm-artifacts.mjs` so packaged WASM checks are deterministic and reusable
+- Final GitHub release/version surfaces aligned to the live npm package version
+
+## [2.2.3] - 2026-04-09
+
+### Fixed
+
+- Added Dependabot, CodeQL, release automation, ROADMAP, and CI badge surfaces
+- Elevated wallet safety warning for Tier 3 fallback behavior
+- Added Node 22 coverage in CI and tightened launch-readiness docs
+
+## [2.2.2] - 2026-04-09
+
+### Fixed
+
+- `package.json` homepage corrected to npm page
+- Compatibility matrix updated to reflect current supported release lines
+- `skill.json` version synced to the published package version
+
 ## [2.2.1] - 2026-04-08
 
 ### Fixed

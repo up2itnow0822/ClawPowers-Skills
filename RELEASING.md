@@ -22,6 +22,8 @@
 
 | Version | Date | Notes |
 |---------|------|-------|
+| 2.2.4 | 2026-04-09 | Final launch closeout: CI WASM verification stabilized with a dedicated script, GitHub release/version surfaces aligned |
+| 2.2.3 | 2026-04-09 | Security automation, ROADMAP, CI badge, wallet safety warning, Node 22 CI coverage, launch hardening |
 | 2.2.2 | 2026-04-09 | Full polish pass: package.json homepage to npm, CHANGELOG entries, compatibility matrix current versions |
 | 2.2.1 | 2026-04-08 | Patch: CHANGELOG date corrections, RELEASING populated, README registry fix, `npm pkg fix` repository URL |
 | 2.2.0 | 2026-04-08 | Full secp256k1 Ethereum wallet derivation, WASM ECDSA exports, packaging hardening, pre-launch audit pass |
