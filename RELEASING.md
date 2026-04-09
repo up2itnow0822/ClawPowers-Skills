@@ -22,6 +22,7 @@
 
 | Version | Date | Notes |
 |---------|------|-------|
+| 2.2.2 | 2026-04-09 | Full polish pass: package.json homepage to npm, CHANGELOG entries, compatibility matrix current versions |
 | 2.2.1 | 2026-04-08 | Patch: CHANGELOG date corrections, RELEASING populated, README registry fix, `npm pkg fix` repository URL |
 | 2.2.0 | 2026-04-08 | Full secp256k1 Ethereum wallet derivation, WASM ECDSA exports, packaging hardening, pre-launch audit pass |
 | 2.1.0 | 2026-04-06 | Native acceleration layer, 3-tier loader (native/.node + WASM + TS), pre-built WASM artifacts |

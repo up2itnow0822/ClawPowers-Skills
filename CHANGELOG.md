@@ -2,6 +2,16 @@
 
 All notable changes to ClawPowers are documented here.
 
+## [2.2.1] - 2026-04-08
+
+### Fixed
+
+- `skill.json` version bumped to 2.2.1
+- `package.json` homepage corrected to npm page
+- CHANGELOG publish dates corrected to 2026-04-08
+- RELEASING.md populated with published versions table
+- `npm pkg fix` repository URL normalization applied
+
 ## [2.2.0] - 2026-04-08
 
 ### Added
