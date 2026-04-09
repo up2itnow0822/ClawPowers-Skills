@@ -22,8 +22,21 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - run: npm run verify:pack -- --json > pack.json
+      - run: npm run verify:pack
       - run: npm audit --omit=dev
       - name: Verify packaged WASM fallback artifacts
         run: |
-          node -e "const fs=require('fs');const pack=JSON.parse(fs.readFileSync('pack.json','utf8'));const files=(pack[0]?.files||[]).map(f=>f.path);const required=['native/wasm/pkg-node/clawpowers_wasm.js','native/wasm/pkg-node/clawpowers_wasm_bg.wasm'];for(const file of required){if(!files.includes(file)){throw new Error('Missing packaged WASM artifact: '+file)}}console.log('WASM artifacts present in tarball.');"
+          npm pack --dry-run --json 2>/dev/null | python3 -c "
+import sys, json
+raw = sys.stdin.read()
+idx = raw.find('[')
+if idx < 0:
+    raise RuntimeError('Could not find JSON array in npm pack output')
+d = json.loads(raw[idx:])
+files = [f['path'] for f in d[0]['files']]
+required = ['native/wasm/pkg-node/clawpowers_wasm.js', 'native/wasm/pkg-node/clawpowers_wasm_bg.wasm']
+for req in required:
+    if req not in files:
+        raise RuntimeError('Missing packaged WASM artifact: ' + req)
+print('WASM artifacts present in tarball. Files checked:', len(files))
+"
