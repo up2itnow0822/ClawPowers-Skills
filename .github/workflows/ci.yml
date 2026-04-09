@@ -26,4 +26,4 @@ jobs:
       - run: npm audit --omit=dev
       - name: Verify packaged WASM fallback artifacts
         run: |
-          node -e "const fs=require('fs');const pack=JSON.parse(fs.readFileSync('pack.json','utf8'));const files=(pack[0]?.files||[]).map(f=>f.path);const required=['package/native/wasm/pkg-node/clawpowers_wasm.js','package/native/wasm/pkg-node/clawpowers_wasm_bg.wasm'];for(const file of required){if(!files.includes(file)){throw new Error('Missing packaged WASM artifact: '+file)}}console.log('WASM artifacts present in tarball.');"
+          node -e "const fs=require('fs');const pack=JSON.parse(fs.readFileSync('pack.json','utf8'));const files=(pack[0]?.files||[]).map(f=>f.path);const required=['native/wasm/pkg-node/clawpowers_wasm.js','native/wasm/pkg-node/clawpowers_wasm_bg.wasm'];for(const file of required){if(!files.includes(file)){throw new Error('Missing packaged WASM artifact: '+file)}}console.log('WASM artifacts present in tarball.');"
