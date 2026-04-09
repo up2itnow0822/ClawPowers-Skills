@@ -25,18 +25,4 @@ jobs:
       - run: npm run verify:pack
       - run: npm audit --omit=dev
       - name: Verify packaged WASM fallback artifacts
-        run: |
-          npm pack --dry-run --json 2>/dev/null | python3 -c "
-import sys, json
-raw = sys.stdin.read()
-idx = raw.find('[')
-if idx < 0:
-    raise RuntimeError('Could not find JSON array in npm pack output')
-d = json.loads(raw[idx:])
-files = [f['path'] for f in d[0]['files']]
-required = ['native/wasm/pkg-node/clawpowers_wasm.js', 'native/wasm/pkg-node/clawpowers_wasm_bg.wasm']
-for req in required:
-    if req not in files:
-        raise RuntimeError('Missing packaged WASM artifact: ' + req)
-print('WASM artifacts present in tarball. Files checked:', len(files))
-"
+        run: node scripts/verify-wasm-artifacts.mjs

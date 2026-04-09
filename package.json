@@ -29,7 +29,8 @@
     "SECURITY.md",
     "COMPATIBILITY.md",
     "KNOWN_LIMITATIONS.md",
-    "LICENSING.md"
+    "LICENSING.md",
+    "scripts/"
   ],
   "scripts": {
     "build:native": "cd native && cargo build --release --workspace || echo 'Rust not installed - using WASM/TS fallback'",
