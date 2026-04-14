@@ -32,7 +32,7 @@ if (!pack) {
   process.exit(1);
 }
 
-const files = (pack[0]?.files ?? []).map(f => f.path);
+const files = (pack[0]?.files ?? []).map(f => String(f.path).replace(/^package\//, ''));
 
 const required = [
   'native/wasm/pkg-node/clawpowers_wasm.js',

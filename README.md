@@ -100,7 +100,7 @@ npm run build:native   # workspace `cargo build --release` (ignored if Rust miss
 npm run build:wasm     # wasm-pack → native/wasm/pkg-node (optional)
 ```
 
-`wasm-pack` may regenerate `pkg/.gitignore` / `pkg-node/.gitignore` that ignore all files in those folders — remove those ignore files if you need to commit refreshed WASM output.
+`npm run build:wasm` automatically removes `native/wasm/pkg-node/.gitignore` after generation so Node-targeted WASM artifacts are always packable.
 
 Pre-built `.wasm` artifacts are included in the package so consumers are **not** required to run `wasm-pack`.
 
