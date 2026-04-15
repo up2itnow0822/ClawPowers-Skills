@@ -3,7 +3,7 @@
  * Drop-in capability layer: payments, memory, RSI, wallet.
  * No agent control loop — bring your own agent.
  *
- * @version 2.2.5
+ * @version 2.2.6
  * @license BSL-1.1
  * @patent-pending
  */

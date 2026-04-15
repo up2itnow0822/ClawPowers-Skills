@@ -2,6 +2,14 @@
 
 All notable changes to ClawPowers are documented here.
 
+## [2.2.6] - 2026-04-14
+
+### Fixed
+
+- Corrected stale internal version surfaces that were still reporting older values inside the published package
+- Added `skill.json` back to the npm tarball so the manifest ships with the package again
+- Aligned compatibility/docs metadata to the repaired 2.2.6 release
+
 ## [2.2.5] - 2026-04-09
 
 ### Fixed

@@ -22,6 +22,7 @@
 
 | Version | Date | Notes |
 |---------|------|-------|
+| 2.2.6 | 2026-04-14 | Repair release: internal version surfaces corrected and `skill.json` restored to the npm tarball |
 | 2.2.5 | 2026-04-09 | Added clawpowers.ai canonical links and aligned the remaining 2.2.5 version surfaces |
 | 2.2.4 | 2026-04-09 | Final launch closeout: CI WASM verification stabilized with a dedicated script, GitHub release/version surfaces aligned |
 | 2.2.3 | 2026-04-09 | Security automation, ROADMAP, CI badge, wallet safety warning, Node 22 CI coverage, launch hardening |
