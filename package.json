@@ -34,7 +34,7 @@
   ],
   "scripts": {
     "build:native": "cd native && cargo build --release --workspace || echo 'Rust not installed - using WASM/TS fallback'",
-    "build:wasm": "cd native/wasm && wasm-pack build --target nodejs --out-dir pkg-node || true",
+    "build:wasm": "cd native/wasm && wasm-pack build --target nodejs --out-dir pkg-node && rm -f pkg-node/.gitignore",
     "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -43,7 +43,7 @@
     "verify:pack": "npm pack --dry-run",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build",
-    "prepack": "npm run build"
+    "prepack": "npm run build:wasm && npm run build"
   },
   "keywords": [
     "ai-agent",
