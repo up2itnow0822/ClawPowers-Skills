@@ -2,6 +2,13 @@
 
 All notable changes to ClawPowers are documented here.
 
+## [2.2.5] - 2026-04-09
+
+### Fixed
+
+- Added clawpowers.ai canonical links across package metadata and docs
+- Synced internal version surfaces so package metadata, manifest, and source constants all report 2.2.5
+
 ## [2.2.4] - 2026-04-09
 
 ### Fixed
