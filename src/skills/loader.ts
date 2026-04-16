@@ -23,17 +23,86 @@ interface ParsedFrontmatter {
   };
 }
 
+function stripQuotes(value: string): string {
+  if (value.length >= 2) {
+    const first = value[0];
+    const last = value[value.length - 1];
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      return value.slice(1, -1);
+    }
+  }
+  return value;
+}
+
+function splitYamlKeyValue(line: string): { key: string; value: string } | null {
+  const colonIndex = line.indexOf(':');
+  if (colonIndex <= 0) {
+    return null;
+  }
+
+  const key = line.slice(0, colonIndex).trim();
+  if (!key) {
+    return null;
+  }
+
+  for (const char of key) {
+    const isAlphaNum =
+      (char >= 'a' && char <= 'z')
+      || (char >= 'A' && char <= 'Z')
+      || (char >= '0' && char <= '9')
+      || char === '_';
+    if (!isAlphaNum) {
+      return null;
+    }
+  }
+
+  return {
+    key,
+    value: line.slice(colonIndex + 1).trim(),
+  };
+}
+
+function parseInlineArray(value: string): string[] | null {
+  if (!value.startsWith('[') || !value.endsWith(']')) {
+    return null;
+  }
+
+  const inner = value.slice(1, -1).trim();
+  if (!inner) {
+    return [];
+  }
+
+  return inner.split(',').map(item => stripQuotes(item.trim())).filter(Boolean);
+}
+
+function parseListItem(line: string): string | null {
+  if (!line.startsWith('-')) {
+    return null;
+  }
+
+  const value = line.slice(1).trim();
+  if (!value) {
+    return null;
+  }
+
+  return stripQuotes(value);
+}
+
 /**
  * Parse YAML frontmatter from a SKILL.md file content.
  * Expects format: ---\n<yaml>\n---\n<content>
  */
 export function parseFrontmatter(content: string): ParsedFrontmatter {
-  const match = content.match(/^---\n([\s\S]*?)\n---/);
-  if (!match?.[1]) {
+  if (!content.startsWith('---\n')) {
     return {};
   }
 
-  const yamlText = match[1];
+  const endIndex = content.indexOf('\n---', 4);
+  if (endIndex === -1) {
+    return {};
+  }
+
+  const yamlText = content.slice(4, endIndex);
   const result: ParsedFrontmatter = {};
 
   // Simple YAML parser for our known structure
@@ -48,10 +117,10 @@ export function parseFrontmatter(content: string): ParsedFrontmatter {
     if (trimmed === '' || trimmed.startsWith('#')) continue;
 
     // Top-level keys
-    const topLevel = line.match(/^(\w+):\s*(.*)$/);
-    if (topLevel?.[1]) {
-      currentKey = topLevel[1];
-      const val = topLevel[2]?.trim().replace(/^["']|["']$/g, '') ?? '';
+    const topLevel = line === trimmed ? splitYamlKeyValue(trimmed) : null;
+    if (topLevel) {
+      currentKey = topLevel.key;
+      const val = stripQuotes(topLevel.value);
       if (currentKey === 'name' && val) result.name = val;
       if (currentKey === 'description' && val) result.description = val;
       inRequires = false;
@@ -66,13 +135,12 @@ export function parseFrontmatter(content: string): ParsedFrontmatter {
     }
 
     if (inRequires) {
-      const reqKey = trimmed.match(/^(\w+):\s*(.*)$/);
-      if (reqKey?.[1]) {
-        requiresKey = reqKey[1];
+      const reqKey = splitYamlKeyValue(trimmed);
+      if (reqKey) {
+        requiresKey = reqKey.key;
         // Inline array: bins: ["node", "git"]
-        const inlineArr = reqKey[2]?.match(/\[(.*)\]/);
-        if (inlineArr?.[1]) {
-          const items = inlineArr[1].split(',').map(s => s.trim().replace(/^["']|["']$/g, ''));
+        const items = parseInlineArray(reqKey.value);
+        if (items) {
           if (requiresKey === 'bins') requires.bins = items;
           if (requiresKey === 'env') requires.env = items;
           if (requiresKey === 'config') requires.config = items;
@@ -80,19 +148,19 @@ export function parseFrontmatter(content: string): ParsedFrontmatter {
         continue;
       }
       // List item under requires key
-      const listItem = trimmed.match(/^-\s*["']?(.+?)["']?$/);
-      if (listItem?.[1] && requiresKey) {
+      const listItem = parseListItem(trimmed);
+      if (listItem && requiresKey) {
         if (requiresKey === 'bins') {
           requires.bins = requires.bins ?? [];
-          requires.bins.push(listItem[1]);
+          requires.bins.push(listItem);
         }
         if (requiresKey === 'env') {
           requires.env = requires.env ?? [];
-          requires.env.push(listItem[1]);
+          requires.env.push(listItem);
         }
         if (requiresKey === 'config') {
           requires.config = requires.config ?? [];
-          requires.config.push(listItem[1]);
+          requires.config.push(listItem);
         }
       }
     }

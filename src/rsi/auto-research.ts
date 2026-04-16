@@ -7,8 +7,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { execSync } from 'node:child_process';
-import { mkdirSync, existsSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -61,6 +61,62 @@ const MIN_CONFIDENCE = 0.3;
 /** Number of sandbox runs a candidate must pass to be promoted. */
 const REQUIRED_PASSING_RUNS = 3;
 
+function tokenizeWords(value: string): string[] {
+  const tokens: string[] = [];
+  let current = '';
+
+  for (const char of value.toLowerCase()) {
+    const isAlphaNum = (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9');
+    if (isAlphaNum) {
+      current += char;
+      continue;
+    }
+
+    if (current.length > 3) {
+      tokens.push(current);
+    }
+    current = '';
+  }
+
+  if (current.length > 3) {
+    tokens.push(current);
+  }
+
+  return tokens;
+}
+
+function splitSearchTerms(value: string): string[] {
+  return value
+    .split(' ')
+    .map(part => part.trim())
+    .filter(part => part.length > 3);
+}
+
+function slugify(value: string): string {
+  let slug = '';
+  let lastWasDash = false;
+
+  for (const char of value.toLowerCase()) {
+    const isAlphaNum = (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9');
+    if (isAlphaNum) {
+      slug += char;
+      lastWasDash = false;
+      continue;
+    }
+
+    if (!lastWasDash && slug.length > 0) {
+      slug += '-';
+      lastWasDash = true;
+    }
+  }
+
+  if (slug.endsWith('-')) {
+    slug = slug.slice(0, -1);
+  }
+
+  return slug.slice(0, 40);
+}
+
 /**
  * Extract the core error token(s) from a failure trace for use in a search query.
  * Strips ANSI codes, file paths, and noise; keeps meaningful error tokens.
@@ -110,9 +166,9 @@ export function scoreConfidence(
 
   // Boost if approach mentions keywords from the failure description
   const failureWords = new Set(
-    failure.taskDescription.toLowerCase().split(/\W+/).filter(w => w.length > 3)
+    tokenizeWords(failure.taskDescription)
   );
-  const approachWords = candidate.approach.toLowerCase().split(/\W+/);
+  const approachWords = tokenizeWords(candidate.approach);
   const matches = approachWords.filter(w => failureWords.has(w)).length;
   const overlap = Math.min(matches / Math.max(failureWords.size, 1), 0.25);
   base += overlap;
@@ -186,7 +242,7 @@ export class AutoResearcher {
       const scriptPath = join(sandboxDir, 'test.sh');
       writeFileSync(scriptPath, testScript, { mode: 0o755 });
 
-      const output = execSync(`bash "${scriptPath}"`, {
+      const output = execFileSync('bash', [scriptPath], {
         cwd: sandboxDir,
         timeout: 30000,
         encoding: 'utf-8',
@@ -214,7 +270,7 @@ export class AutoResearcher {
     } finally {
       // Best-effort cleanup
       try {
-        execSync(`rm -rf "${sandboxDir}"`, { timeout: 5000, stdio: 'ignore' });
+        rmSync(sandboxDir, { recursive: true, force: true });
       } catch {
         // Ignore cleanup errors
       }
@@ -292,8 +348,8 @@ export class AutoResearcher {
         SKILLS_CATALOG: Array<{ name: string; description: string; category: string }>;
       };
 
-      const errorTokens = failure.error.toLowerCase().split(/\W+/).filter(t => t.length > 3);
-      const taskTokens = failure.taskDescription.toLowerCase().split(/\W+/).filter(t => t.length > 3);
+      const errorTokens = tokenizeWords(failure.error);
+      const taskTokens = tokenizeWords(failure.taskDescription);
       const relevantTokens = new Set([...errorTokens, ...taskTokens]);
 
       return SKILLS_CATALOG
@@ -322,17 +378,18 @@ export class AutoResearcher {
   private async searchNpmRegistry(failure: FailureTrace): Promise<CandidateSolution[]> {
     const query = buildSearchQuery(failure);
     // Construct search keywords from the error tokens
-    const keywords = query.split(/\s+/).filter(w => w.length > 3).slice(0, 5).join('+');
+    const keywords = splitSearchTerms(query).slice(0, 5);
+
+    if (keywords.length === 0) {
+      return [];
+    }
 
     try {
-      const raw = execSync(
-        `npm search ${keywords} --json --no-description 2>/dev/null`,
-        {
-          timeout: 15000,
-          encoding: 'utf-8',
-          stdio: ['ignore', 'pipe', 'ignore'],
-        }
-      );
+      const raw = execFileSync('npm', ['search', ...keywords, '--json', '--no-description'], {
+        timeout: 15000,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
 
       const results = JSON.parse(raw) as Array<{
         name: string;
@@ -443,11 +500,7 @@ export class AutoResearcher {
 
   private deriveSkillName(candidate: CandidateSolution): string {
     // Build a slug from the description
-    const slug = candidate.description
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 40);
+    const slug = slugify(candidate.description);
     return `auto-${slug}`;
   }
 
