@@ -195,8 +195,10 @@ export async function generateWallet(config: WalletConfig): Promise<WalletInfo> 
   const address = generateAddress(privateKeyHex);
   const createdAt = new Date().toISOString();
 
-  // Generate a random passphrase for initial encryption
-  const passphrase = randomBytes(16).toString('hex');
+  // Use caller-supplied passphrase if provided, otherwise generate a random
+  // one and return it to the caller. CRIT #1 fix: the previously-generated
+  // passphrase was discarded, rendering the wallet unsignable.
+  const passphrase = config.passphrase ?? randomBytes(16).toString('hex');
 
   const encrypted = encryptPrivateKey(privateKey, passphrase);
 
@@ -225,6 +227,7 @@ export async function generateWallet(config: WalletConfig): Promise<WalletInfo> 
     chain: config.chain,
     createdAt,
     keyFile: keyFilePath,
+    passphrase,
   };
 }
 
@@ -242,8 +245,10 @@ export async function importWallet(privateKeyHex: string, config: WalletConfig):
   const address = generateAddress(cleaned);
   const createdAt = new Date().toISOString();
 
-  // Generate a random passphrase for encryption
-  const passphrase = randomBytes(16).toString('hex');
+  // Use caller-supplied passphrase if provided, otherwise generate a random
+  // one and return it to the caller. CRIT #1 fix: the previously-generated
+  // passphrase was discarded, rendering the imported wallet unsignable.
+  const passphrase = config.passphrase ?? randomBytes(16).toString('hex');
 
   const encrypted = encryptPrivateKey(privateKey, passphrase);
 
@@ -272,6 +277,7 @@ export async function importWallet(privateKeyHex: string, config: WalletConfig):
     chain: config.chain,
     createdAt,
     keyFile: keyFilePath,
+    passphrase,
   };
 }
 
