@@ -153,15 +153,15 @@ async function signMessageFromKeyFile(
     };
   }
 
-  const { createHmac } = await import('node:crypto');
-  dlog('signMessage (keyfile): HMAC-SHA256 legacy (no secp256k1/keccak tier)');
-  const signature = createHmac('sha256', privateKey).update(message).digest('hex');
-
-  return {
-    message,
-    signature: '0x' + signature,
-    address: keyFileData.address,
-  };
+  // Tier 3 (no native/WASM keccak+secp256k1) cannot produce a valid Ethereum signature.
+  // Silently falling back to HMAC-SHA256 previously produced a 0x-prefixed string that looked
+  // like an Ethereum signature to naive callers but would fail ecrecover on any EVM chain.
+  // We now fail loudly, matching the behavior of signMessageFromPrivateKey().
+  throw new Error(
+    'Ethereum signing requires Keccak-256 + secp256k1 (Tier 1 native or Tier 2 WASM). ' +
+      `Current active tier is "${getActiveTier()}" which cannot produce a valid EVM signature. ` +
+      'Install the native addon or enable the WASM tier before calling signMessage().',
+  );
 }
 
 async function signMessageFromPrivateKey(privateKeyHex: string, message: string): Promise<string> {
