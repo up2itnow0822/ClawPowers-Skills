@@ -23,8 +23,11 @@ export interface WalletInfo {
    * - If not, this is the cryptographically random passphrase generated at
    *   creation time. The caller MUST persist it — it is never stored on
    *   disk in cleartext and cannot be recovered once this value is lost.
+   * - `WalletManager.listWallets()` cannot recover this value from disk, so
+   *   listed wallets return `passphrase` as `undefined` and require the
+   *   caller to supply the passphrase they stored earlier.
    */
-  readonly passphrase: string;
+  readonly passphrase?: string;
 }
 
 export interface SignedMessage {
