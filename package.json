@@ -82,7 +82,7 @@
     "@types/node": "^25.5.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
-    "eslint": "^9.0.0",
+    "eslint": "^10.2.1",
     "globals": "^17.4.0",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",
