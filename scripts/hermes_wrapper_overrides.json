@@ -1,0 +1,184 @@
+{
+  "autoresearch": {
+    "title": "Autoresearch — Autonomous Code Quality & RSI Loop",
+    "summary": "Autonomous code quality and harness-improvement loop for audits, baselines, and keep-or-revert mutation experiments.",
+    "when_to_use": [
+      "when you need a code audit or quality scan",
+      "when you want a baseline before making changes",
+      "when running a small keep-or-revert improvement loop",
+      "when evaluating prompt or harness mutations"
+    ],
+    "quickstart": [
+      "python3 tools/autoresearch-mlx/autoresearch_agent.py audit <path>",
+      "python3 tools/autoresearch-mlx/autoresearch_agent.py baseline <path>",
+      "python3 tools/autoresearch-mlx/autoresearch_agent.py scan <path>"
+    ],
+    "notes": [
+      "Use one mutation per experiment and keep it reversible.",
+      "If quality regresses, revert immediately.",
+      "This wrapper summarizes the real workspace skill without claiming the full local toolchain ships inside this repo."
+    ]
+  },
+  "content-writer": {
+    "title": "Content Writer",
+    "summary": "Platform-aware writing skill for articles, posts, emails, and other outward-facing copy.",
+    "when_to_use": [
+      "when writing an article, social post, email, or announcement",
+      "when adapting the same idea to multiple platforms",
+      "when you need concise platform-specific formatting rules"
+    ],
+    "quickstart": [
+      "Use plain punctuation, straight quotes, and simple bullets.",
+      "Avoid AI-slop phrasing and repetitive listicle structure.",
+      "Match the output to the target platform instead of writing one generic draft."
+    ],
+    "notes": [
+      "The source skill is stricter than this wrapper and includes extensive formatting and tone rules.",
+      "This branch exports a Hermes-loadable version of the skill surface, not the entire external content pipeline."
+    ]
+  },
+  "humanize": {
+    "title": "Humanize",
+    "summary": "Rewrite protocol for making drafts sound like a specific human rather than generic AI copy.",
+    "when_to_use": [
+      "after a first draft exists",
+      "before publishing external content",
+      "when the copy sounds too polished, flat, or corporate"
+    ],
+    "quickstart": [
+      "add specifics such as dates, versions, names, and concrete numbers",
+      "vary sentence length on purpose",
+      "state a real opinion instead of hedging every claim"
+    ],
+    "notes": [
+      "The source skill includes a fuller rewrite framework, self-check protocol, and companion files.",
+      "This wrapper exposes the discoverable Hermes skill surface only."
+    ]
+  },
+  "prospector": {
+    "title": "Prospector",
+    "summary": "Lead-generation workflow for finding companies and enriching contacts against an ICP.",
+    "when_to_use": [
+      "when the user asks to find leads or prospects",
+      "when building a contact list that matches an ICP",
+      "when exporting prospect results to CSV or syncing to CRM"
+    ],
+    "quickstart": [
+      "configure Exa and Apollo API keys first",
+      "collect ICP inputs such as industry, company size, geography, and contact count",
+      "run the search and export results to CSV"
+    ],
+    "notes": [
+      "The source skill expects Exa and Apollo, with optional Attio sync.",
+      "This wrapper does not claim those third-party credentials or integrations are preconfigured in Hermes."
+    ]
+  },
+  "strykr-prism": {
+    "title": "Strykr PRISM",
+    "summary": "Unified financial data API skill for crypto, stocks, forex, ETFs, and market analysis workflows.",
+    "when_to_use": [
+      "when the user needs live market data or symbol resolution",
+      "when checking trending assets, sentiment, or market overview",
+      "when pulling token-risk or venue data for an agent workflow"
+    ],
+    "quickstart": [
+      "export PRISM_API_KEY before use",
+      "resolve an asset first when the symbol is ambiguous",
+      "use the market overview and price endpoints for fast analyst workflows"
+    ],
+    "notes": [
+      "The source skill contains a much larger endpoint catalog and examples.",
+      "This wrapper does not imply the external PRISM service is bundled with this repo."
+    ]
+  },
+  "validator-agent": {
+    "title": "Validator Agent",
+    "summary": "Multi-round validation gate for TypeScript and Solidity projects before merge or publish.",
+    "when_to_use": [
+      "before merging a PR",
+      "before npm publish or release",
+      "after dependency or build-system changes"
+    ],
+    "quickstart": [
+      "run compile or typecheck first",
+      "then run tests, security checks, and docs/changelog verification",
+      "treat any blocking issue as a stop signal until fixed"
+    ],
+    "notes": [
+      "The source skill is read-only and produces a verdict rather than modifying code.",
+      "This wrapper summarizes the validation lane without claiming the full project-specific toolchain is present in Hermes."
+    ]
+  },
+  "github": {
+    "title": "GitHub",
+    "summary": "GitHub workflow wrapper for PRs, issues, CI runs, diffs, and API queries through the usual gh-driven lane.",
+    "when_to_use": [
+      "when checking PR or CI status",
+      "when creating or commenting on issues and pull requests",
+      "when reviewing diffs or querying GitHub state quickly"
+    ],
+    "quickstart": [
+      "confirm the repo and target issue or PR first",
+      "use the gh-driven lane for status, comments, diffs, and workflow inspection",
+      "treat auth and repo context as prerequisites before acting"
+    ],
+    "notes": [
+      "The catalog explicitly scopes this skill to issues, PRs, CI, review, and API queries.",
+      "This Hermes wrapper does not guarantee gh auth or GitHub credentials are already configured in the current environment."
+    ]
+  },
+  "security": {
+    "title": "Security",
+    "summary": "Security workflow wrapper for threat detection, vulnerability management, and audit-oriented checks across the workspace.",
+    "when_to_use": [
+      "when investigating vulnerabilities or suspicious behavior",
+      "when auditing a project before release or after changes",
+      "when tracking remediation work for security findings"
+    ],
+    "quickstart": [
+      "start with the concrete finding, alert, or attack surface",
+      "separate severity assessment from remediation steps",
+      "prefer verification and containment before claiming a fix"
+    ],
+    "notes": [
+      "The catalog positions this as an infrastructure and vulnerability workflow, not a generic coding skill.",
+      "This wrapper does not claim bundled scanners, credentials, or external security services are preconfigured in Hermes."
+    ]
+  },
+  "business-strategy": {
+    "title": "Business Strategy",
+    "summary": "Strategy wrapper for PMF validation, beachhead selection, ROI calls, and kill-or-invest decisions for the AI Agent Economy.",
+    "when_to_use": [
+      "when deciding what to invest in or cut",
+      "when evaluating PMF, beachheads, or strategic focus",
+      "when comparing activity ROI or prioritizing execution lanes"
+    ],
+    "quickstart": [
+      "define the decision and success metric first",
+      "compare options using expected ROI and strategic fit",
+      "end with a clear continue, kill, or reallocate recommendation"
+    ],
+    "notes": [
+      "The catalog frames this as a decision-making and prioritization surface, not a generic brainstorming tool.",
+      "This wrapper exposes the Hermes-loadable skill surface only and does not replace deeper strategy artifacts elsewhere in the workspace."
+    ]
+  },
+  "webmcp-payments": {
+    "title": "WebMCP Payments",
+    "summary": "Payments workflow wrapper for handling HTTP 402 Payment Required responses through agentpay-mcp within approved spending limits.",
+    "when_to_use": [
+      "when a workflow hits an HTTP 402 payment-required response",
+      "when an agent needs to decide whether a micropayment is allowed",
+      "when connecting payment-required APIs to a policy-controlled execution path"
+    ],
+    "quickstart": [
+      "detect the 402 and capture the payment metadata first",
+      "check the spending policy before attempting execution",
+      "route execution through the AgentPay MCP lane instead of treating payment as an unguarded side effect"
+    ],
+    "notes": [
+      "Current product naming in the broader workspace is AgentPay MCP, while this catalog entry remains webmcp-payments.",
+      "This wrapper does not imply payment credentials, wallets, or spending policies are already configured inside Hermes."
+    ]
+  }
+}
