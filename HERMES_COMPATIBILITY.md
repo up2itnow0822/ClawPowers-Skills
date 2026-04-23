@@ -11,7 +11,7 @@ Current exported Hermes-loadable skill bundles:
 - total exported skills: 67
 - richer validated proof bundle: `skills/itp/SKILL.md`
 - catalog-derived wrappers: 66
-- richer generated wrappers with extra operator guidance: 6
+- richer generated wrappers with extra operator guidance: 10
 
 ## What this branch claims
 

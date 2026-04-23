@@ -8,9 +8,9 @@ metadata:
 
 <!-- generated-by: scripts/generate_hermes_wrappers.py -->
 
-# github
+# GitHub
 
-This Hermes-compatible skill wrapper exports the ClawPowers catalog entry for `github`.
+GitHub workflow wrapper for PRs, issues, CI runs, diffs, and API queries through the usual gh-driven lane.
 
 ## Purpose
 
@@ -18,7 +18,14 @@ GitHub operations via `gh` CLI: issues, PRs, CI runs, code review, API queries. 
 
 ## When to use
 
-- use this skill when the task matches the capability described above
+- when checking PR or CI status
+- when creating or commenting on issues and pull requests
+- when reviewing diffs or querying GitHub state quickly
+## Quickstart
+
+- confirm the repo and target issue or PR first
+- use the gh-driven lane for status, comments, diffs, and workflow inspection
+- treat auth and repo context as prerequisites before acting
 ## Source of truth
 
 - Catalog source: `src/skills/catalog.ts`
@@ -27,8 +34,8 @@ GitHub operations via `gh` CLI: issues, PRs, CI runs, code review, API queries. 
 
 ## Notes
 
-- This wrapper makes the skill discoverable and loadable by Hermes as a standard `SKILL.md` bundle.
-- It does not, by itself, claim that every underlying runtime, CLI, API integration, or library dependency behind the broader ClawPowers ecosystem is fully configured in Hermes.
+- The catalog explicitly scopes this skill to issues, PRs, CI, review, and API queries.
+- This Hermes wrapper does not guarantee gh auth or GitHub credentials are already configured in the current environment.
 ## Compatibility boundary
 
 This file is part of the Hermes-compatible top-level `skills/` surface for this branch. It should be read as a discoverable skill bundle, not as a blanket claim that the wider `clawpowers` library/runtime surface is fully configured inside Hermes.

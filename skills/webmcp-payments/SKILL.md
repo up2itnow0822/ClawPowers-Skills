@@ -8,9 +8,9 @@ metadata:
 
 <!-- generated-by: scripts/generate_hermes_wrappers.py -->
 
-# webmcp-payments
+# WebMCP Payments
 
-This Hermes-compatible skill wrapper exports the ClawPowers catalog entry for `webmcp-payments`.
+Payments workflow wrapper for handling HTTP 402 Payment Required responses through agentpay-mcp within approved spending limits.
 
 ## Purpose
 
@@ -18,7 +18,14 @@ Handle HTTP 402 Payment Required responses via agentpay-mcp, enabling autonomous
 
 ## When to use
 
-- use this skill when the task matches the capability described above
+- when a workflow hits an HTTP 402 payment-required response
+- when an agent needs to decide whether a micropayment is allowed
+- when connecting payment-required APIs to a policy-controlled execution path
+## Quickstart
+
+- detect the 402 and capture the payment metadata first
+- check the spending policy before attempting execution
+- route execution through the AgentPay MCP lane instead of treating payment as an unguarded side effect
 ## Source of truth
 
 - Catalog source: `src/skills/catalog.ts`
@@ -27,8 +34,8 @@ Handle HTTP 402 Payment Required responses via agentpay-mcp, enabling autonomous
 
 ## Notes
 
-- This wrapper makes the skill discoverable and loadable by Hermes as a standard `SKILL.md` bundle.
-- It does not, by itself, claim that every underlying runtime, CLI, API integration, or library dependency behind the broader ClawPowers ecosystem is fully configured in Hermes.
+- Current product naming in the broader workspace is AgentPay MCP, while this catalog entry remains webmcp-payments.
+- This wrapper does not imply payment credentials, wallets, or spending policies are already configured inside Hermes.
 ## Compatibility boundary
 
 This file is part of the Hermes-compatible top-level `skills/` surface for this branch. It should be read as a discoverable skill bundle, not as a blanket claim that the wider `clawpowers` library/runtime surface is fully configured inside Hermes.

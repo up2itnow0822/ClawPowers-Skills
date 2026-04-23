@@ -108,5 +108,77 @@
       "The source skill is read-only and produces a verdict rather than modifying code.",
       "This wrapper summarizes the validation lane without claiming the full project-specific toolchain is present in Hermes."
     ]
+  },
+  "github": {
+    "title": "GitHub",
+    "summary": "GitHub workflow wrapper for PRs, issues, CI runs, diffs, and API queries through the usual gh-driven lane.",
+    "when_to_use": [
+      "when checking PR or CI status",
+      "when creating or commenting on issues and pull requests",
+      "when reviewing diffs or querying GitHub state quickly"
+    ],
+    "quickstart": [
+      "confirm the repo and target issue or PR first",
+      "use the gh-driven lane for status, comments, diffs, and workflow inspection",
+      "treat auth and repo context as prerequisites before acting"
+    ],
+    "notes": [
+      "The catalog explicitly scopes this skill to issues, PRs, CI, review, and API queries.",
+      "This Hermes wrapper does not guarantee gh auth or GitHub credentials are already configured in the current environment."
+    ]
+  },
+  "security": {
+    "title": "Security",
+    "summary": "Security workflow wrapper for threat detection, vulnerability management, and audit-oriented checks across the workspace.",
+    "when_to_use": [
+      "when investigating vulnerabilities or suspicious behavior",
+      "when auditing a project before release or after changes",
+      "when tracking remediation work for security findings"
+    ],
+    "quickstart": [
+      "start with the concrete finding, alert, or attack surface",
+      "separate severity assessment from remediation steps",
+      "prefer verification and containment before claiming a fix"
+    ],
+    "notes": [
+      "The catalog positions this as an infrastructure and vulnerability workflow, not a generic coding skill.",
+      "This wrapper does not claim bundled scanners, credentials, or external security services are preconfigured in Hermes."
+    ]
+  },
+  "business-strategy": {
+    "title": "Business Strategy",
+    "summary": "Strategy wrapper for PMF validation, beachhead selection, ROI calls, and kill-or-invest decisions for the AI Agent Economy.",
+    "when_to_use": [
+      "when deciding what to invest in or cut",
+      "when evaluating PMF, beachheads, or strategic focus",
+      "when comparing activity ROI or prioritizing execution lanes"
+    ],
+    "quickstart": [
+      "define the decision and success metric first",
+      "compare options using expected ROI and strategic fit",
+      "end with a clear continue, kill, or reallocate recommendation"
+    ],
+    "notes": [
+      "The catalog frames this as a decision-making and prioritization surface, not a generic brainstorming tool.",
+      "This wrapper exposes the Hermes-loadable skill surface only and does not replace deeper strategy artifacts elsewhere in the workspace."
+    ]
+  },
+  "webmcp-payments": {
+    "title": "WebMCP Payments",
+    "summary": "Payments workflow wrapper for handling HTTP 402 Payment Required responses through agentpay-mcp within approved spending limits.",
+    "when_to_use": [
+      "when a workflow hits an HTTP 402 payment-required response",
+      "when an agent needs to decide whether a micropayment is allowed",
+      "when connecting payment-required APIs to a policy-controlled execution path"
+    ],
+    "quickstart": [
+      "detect the 402 and capture the payment metadata first",
+      "check the spending policy before attempting execution",
+      "route execution through the AgentPay MCP lane instead of treating payment as an unguarded side effect"
+    ],
+    "notes": [
+      "Current product naming in the broader workspace is AgentPay MCP, while this catalog entry remains webmcp-payments.",
+      "This wrapper does not imply payment credentials, wallets, or spending policies are already configured inside Hermes."
+    ]
   }
 }

@@ -8,9 +8,9 @@ metadata:
 
 <!-- generated-by: scripts/generate_hermes_wrappers.py -->
 
-# security
+# Security
 
-This Hermes-compatible skill wrapper exports the ClawPowers catalog entry for `security`.
+Security workflow wrapper for threat detection, vulnerability management, and audit-oriented checks across the workspace.
 
 ## Purpose
 
@@ -18,7 +18,14 @@ Infrastructure threat detection, vulnerability management, and security audit wo
 
 ## When to use
 
-- use this skill when the task matches the capability described above
+- when investigating vulnerabilities or suspicious behavior
+- when auditing a project before release or after changes
+- when tracking remediation work for security findings
+## Quickstart
+
+- start with the concrete finding, alert, or attack surface
+- separate severity assessment from remediation steps
+- prefer verification and containment before claiming a fix
 ## Source of truth
 
 - Catalog source: `src/skills/catalog.ts`
@@ -27,8 +34,8 @@ Infrastructure threat detection, vulnerability management, and security audit wo
 
 ## Notes
 
-- This wrapper makes the skill discoverable and loadable by Hermes as a standard `SKILL.md` bundle.
-- It does not, by itself, claim that every underlying runtime, CLI, API integration, or library dependency behind the broader ClawPowers ecosystem is fully configured in Hermes.
+- The catalog positions this as an infrastructure and vulnerability workflow, not a generic coding skill.
+- This wrapper does not claim bundled scanners, credentials, or external security services are preconfigured in Hermes.
 ## Compatibility boundary
 
 This file is part of the Hermes-compatible top-level `skills/` surface for this branch. It should be read as a discoverable skill bundle, not as a blanket claim that the wider `clawpowers` library/runtime surface is fully configured inside Hermes.

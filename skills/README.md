@@ -9,7 +9,7 @@ Only skills placed here are in scope for the branch's Hermes compatibility claim
 - Total exported skills: 67
 - Hand-authored validated wedge: `itp`
 - Catalog-derived wrappers: 66
-- Richer generated wrappers with override guidance: 6
+- Richer generated wrappers with override guidance: 10
 
 ## Install shape
 
@@ -30,7 +30,6 @@ cp skills/itp/SKILL.md ~/.hermes/skills/itp/SKILL.md
 
 ```bash
 python3 scripts/verify_hermes_wrappers.py
-npm run verify:pack:surface
 ```
 
 Then validate with Hermes' own skill tooling.

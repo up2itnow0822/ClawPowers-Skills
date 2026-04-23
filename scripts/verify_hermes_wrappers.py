@@ -15,6 +15,8 @@ DEFAULT_SAMPLES = [
     'content-writer',
     'webmcp-payments',
     'prospector',
+    'security',
+    'business-strategy',
 ]
 
 
