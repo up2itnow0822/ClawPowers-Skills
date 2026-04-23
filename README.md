@@ -1,5 +1,11 @@
 # ClawPowers
 
+> **Hermes-compatible branch note:** this branch only claims Hermes compatibility for the validated skill bundles exported under top-level `skills/`. Today that means `skills/itp/`.
+>
+> The broader `clawpowers` npm library, including wallet, payments, RSI, memory, and swarm modules, remains a separate library/runtime surface and is **not** part of this branch's Hermes-native compatibility claim.
+
+See [HERMES_COMPATIBILITY.md](./HERMES_COMPATIBILITY.md) for the exact support contract.
+
 **Launch surface:** `clawpowers` is the capability library. It is not the stock OpenClaw wrapper runtime. For the wrapper runtime, install `clawpowers-agent`.
 
 ## Canonical Links
