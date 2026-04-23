@@ -34,11 +34,10 @@ npm install clawpowers
 ```bash
 npm install clawpowers
 node -e "
-const { generateWallet, detect402, SpendingPolicy, signMessage } = await import('clawpowers');
+const { generateWallet, detect402, SpendingPolicy, getActiveTier } = await import('clawpowers');
 
 // 1. Generate a real Ethereum wallet (MetaMask-compatible)
 const wallet = await generateWallet({ chain: 'base', dataDir: './demo-wallet' });
-console.log('Address:', wallet.address);
 
 // 2. Detect an x402 payment-required response
 const req = detect402({ status: 402, headers: {
@@ -47,15 +46,31 @@ const req = detect402({ status: 402, headers: {
   'x-payment-recipient': '0xabc',
   'x-payment-network': 'base'
 }});
-console.log('Payment required:', req);
 
-// 3. Enforce a spending policy
-const policy = new SpendingPolicy({ dailyLimitUsd: 25, allowedDomains: ['api.example.com'] });
-console.log('Allowed:', policy.checkTransaction(0.10, 'api.example.com').allowed);
+// 3. Enforce a spending policy with one allow path and one reject path
+const policy = new SpendingPolicy({
+  dailyLimit: 25,
+  transactionLimit: 1,
+  allowedDomains: ['api.example.com']
+});
+const allowed = policy.checkTransaction(0.10, 'api.example.com');
+if (allowed.allowed) {
+  policy.recordSpend(0.10, 'api.example.com');
+}
+const blocked = policy.checkTransaction(0.10, 'evil.example.com');
+
+console.log({
+  tier: getActiveTier(),
+  address: wallet.address,
+  paymentRequired: req,
+  allowed,
+  blocked,
+  dailySpent: policy.getDailySpent()
+});
 "
 ```
 
-That's a real Ethereum wallet, real x402 detection, and a real spending policy check — all in 60 seconds, zero config, zero Rust toolchain. The `native/` Rust acceleration is optional; the WASM tier ships pre-built in the npm package.
+That's a real Ethereum wallet, real x402 detection, and a real spending policy allow and reject check in under a minute. The `native/` Rust acceleration is optional, and the WASM tier ships pre-built in the npm package.
 
 > **⚠️ Patent Pending:** The x402 payment detection, autonomous spending policy enforcement, and recursive self-improvement (RSI) systems described in this library are subject to pending patent applications. Use is governed by the BSL 1.1 license.
 
