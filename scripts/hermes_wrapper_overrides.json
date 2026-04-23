@@ -1,0 +1,112 @@
+{
+  "autoresearch": {
+    "title": "Autoresearch — Autonomous Code Quality & RSI Loop",
+    "summary": "Autonomous code quality and harness-improvement loop for audits, baselines, and keep-or-revert mutation experiments.",
+    "when_to_use": [
+      "when you need a code audit or quality scan",
+      "when you want a baseline before making changes",
+      "when running a small keep-or-revert improvement loop",
+      "when evaluating prompt or harness mutations"
+    ],
+    "quickstart": [
+      "python3 tools/autoresearch-mlx/autoresearch_agent.py audit <path>",
+      "python3 tools/autoresearch-mlx/autoresearch_agent.py baseline <path>",
+      "python3 tools/autoresearch-mlx/autoresearch_agent.py scan <path>"
+    ],
+    "notes": [
+      "Use one mutation per experiment and keep it reversible.",
+      "If quality regresses, revert immediately.",
+      "This wrapper summarizes the real workspace skill without claiming the full local toolchain ships inside this repo."
+    ]
+  },
+  "content-writer": {
+    "title": "Content Writer",
+    "summary": "Platform-aware writing skill for articles, posts, emails, and other outward-facing copy.",
+    "when_to_use": [
+      "when writing an article, social post, email, or announcement",
+      "when adapting the same idea to multiple platforms",
+      "when you need concise platform-specific formatting rules"
+    ],
+    "quickstart": [
+      "Use plain punctuation, straight quotes, and simple bullets.",
+      "Avoid AI-slop phrasing and repetitive listicle structure.",
+      "Match the output to the target platform instead of writing one generic draft."
+    ],
+    "notes": [
+      "The source skill is stricter than this wrapper and includes extensive formatting and tone rules.",
+      "This branch exports a Hermes-loadable version of the skill surface, not the entire external content pipeline."
+    ]
+  },
+  "humanize": {
+    "title": "Humanize",
+    "summary": "Rewrite protocol for making drafts sound like a specific human rather than generic AI copy.",
+    "when_to_use": [
+      "after a first draft exists",
+      "before publishing external content",
+      "when the copy sounds too polished, flat, or corporate"
+    ],
+    "quickstart": [
+      "add specifics such as dates, versions, names, and concrete numbers",
+      "vary sentence length on purpose",
+      "state a real opinion instead of hedging every claim"
+    ],
+    "notes": [
+      "The source skill includes a fuller rewrite framework, self-check protocol, and companion files.",
+      "This wrapper exposes the discoverable Hermes skill surface only."
+    ]
+  },
+  "prospector": {
+    "title": "Prospector",
+    "summary": "Lead-generation workflow for finding companies and enriching contacts against an ICP.",
+    "when_to_use": [
+      "when the user asks to find leads or prospects",
+      "when building a contact list that matches an ICP",
+      "when exporting prospect results to CSV or syncing to CRM"
+    ],
+    "quickstart": [
+      "configure Exa and Apollo API keys first",
+      "collect ICP inputs such as industry, company size, geography, and contact count",
+      "run the search and export results to CSV"
+    ],
+    "notes": [
+      "The source skill expects Exa and Apollo, with optional Attio sync.",
+      "This wrapper does not claim those third-party credentials or integrations are preconfigured in Hermes."
+    ]
+  },
+  "strykr-prism": {
+    "title": "Strykr PRISM",
+    "summary": "Unified financial data API skill for crypto, stocks, forex, ETFs, and market analysis workflows.",
+    "when_to_use": [
+      "when the user needs live market data or symbol resolution",
+      "when checking trending assets, sentiment, or market overview",
+      "when pulling token-risk or venue data for an agent workflow"
+    ],
+    "quickstart": [
+      "export PRISM_API_KEY before use",
+      "resolve an asset first when the symbol is ambiguous",
+      "use the market overview and price endpoints for fast analyst workflows"
+    ],
+    "notes": [
+      "The source skill contains a much larger endpoint catalog and examples.",
+      "This wrapper does not imply the external PRISM service is bundled with this repo."
+    ]
+  },
+  "validator-agent": {
+    "title": "Validator Agent",
+    "summary": "Multi-round validation gate for TypeScript and Solidity projects before merge or publish.",
+    "when_to_use": [
+      "before merging a PR",
+      "before npm publish or release",
+      "after dependency or build-system changes"
+    ],
+    "quickstart": [
+      "run compile or typecheck first",
+      "then run tests, security checks, and docs/changelog verification",
+      "treat any blocking issue as a stop signal until fixed"
+    ],
+    "notes": [
+      "The source skill is read-only and produces a verdict rather than modifying code.",
+      "This wrapper summarizes the validation lane without claiming the full project-specific toolchain is present in Hermes."
+    ]
+  }
+}

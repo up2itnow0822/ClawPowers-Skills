@@ -6,9 +6,11 @@ metadata:
     tags: [communication, clawpowers-catalog, hermes-compatible]
 ---
 
-# humanize
+<!-- generated-by: scripts/generate_hermes_wrappers.py -->
 
-This Hermes-compatible skill wrapper exports the ClawPowers catalog entry for `humanize`.
+# Humanize
+
+Rewrite protocol for making drafts sound like a specific human rather than generic AI copy.
 
 ## Purpose
 
@@ -16,18 +18,24 @@ Transforms AI-generated writing into content that reads authentically human — 
 
 ## When to use
 
-Use this skill when the task matches the capability described above.
+- after a first draft exists
+- before publishing external content
+- when the copy sounds too polished, flat, or corporate
+## Quickstart
 
-## Current branch note
-
-This wrapper is included so Hermes can discover and load the ClawPowers skill surface from this branch. It reflects the cataloged capability and category from ClawPowers.
-
+- add specifics such as dates, versions, names, and concrete numbers
+- vary sentence length on purpose
+- state a real opinion instead of hedging every claim
 ## Source of truth
 
 - Catalog source: `src/skills/catalog.ts`
 - Catalog entry source class: `managed`
 - Category: `communication`
 
+## Notes
+
+- The source skill includes a fuller rewrite framework, self-check protocol, and companion files.
+- This wrapper exposes the discoverable Hermes skill surface only.
 ## Compatibility boundary
 
-This wrapper makes the skill discoverable and loadable by Hermes as a standard `SKILL.md` bundle. It does not, by itself, claim that every underlying runtime, CLI, API integration, or library dependency behind the broader ClawPowers ecosystem is fully configured in Hermes.
+This file is part of the Hermes-compatible top-level `skills/` surface for this branch. It should be read as a discoverable skill bundle, not as a blanket claim that the wider `clawpowers` library/runtime surface is fully configured inside Hermes.

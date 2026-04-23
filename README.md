@@ -1,6 +1,8 @@
 # ClawPowers
 
-> **Hermes-compatible branch note:** this branch only claims Hermes compatibility for the validated skill bundles exported under top-level `skills/`. Today that means `skills/itp/`.
+> **Hermes-compatible branch note:** this branch only claims Hermes compatibility for the skill bundles exported under top-level `skills/`.
+>
+> Today that means the full top-level `skills/` surface on this branch, currently 67 Hermes-loadable bundles. `skills/itp/` remains the deepest manually validated proof bundle, while the rest of the exported surface is generated from the ClawPowers skill catalog with the same Hermes compatibility boundary.
 >
 > The broader `clawpowers` npm library, including wallet, payments, RSI, memory, and swarm modules, remains a separate library/runtime surface and is **not** part of this branch's Hermes-native compatibility claim.
 

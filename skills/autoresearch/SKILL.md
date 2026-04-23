@@ -6,9 +6,11 @@ metadata:
     tags: [development, clawpowers-catalog, hermes-compatible]
 ---
 
-# autoresearch
+<!-- generated-by: scripts/generate_hermes_wrappers.py -->
 
-This Hermes-compatible skill wrapper exports the ClawPowers catalog entry for `autoresearch`.
+# Autoresearch — Autonomous Code Quality & RSI Loop
+
+Autonomous code quality and harness-improvement loop for audits, baselines, and keep-or-revert mutation experiments.
 
 ## Purpose
 
@@ -16,18 +18,26 @@ Autonomous code quality improvement loop using keep-or-revert cycles. Optimizes 
 
 ## When to use
 
-Use this skill when the task matches the capability described above.
+- when you need a code audit or quality scan
+- when you want a baseline before making changes
+- when running a small keep-or-revert improvement loop
+- when evaluating prompt or harness mutations
+## Quickstart
 
-## Current branch note
-
-This wrapper is included so Hermes can discover and load the ClawPowers skill surface from this branch. It reflects the cataloged capability and category from ClawPowers.
-
+- python3 tools/autoresearch-mlx/autoresearch_agent.py audit <path>
+- python3 tools/autoresearch-mlx/autoresearch_agent.py baseline <path>
+- python3 tools/autoresearch-mlx/autoresearch_agent.py scan <path>
 ## Source of truth
 
 - Catalog source: `src/skills/catalog.ts`
 - Catalog entry source class: `managed`
 - Category: `development`
 
+## Notes
+
+- Use one mutation per experiment and keep it reversible.
+- If quality regresses, revert immediately.
+- This wrapper summarizes the real workspace skill without claiming the full local toolchain ships inside this repo.
 ## Compatibility boundary
 
-This wrapper makes the skill discoverable and loadable by Hermes as a standard `SKILL.md` bundle. It does not, by itself, claim that every underlying runtime, CLI, API integration, or library dependency behind the broader ClawPowers ecosystem is fully configured in Hermes.
+This file is part of the Hermes-compatible top-level `skills/` surface for this branch. It should be read as a discoverable skill bundle, not as a blanket claim that the wider `clawpowers` library/runtime surface is fully configured inside Hermes.

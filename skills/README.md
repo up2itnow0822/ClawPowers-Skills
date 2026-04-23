@@ -8,7 +8,8 @@ Only skills placed here are in scope for the branch's Hermes compatibility claim
 
 - Total exported skills: 67
 - Hand-authored validated wedge: `itp`
-- Remaining 66 exported skills are catalog-derived Hermes `SKILL.md` wrappers generated from `src/skills/catalog.ts` so Hermes can discover and load the full ClawPowers skill surface on this branch.
+- Catalog-derived wrappers: 66
+- Richer generated wrappers with override guidance: 6
 
 ## Install shape
 
@@ -23,6 +24,13 @@ Example:
 ```bash
 mkdir -p ~/.hermes/skills/itp
 cp skills/itp/SKILL.md ~/.hermes/skills/itp/SKILL.md
+```
+
+## Fast verification
+
+```bash
+python3 scripts/verify_hermes_wrappers.py
+npm run verify:pack:surface
 ```
 
 Then validate with Hermes' own skill tooling.
