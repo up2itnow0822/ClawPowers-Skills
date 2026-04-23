@@ -4,9 +4,11 @@ This directory is the **Hermes-supported surface** for this branch.
 
 Only skills placed here are in scope for the branch's Hermes compatibility claim.
 
-## Current validated skills
+## Current exported skills
 
-- `itp`
+- Total exported skills: 67
+- Hand-authored validated wedge: `itp`
+- Remaining 66 exported skills are catalog-derived Hermes `SKILL.md` wrappers generated from `src/skills/catalog.ts` so Hermes can discover and load the full ClawPowers skill surface on this branch.
 
 ## Install shape
 
@@ -27,7 +29,7 @@ Then validate with Hermes' own skill tooling.
 
 ## Important boundary
 
-Do not assume the broader `clawpowers` npm library is a native Hermes package just because a skill bundle in this directory works.
+This branch now exports the full ClawPowers catalog as Hermes-loadable skill bundles, but that does **not** automatically mean every broader `clawpowers` runtime/library module is a native Hermes package surface.
 
 This branch separates:
 
