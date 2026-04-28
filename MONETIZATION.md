@@ -1,12 +1,8 @@
 # ClawPowers Monetization Strategy
 
-## Revenue Model: Tiered Transaction Fees (ClawPowers Only)
+## Revenue Model: Tiered Transaction Fees for the ClawPowers Bundled Experience
 
-**IMPORTANT DISTINCTION:**
-- `agentwallet-sdk` on npm (standalone) = **FREE, no fees, ever.** This is the open-source SDK.
-- `agent-payments` skill in ClawPowers = **Tiered protocol fee.** This is the premium bundled experience.
-
-Users who install agentwallet-sdk directly from npm get the full SDK with zero fees. Users who use the agent-payments skill within ClawPowers get the convenience of auto-configured wallets, spending policies, and x402 negotiation — with a transparent protocol fee on transactions.
+`agent-payments` inside ClawPowers is positioned as a premium bundled experience with transparent, tiered protocol fees on transactions. This covers guided integration flows such as auto-configured wallets, spending policies, and x402 negotiation.
 
 ## Fee Schedule (ClawPowers agent-payments only)
 
@@ -19,9 +15,6 @@ Users who install agentwallet-sdk directly from npm get the full SDK with zero f
 
 Fee collector: `0xff86829393C6C26A4EC122bE0Cc3E466Ef876AdD` (all EVM chains)
 
-## Why Two Paths
+## Positioning
 
-1. **Standalone SDK (free):** Maximizes developer adoption. More integrations = more ecosystem growth = more potential ClawPowers users.
-2. **ClawPowers bundle (fee):** Provides premium convenience — auto-setup, skill-guided payments, runtime tracking, spending analytics. The fee pays for the infrastructure and ongoing development.
-
-Users always have the choice: install the free SDK and configure everything themselves, or use ClawPowers agent-payments for the guided, integrated experience with a small protocol fee.
+The `agent-payments` bundle is the monetized path: premium convenience (auto-setup, skill-guided payments, runtime tracking, spending analytics) with protocol fees that fund infrastructure and ongoing development.

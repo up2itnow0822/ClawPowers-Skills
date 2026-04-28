@@ -16,6 +16,7 @@ See [HERMES_COMPATIBILITY.md](./HERMES_COMPATIBILITY.md) for the exact support c
 - Agent runtime: https://clawpowers.ai/agent
 
 **Recommended pairing:** `clawpowers` 2.2.x with `clawpowers-agent` 1.1.x.
+**Node runtime:** Node.js 22+.
 
 **More docs:** [SECURITY](./SECURITY.md) · [Compatibility](./COMPATIBILITY.md) · [Known Limitations](./KNOWN_LIMITATIONS.md) · [Licensing](./LICENSING.md) · [Releasing](./RELEASING.md) · [Demo](./DEMO.md) · [Roadmap](./ROADMAP.md)
 
