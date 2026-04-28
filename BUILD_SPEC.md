@@ -11,7 +11,7 @@ Read README.md and ARCHITECTURE.md first for the full vision.
 
 1. **`hooks/session-start`** — Bash script that detects platform (Claude Code, Cursor, Codex, OpenCode, Gemini) and injects using-clawpowers SKILL.md. Model after superpowers' hook but cleaner — no EXTREMELY_IMPORTANT tags, use standard skill injection format. Must handle: CLAUDE_PLUGIN_ROOT, CURSOR_PLUGIN_ROOT, CODEX env, OpenCode, and Gemini. Output platform-appropriate JSON.
 
-2. **`package.json`** — Name: "clawpowers", version: "1.0.0", MIT license, bin entry for `npx clawpowers init`. Zero runtime dependencies.
+2. **`package.json`** — Name: "clawpowers", version: "1.0.0", MIT license, bin entry for `clawpowers init`. Zero runtime dependencies.
 
 3. **Plugin manifests:**
    - `.claude-plugin` — Claude Code plugin manifest

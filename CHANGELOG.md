@@ -158,7 +158,7 @@ Drop-in library for: LangChain, LangGraph, Claude Code, Cursor, ElizaOS, AutoGen
 
 ### Added
 
-- agent-payments skill rewritten for agentwallet-sdk v6.0.0
+- agent-payments skill rewritten around wallet workflow helpers
 - OpenClaw skill.json manifest
 - Security Model section in README
 - Agent Payment Demo (3-step walkthrough)

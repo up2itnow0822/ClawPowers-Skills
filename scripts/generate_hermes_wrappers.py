@@ -4,7 +4,7 @@ import json
 import re
 from pathlib import Path
 
-repo = Path('/home/max/.openclaw/workspace/tmp/clawpowers-skills-hermes-branch')
+repo = Path(__file__).resolve().parents[1]
 catalog_path = repo / 'src/skills/catalog.ts'
 overrides_path = repo / 'scripts/hermes_wrapper_overrides.json'
 text = catalog_path.read_text()

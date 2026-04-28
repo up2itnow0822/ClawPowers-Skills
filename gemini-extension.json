@@ -27,6 +27,6 @@
   ],
   "install": {
     "command": "gemini extensions install https://github.com/up2itnow0822/clawpowers",
-    "post_install": "npx clawpowers init"
+    "post_install": "clawpowers init"
   }
 }
