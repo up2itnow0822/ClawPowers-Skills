@@ -73,7 +73,7 @@
   },
   "homepage": "https://clawpowers.ai",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "zod": "^3.23.0"
