@@ -22,22 +22,42 @@ DEFAULT_SAMPLES = [
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Verify Hermes-loadable skill wrappers in this repo.')
-    parser.add_argument('--repo', default='/home/max/.openclaw/workspace/tmp/clawpowers-skills-hermes-branch')
-    parser.add_argument('--hermes-agent', default='/home/max/.openclaw/workspace/tmp/hermes-agent')
+    parser.add_argument(
+        '--repo',
+        default=str(Path.cwd()),
+        help='Path to the ClawPowers-Skills checkout. Defaults to the current working directory.',
+    )
+    parser.add_argument(
+        '--hermes-agent',
+        default=os.environ.get('HERMES_AGENT_CHECKOUT', ''),
+        help='Path to a Hermes agent checkout. Can also be set with HERMES_AGENT_CHECKOUT.',
+    )
     parser.add_argument('--sample', action='append', dest='samples', default=[])
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    repo = Path(args.repo)
+    repo = Path(args.repo).expanduser().resolve()
     skills_src = repo / 'skills'
-    hermes_agent = Path(args.hermes_agent)
 
     if not skills_src.exists():
-        raise SystemExit(f'Missing skills directory: {skills_src}')
+        raise SystemExit(
+            f'Missing skills directory: {skills_src}. Run this from the ClawPowers-Skills repo root or pass --repo.'
+        )
+
+    if not args.hermes_agent:
+        raise SystemExit(
+            'Missing Hermes agent checkout. Pass --hermes-agent /path/to/hermes-agent or set HERMES_AGENT_CHECKOUT.'
+        )
+
+    hermes_agent = Path(args.hermes_agent).expanduser().resolve()
     if not hermes_agent.exists():
         raise SystemExit(f'Missing Hermes agent checkout: {hermes_agent}')
+
+    tools_module = hermes_agent / 'tools' / 'skills_tool.py'
+    if not tools_module.exists():
+        raise SystemExit(f'Missing Hermes skills tool module: {tools_module}')
 
     expected = sorted(path.name for path in skills_src.iterdir() if path.is_dir())
 
@@ -71,6 +91,8 @@ def main() -> int:
         duration_ms = round((time.perf_counter() - started) * 1000, 1)
 
     result = {
+        'repo': str(repo),
+        'hermes_agent': str(hermes_agent),
         'count': len(discovered),
         'samples_checked': sample_results,
         'requirements_ok': requirements_ok,
