@@ -1,0 +1,41 @@
+name: hermes-compatibility
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * *"
+
+jobs:
+  latest-hermes-skill-surface:
+    name: Verify skills against latest Hermes Agent
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ClawPowers-Skills
+        uses: actions/checkout@v6
+
+      - name: Checkout latest Hermes Agent
+        uses: actions/checkout@v6
+        with:
+          repository: NousResearch/hermes-agent
+          ref: main
+          path: .hermes-agent
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Hermes Agent core dependencies
+        working-directory: .hermes-agent
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Syntax-check Hermes verifier
+        run: python3 -m py_compile scripts/verify_hermes_wrappers.py
+
+      - name: Verify ClawPowers skills load in latest Hermes Agent
+        run: python3 scripts/verify_hermes_wrappers.py --hermes-agent "$GITHUB_WORKSPACE/.hermes-agent"
