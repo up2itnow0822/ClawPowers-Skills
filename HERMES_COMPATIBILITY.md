@@ -26,6 +26,17 @@ This repo claims that the top-level `skills/` directory is loadable by the lates
 
 This compatibility layer is intentionally skill-bundle compatibility. It does not claim that Hermes natively runs the full `clawpowers` npm runtime library.
 
+## OpenClaw compatibility boundary
+
+The latest OpenClaw compatibility is owned by `clawpowers-agent`, not this library package. Current launch pairing:
+
+- `clawpowers-agent` 1.1.x
+- `clawpowers` 2.2.x
+- `openclaw` 2026.4.14
+- Node.js 22+
+
+The Hermes compatibility workflow validates the ClawPowers skill-bundle surface against latest Hermes Agent. The Agent repo validates the OpenClaw wrapper/runtime surface.
+
 ## What remains outside the Hermes-native runtime claim
 
 The following are valid ClawPowers npm/library features, but they are not claimed as native Hermes runtime/package integrations merely because the skill bundles load:
