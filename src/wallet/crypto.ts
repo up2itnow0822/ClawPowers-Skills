@@ -29,6 +29,7 @@ const SCRYPT_P = 1;
 const KEY_LENGTH = 32;
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
+const GENERATED_PASSPHRASE_BYTES = 32;
 
 /** Tier 3: last 20 bytes of the 32-byte digest as `0x`-prefixed address (legacy). */
 function addressFromKeyMaterial(keyMaterial: Buffer): string {
@@ -43,6 +44,14 @@ function deriveKey(passphrase: string, salt: Buffer): Buffer {
     r: SCRYPT_R,
     p: SCRYPT_P,
   });
+}
+
+function resolvePassphrase(config: WalletConfig): string {
+  const passphrase = config.passphrase ?? randomBytes(GENERATED_PASSPHRASE_BYTES).toString('hex');
+  if (passphrase.length === 0) {
+    throw new Error('Wallet passphrase must not be empty');
+  }
+  return passphrase;
 }
 
 interface EncryptedKeyFile {
@@ -125,11 +134,46 @@ async function ensureDir(dir: string): Promise<void> {
   }
 }
 
+async function writeEncryptedWallet(
+  privateKey: Buffer,
+  address: string,
+  config: WalletConfig,
+  createdAt: string,
+  passphrase: string,
+): Promise<string> {
+  const encrypted = encryptPrivateKey(privateKey, passphrase);
+
+  const keyFileData: EncryptedKeyFile = {
+    version: 1,
+    address,
+    chain: config.chain,
+    createdAt,
+    crypto: {
+      cipher: 'aes-256-gcm',
+      ciphertext: encrypted.ciphertext,
+      iv: encrypted.iv,
+      authTag: encrypted.authTag,
+      salt: encrypted.salt,
+      scryptParams: { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P },
+    },
+  };
+
+  await ensureDir(config.dataDir);
+  const keyFileName = `${address.slice(2, 10)}-${Date.now()}.json`;
+  const keyFilePath = join(config.dataDir, keyFileName);
+  await writeFile(keyFilePath, JSON.stringify(keyFileData, null, 2) + '\n', 'utf-8');
+  return keyFilePath;
+}
+
 async function signMessageFromKeyFile(
   message: string,
   keyFile: string,
   passphrase: string
 ): Promise<SignedMessage> {
+  if (passphrase.length === 0) {
+    throw new Error('Wallet passphrase must not be empty');
+  }
+
   const content = await readFile(keyFile, 'utf-8');
   const keyFileData = JSON.parse(content) as EncryptedKeyFile;
 
@@ -187,44 +231,23 @@ async function signMessageFromPrivateKey(privateKeyHex: string, message: string)
 
 /**
  * Generate a new Ethereum-compatible wallet.
- * Private key is encrypted with a random passphrase and stored to disk.
+ * Private key is encrypted with config.passphrase or a generated high-entropy passphrase.
+ * The returned WalletInfo includes the passphrase needed for later key-file signing.
  */
 export async function generateWallet(config: WalletConfig): Promise<WalletInfo> {
   const privateKey = randomBytes(32);
   const privateKeyHex = privateKey.toString('hex');
   const address = generateAddress(privateKeyHex);
   const createdAt = new Date().toISOString();
-
-  // Generate a random passphrase for initial encryption
-  const passphrase = randomBytes(16).toString('hex');
-
-  const encrypted = encryptPrivateKey(privateKey, passphrase);
-
-  const keyFileData: EncryptedKeyFile = {
-    version: 1,
-    address,
-    chain: config.chain,
-    createdAt,
-    crypto: {
-      cipher: 'aes-256-gcm',
-      ciphertext: encrypted.ciphertext,
-      iv: encrypted.iv,
-      authTag: encrypted.authTag,
-      salt: encrypted.salt,
-      scryptParams: { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P },
-    },
-  };
-
-  await ensureDir(config.dataDir);
-  const keyFileName = `${address.slice(2, 10)}-${Date.now()}.json`;
-  const keyFilePath = join(config.dataDir, keyFileName);
-  await writeFile(keyFilePath, JSON.stringify(keyFileData, null, 2) + '\n', 'utf-8');
+  const passphrase = resolvePassphrase(config);
+  const keyFilePath = await writeEncryptedWallet(privateKey, address, config, createdAt, passphrase);
 
   return {
     address,
     chain: config.chain,
     createdAt,
     keyFile: keyFilePath,
+    passphrase,
   };
 }
 
@@ -241,44 +264,21 @@ export async function importWallet(privateKeyHex: string, config: WalletConfig):
   const privateKey = Buffer.from(cleaned, 'hex');
   const address = generateAddress(cleaned);
   const createdAt = new Date().toISOString();
-
-  // Generate a random passphrase for encryption
-  const passphrase = randomBytes(16).toString('hex');
-
-  const encrypted = encryptPrivateKey(privateKey, passphrase);
-
-  const keyFileData: EncryptedKeyFile = {
-    version: 1,
-    address,
-    chain: config.chain,
-    createdAt,
-    crypto: {
-      cipher: 'aes-256-gcm',
-      ciphertext: encrypted.ciphertext,
-      iv: encrypted.iv,
-      authTag: encrypted.authTag,
-      salt: encrypted.salt,
-      scryptParams: { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P },
-    },
-  };
-
-  await ensureDir(config.dataDir);
-  const keyFileName = `${address.slice(2, 10)}-${Date.now()}.json`;
-  const keyFilePath = join(config.dataDir, keyFileName);
-  await writeFile(keyFilePath, JSON.stringify(keyFileData, null, 2) + '\n', 'utf-8');
+  const passphrase = resolvePassphrase(config);
+  const keyFilePath = await writeEncryptedWallet(privateKey, address, config, createdAt, passphrase);
 
   return {
     address,
     chain: config.chain,
     createdAt,
     keyFile: keyFilePath,
+    passphrase,
   };
 }
 
 /**
  * Sign a message using an encrypted key file and passphrase (returns structured result).
- * Uses secp256k1 ECDSA over Keccak-256(UTF-8 message) when native/WASM tiers provide it;
- * otherwise falls back to HMAC-SHA256 for backward compatibility.
+ * Uses secp256k1 ECDSA over Keccak-256(UTF-8 message) when native/WASM tiers provide it.
  */
 export async function signMessage(
   message: string,
