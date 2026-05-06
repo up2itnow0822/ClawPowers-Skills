@@ -2,6 +2,12 @@
 
 All notable changes to ClawPowers are documented here.
 
+## Unreleased
+
+### Fixed
+
+- Launch-critical API fix: generated/imported wallets now return or accept caller-supplied passphrases so encrypted key files remain signable through `signMessage(message, keyFile, passphrase)`.
+
 ## [2.2.6] - 2026-04-14
 
 ### Fixed
