@@ -28,14 +28,14 @@ This compatibility layer is intentionally skill-bundle compatibility. It does no
 
 ## OpenClaw compatibility boundary
 
-The latest OpenClaw compatibility is owned by `clawpowers-agent`, not this library package. Current launch pairing:
+OpenClaw runtime validation is owned by `clawpowers-agent`, not this library package. The current soft-launch pairing is pinned to the verified matrix below; this document does not claim broad or unbounded OpenClaw support.
 
 - `clawpowers-agent` 1.1.x
 - `clawpowers` 2.2.x
 - `openclaw` 2026.4.14
 - Node.js 22+
 
-The Hermes compatibility workflow validates the ClawPowers skill-bundle surface against latest Hermes Agent. The Agent repo validates the OpenClaw wrapper/runtime surface.
+The Hermes compatibility workflow validates the ClawPowers skill-bundle surface against latest Hermes Agent. The Agent repo owns validation for the pinned wrapper/runtime surface.
 
 ## What remains outside the Hermes-native runtime claim
 
