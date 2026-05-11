@@ -36,7 +36,7 @@
   ],
   "scripts": {
     "build:native": "cd native && cargo build --release --workspace || echo 'Rust not installed - using WASM/TS fallback'",
-    "build:wasm": "cd native/wasm && wasm-pack build --target nodejs --out-dir pkg-node && rm -f pkg-node/.gitignore",
+    "build:wasm": "node scripts/build-wasm.mjs",
     "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -45,7 +45,7 @@
     "verify:pack": "npm pack --dry-run",
     "verify:pack:surface": "npm pack --dry-run --ignore-scripts",
     "verify:hermes": "node scripts/run-python-script.mjs scripts/verify_hermes_wrappers.py",
-    "clean": "rm -rf dist",
+    "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\"",
     "prepublishOnly": "npm run build",
     "prepack": "npm run build:wasm && npm run build"
   },
