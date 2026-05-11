@@ -10,7 +10,7 @@
 
 - `clawpowers` is the capability library, not the stock OpenClaw wrapper runtime.
 - `clawpowers-agent` is the OpenClaw wrapper runtime that consumes this package.
-- `clawpowers-agent` 1.1.x currently aligns with `openclaw` 2026.4.14.
+- `clawpowers-agent` 1.1.x currently aligns with `openclaw` 2026.5.7.
 - When `clawpowers` ships updated skills or capability implementations, `clawpowers-agent` should pick them up through package updates and skill sync.
 - This package requires Node.js 22+. CI and release workflows are aligned to Node 22.
 

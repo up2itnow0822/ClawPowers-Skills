@@ -32,7 +32,7 @@ OpenClaw runtime validation is owned by `clawpowers-agent`, not this library pac
 
 - `clawpowers-agent` 1.1.x
 - `clawpowers` 2.2.x
-- `openclaw` 2026.4.14
+- `openclaw` 2026.5.7
 - Node.js 22+
 
 The Hermes compatibility workflow validates the ClawPowers skill-bundle surface against latest Hermes Agent. The Agent repo owns validation for the pinned wrapper/runtime surface.
