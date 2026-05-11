@@ -15,5 +15,6 @@
 ## Important operational notes
 
 - non-native environments depend on packaged WASM fallback artifacts for real wallet derivation
+- ClawPowers encrypts wallet key files but does not store passphrases in plaintext. Callers must persist caller-supplied or generated passphrases securely; `listWallets()` cannot recover them later.
 - users should not assume modeled prompt-cache savings are direct provider billing results
 - downstream runtimes should validate their own integration behavior separately from this library

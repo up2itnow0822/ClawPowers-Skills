@@ -13,7 +13,8 @@ import {
   keccak256Digest,
   getActiveTier,
 } from '../../src/native/index.js';
-import { importWallet, signMessage } from '../../src/wallet/crypto.js';
+import { generateWallet, importWallet, signMessage } from '../../src/wallet/crypto.js';
+import { WalletManager } from '../../src/wallet/manager.js';
 
 const HARDHAT_0_SK =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
@@ -58,6 +59,71 @@ describe('secp256k1 / Ethereum wallet', () => {
       expect(a.address.toLowerCase()).toBe(HARDHAT_0_ADDR.toLowerCase());
       const b = await importWallet(HARDHAT_0_SK, { dataDir: dir, chain: 'local' });
       expect(b.address.toLowerCase()).toBe(a.address.toLowerCase());
+    });
+  });
+
+  describe('encrypted key-file passphrase flow', () => {
+    let dir: string;
+    beforeAll(async () => {
+      dir = await mkdtemp(join(tmpdir(), 'cp-wallet-passphrase-'));
+    });
+    afterAll(async () => {
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    it('generateWallet returns a passphrase that can immediately sign from the key file', async () => {
+      const wallet = await generateWallet({ dataDir: dir, chain: 'local' });
+
+      expect(wallet.passphrase).toEqual(expect.any(String));
+      expect(wallet.passphrase!.length).toBeGreaterThan(0);
+
+      const signed = await signMessage('generated wallet signing', wallet.keyFile, wallet.passphrase!);
+      expect(signed.address.toLowerCase()).toBe(wallet.address.toLowerCase());
+      expect(signed.signature.startsWith('0x')).toBe(true);
+      expect(signed.signature.length).toBe(2 + 130);
+    });
+
+    it('importWallet accepts and returns a caller-supplied passphrase that signs from the key file', async () => {
+      const passphrase = 'caller-supplied-import-passphrase';
+      const wallet = await importWallet(HARDHAT_0_SK, { dataDir: dir, chain: 'local', passphrase });
+
+      expect(wallet.passphrase).toBe(passphrase);
+
+      const signed = await signMessage('imported wallet signing', wallet.keyFile, passphrase);
+      expect(signed.address.toLowerCase()).toBe(HARDHAT_0_ADDR.toLowerCase());
+      expect(signed.signature.startsWith('0x')).toBe(true);
+      expect(signed.signature.length).toBe(2 + 130);
+    });
+
+    it('generateWallet echoes and uses a caller-supplied passphrase', async () => {
+      const passphrase = 'caller-supplied-generate-passphrase';
+      const wallet = await generateWallet({ dataDir: dir, chain: 'local', passphrase });
+
+      expect(wallet.passphrase).toBe(passphrase);
+
+      const signed = await signMessage('caller passphrase signing', wallet.keyFile, passphrase);
+      expect(signed.address.toLowerCase()).toBe(wallet.address.toLowerCase());
+    });
+
+    it('wrong key-file passphrase fails cleanly', async () => {
+      const wallet = await importWallet(HARDHAT_0_SK, {
+        dataDir: dir,
+        chain: 'local',
+        passphrase: 'correct-passphrase',
+      });
+
+      await expect(
+        signMessage('wrong passphrase signing', wallet.keyFile, 'wrong-passphrase'),
+      ).rejects.toThrow();
+    });
+
+    it('listWallets does not claim to recover plaintext passphrases', async () => {
+      const manager = new WalletManager({ dataDir: dir, chain: 'local' });
+      await manager.generate();
+
+      const listed = await manager.listWallets();
+      expect(listed.length).toBeGreaterThan(0);
+      expect(listed.every((wallet) => wallet.passphrase === undefined)).toBe(true);
     });
   });
 
