@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -182,6 +182,43 @@ describe('AutoResearcher.testCandidate', () => {
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
     expect(typeof result.output).toBe('string');
     expect(typeof result.passed).toBe('boolean');
+  });
+
+  it('escapes sandbox script metadata so candidate text cannot inject commands', async () => {
+    const marker = join(tmpDir, 'metadata-injection-marker');
+    const shellMarker = marker.replace(/\\/g, '/');
+    const candidate = makeCandidate({
+      description: `safe description\ntouch ${JSON.stringify(shellMarker)}`,
+      approach: 'Use a normal catalog skill safely.',
+    });
+    const task = makeTask({
+      description: `safe task\ntouch ${JSON.stringify(shellMarker)}`,
+      successCriteria: [`no command substitution $(touch ${JSON.stringify(shellMarker)})`],
+    });
+
+    const result = await researcher.testCandidate(candidate, task);
+
+    expect(result.passed).toBe(true);
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  it('single-quotes web-search echo content to prevent command substitution', async () => {
+    const marker = join(tmpDir, 'web-search-injection-marker');
+    const shellMarker = marker.replace(/\\/g, '/');
+    const candidate = makeCandidate({
+      source: 'web-search',
+      description: `search for $(touch ${JSON.stringify(shellMarker)})`,
+      approach: 'Search docs for a safe answer.',
+    });
+    const task = makeTask({
+      description: `diagnose $(touch ${JSON.stringify(shellMarker)})`,
+      successCriteria: [`no command substitution $(touch ${JSON.stringify(shellMarker)})`],
+    });
+
+    const result = await researcher.testCandidate(candidate, task);
+
+    expect(result.passed).toBe(true);
+    expect(existsSync(marker)).toBe(false);
   });
 });
 

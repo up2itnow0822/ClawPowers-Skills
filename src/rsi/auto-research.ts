@@ -117,6 +117,17 @@ function slugify(value: string): string {
   return slug.slice(0, 40);
 }
 
+function sanitizeShellComment(value: string, maxLength: number): string {
+  return value
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
+    .slice(0, maxLength);
+}
+
+function shellSingleQuote(value: string): string {
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
 /**
  * Extract the core error token(s) from a failure trace for use in a search query.
  * Strips ANSI codes, file paths, and noise; keeps meaningful error tokens.
@@ -242,7 +253,7 @@ export class AutoResearcher {
       const scriptPath = join(sandboxDir, 'test.sh');
       writeFileSync(scriptPath, testScript, { mode: 0o755 });
 
-      const output = execFileSync('bash', [scriptPath], {
+      const output = execFileSync('bash', ['./test.sh'], {
         cwd: sandboxDir,
         timeout: 30000,
         encoding: 'utf-8',
@@ -447,9 +458,9 @@ export class AutoResearcher {
       'set -euo pipefail',
       '',
       '# AutoResearch sandbox test',
-      `# Task: ${task.description.replace(/'/g, "'\\''").slice(0, 200)}`,
+      `# Task: ${sanitizeShellComment(task.description, 200)}`,
       `# Candidate source: ${candidate.source}`,
-      `# Candidate: ${candidate.description.replace(/'/g, "'\\''").slice(0, 200)}`,
+      `# Candidate: ${sanitizeShellComment(candidate.description, 200)}`,
       '',
     ];
 
@@ -480,7 +491,7 @@ export class AutoResearcher {
       // web-search: validate the query is non-empty
       const q = buildSearchQuery({ error: candidate.description, taskDescription: task.description, executionSteps: [], skillsUsed: [], attemptCount: 1 });
       if (q.trim().length > 0) {
-        lines.push(`echo "web-search candidate: query is '${q.replace(/'/g, '').slice(0, 100)}'"`);
+        lines.push(`echo ${shellSingleQuote(`web-search candidate: query is ${q.slice(0, 100)}`)}`);
         lines.push('exit 0');
       } else {
         lines.push('echo "web-search candidate: empty query" >&2');
@@ -491,7 +502,7 @@ export class AutoResearcher {
     lines.push('');
     lines.push('# Success criteria check');
     for (const criterion of task.successCriteria.slice(0, 2)) {
-      lines.push(`echo "Criterion: ${criterion.replace(/'/g, '').slice(0, 100)}"`);
+      lines.push(`echo ${shellSingleQuote(`Criterion: ${criterion.slice(0, 100)}`)}`);
     }
 
     lines.push('echo "Test passed"');
