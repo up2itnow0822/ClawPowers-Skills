@@ -73,7 +73,7 @@ const CORPUS = [
   { category: 'delegation', message: 'Delegate to Business Strategy Director: execute the 5-phase Scout cycle for competitive intelligence on the agent wallet space. Include pre-positioning actions.' },
   { category: 'delegation', message: 'Max, please delegate to Intelligence Director: research Nvidia NemoClaw payment integration opportunities and file the findings.' },
   { category: 'delegation', message: 'Delegate to Engineering Director: rebuild the ClawPowers-Agent dependency graph, test the import chain, deploy to npm, and report status with completion report.' },
-  { category: 'delegation', message: 'Rex, please execute the audit on agentwallet-sdk, fix the high severity findings, and merge the PR. Priority P1. Status report when done.' },
+  { category: 'delegation', message: 'Rex, please execute the audit on wallet module, fix the high severity findings, and merge the PR. Priority P1. Status report when done.' },
 
   // 2. Status reports — codebook covers common status vocabulary
   { category: 'status', message: 'Status report: trading bots all healthy, btc-perp-trader balance $9617, paper-trader-v5 at 44.6% drawdown which exceeds the 30% threshold. Alert level P0.' },
@@ -254,3 +254,4 @@ runBenchmark().catch((e) => {
   console.error('Benchmark failed:', e);
   process.exit(1);
 });
+

@@ -32,7 +32,7 @@ const TASKS = [
   {
     id: 'task-5',
     category: 'delegation',
-    message: 'Rex, please execute the audit on agentwallet-sdk, fix the high severity findings, and merge the PR. Priority P1. Status report when done.'
+    message: 'Rex, please execute the audit on wallet module, fix the high severity findings, and merge the PR. Priority P1. Status report when done.'
   }
 ];
 
@@ -242,3 +242,4 @@ main().catch((err) => {
   console.error('Benchmark failed:', err);
   process.exit(1);
 });
+

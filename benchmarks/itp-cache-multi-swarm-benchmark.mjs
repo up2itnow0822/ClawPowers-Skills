@@ -19,7 +19,7 @@ const SWARM_SETS = [
       { category: 'ops', message: 'Execute: deploy ClawPowers-Skills v2.2.0 to npm, then update ClawPowers-Agent dependency to 2.2.0, then publish ClawPowers-Agent v1.1.0.' },
       { category: 'status', message: 'Status report to Max: AlphaWolf orchestrator up and healthy, AlphaWolf trend-watcher up, AlphaWolf ready-trader up. All 7 trading containers green. No action required.' },
       { category: 'ops', message: 'Execute: monitor btc-perp-trader, check trading status, fix any unhealthy containers, and report status back to Max within 5 minutes. Priority P0.' },
-      { category: 'delegation', message: 'Rex, please execute the audit on agentwallet-sdk, fix the high severity findings, and merge the PR. Priority P1. Status report when done.' },
+      { category: 'delegation', message: 'Rex, please execute the audit on wallet module, fix the high severity findings, and merge the PR. Priority P1. Status report when done.' },
     ],
   },
   {
@@ -237,3 +237,4 @@ main().catch((err) => {
   console.error('Benchmark failed:', err);
   process.exit(1);
 });
+

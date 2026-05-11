@@ -154,7 +154,7 @@
     {
       "id": "task-5",
       "category": "delegation",
-      "rawMessage": "Rex, please execute the audit on agentwallet-sdk, fix the high severity findings, and merge the PR. Priority P1. Status report when done.",
+      "rawMessage": "Rex, please execute the audit on wallet module, fix the high severity findings, and merge the PR. Priority P1. Status report when done.",
       "encoded": "ITP:Rex, please EX the AU on AW, FX the high severity findings, and MG the PR. Priority P1. ST when done.",
       "rawTokens": 34,
       "encodedTokens": 26,
