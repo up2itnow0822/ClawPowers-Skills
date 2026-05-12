@@ -1,6 +1,6 @@
 {
   "name": "clawpowers",
-  "version": "2.2.6",
+  "version": "2.2.7",
   "description": "Skills library for AI agents — payments, memory, RSI, wallet. Drop-in capability layer for any agent framework.",
   "type": "module",
   "main": "./dist/index.js",
@@ -47,7 +47,8 @@
     "verify:hermes": "node scripts/run-python-script.mjs scripts/verify_hermes_wrappers.py",
     "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\"",
     "prepublishOnly": "npm run build",
-    "prepack": "npm run build:wasm && npm run build"
+    "prepack": "npm run build:wasm && npm run build",
+    "verify:consumer-install": "node scripts/verify-consumer-install.mjs"
   },
   "keywords": [
     "ai-agent",

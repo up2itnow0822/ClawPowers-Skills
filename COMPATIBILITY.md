@@ -4,7 +4,7 @@
 
 | clawpowers | Node.js | Recommended consumer | Hermes Agent skill-surface status |
 | --- | --- | --- | --- |
-| 2.2.x (latest: 2.2.6) | >=22.0.0 | capability-library consumers and `clawpowers-agent` 1.1.x | top-level `skills/` bundles verified against latest `NousResearch/hermes-agent` `main` by CI |
+| 2.2.x (latest: 2.2.7) | >=22.0.0 | capability-library consumers and `clawpowers-agent` 1.1.x | top-level `skills/` bundles verified against latest `NousResearch/hermes-agent` `main` by CI |
 
 ## Notes
 

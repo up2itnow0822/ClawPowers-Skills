@@ -93,16 +93,17 @@ function parseListItem(line: string): string | null {
  * Expects format: ---\n<yaml>\n---\n<content>
  */
 export function parseFrontmatter(content: string): ParsedFrontmatter {
-  if (!content.startsWith('---\n')) {
+  const normalized = content.replace(/\r\n/g, '\n');
+  if (!normalized.startsWith('---\n')) {
     return {};
   }
 
-  const endIndex = content.indexOf('\n---', 4);
+  const endIndex = normalized.indexOf('\n---', 4);
   if (endIndex === -1) {
     return {};
   }
 
-  const yamlText = content.slice(4, endIndex);
+  const yamlText = normalized.slice(4, endIndex);
   const result: ParsedFrontmatter = {};
 
   // Simple YAML parser for our known structure

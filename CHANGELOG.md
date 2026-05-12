@@ -4,9 +4,14 @@ All notable changes to ClawPowers are documented here.
 
 ## Unreleased
 
+## [2.2.7] - 2026-05-12
+
 ### Fixed
 
 - Launch-critical API fix: generated/imported wallets now return or accept caller-supplied passphrases so encrypted key files remain signable through `signMessage(message, keyFile, passphrase)`.
+- Fixed skill discovery for Windows/CRLF `SKILL.md` frontmatter so packaged skills are actually visible after clean npm installs on Windows.
+- Added a clean consumer-install smoke gate that packs the npm tarball, installs it in a fresh project, imports public ESM exports, verifies packaged skills, and exercises the WASM Ethereum wallet fallback.
+- Published the current dependency metadata as an npm-visible patch release.
 
 ## [2.2.6] - 2026-04-14
 

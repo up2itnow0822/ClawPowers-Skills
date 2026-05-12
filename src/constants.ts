@@ -9,7 +9,7 @@ import type { ConfigFile, AgentStatus } from './types.js';
 
 // ─── Version ──────────────────────────────────────────────────────────────────
 
-export const VERSION = '2.2.6';
+export const VERSION = '2.2.7';
 export const PACKAGE_NAME = 'clawpowers';
 
 // ─── Paths ────────────────────────────────────────────────────────────────────

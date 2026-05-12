@@ -5,12 +5,35 @@
  * npm pack --dry-run --json interleaves prepack build output (from tsup) on stdout
  * before the JSON array. We find the LAST '[' that starts a valid JSON array.
  */
-import { spawnSync } from 'child_process';
+import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
-const result = spawnSync('npm', ['pack', '--dry-run', '--json'], {
+function npmCliPath() {
+  if (process.env.npm_execpath) return process.env.npm_execpath;
+  const appData = process.env.APPDATA;
+  if (appData) {
+    const candidate = join(appData, 'npm', 'node_modules', 'npm', 'bin', 'npm-cli.js');
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+const cliPath = npmCliPath();
+const npmCommand = cliPath ? process.execPath : (process.platform === 'win32' ? 'npm.cmd' : 'npm');
+const npmArgs = cliPath
+  ? [cliPath, 'pack', '--dry-run', '--json']
+  : ['pack', '--dry-run', '--json'];
+const result = spawnSync(npmCommand, npmArgs, {
   encoding: 'utf8',
   stdio: ['ignore', 'pipe', 'inherit'], // let prepack stderr go to terminal, capture stdout
+  maxBuffer: 64 * 1024 * 1024,
+  shell: !cliPath && process.platform === 'win32',
 });
+
+if (result.error) {
+  console.error(result.error.stack ?? result.error);
+}
 
 const stdout = result.stdout ?? '';
 

@@ -7,6 +7,7 @@
 - `npm test`
 - `npm run build`
 - `npm run verify:pack`
+- `npm run verify:consumer-install`
 - `npm audit --omit=dev`
 - confirm packaged WASM artifacts are present in `npm pack --dry-run --json`
 - README, CHANGELOG, SECURITY, compatibility, limitations, and licensing docs updated
@@ -22,6 +23,7 @@
 
 | Version | Date | Notes |
 |---------|------|-------|
+| 2.2.7 | 2026-05-12 | Consumer-install smoke gate; wallet passphrase repair; npm-visible dependency metadata refresh |
 | 2.2.6 | 2026-04-14 | Repair release: internal version surfaces corrected and `skill.json` restored to the npm tarball |
 | 2.2.5 | 2026-04-09 | Added clawpowers.ai canonical links and aligned the remaining 2.2.5 version surfaces |
 | 2.2.4 | 2026-04-09 | Final launch closeout: CI WASM verification stabilized with a dedicated script, GitHub release/version surfaces aligned |

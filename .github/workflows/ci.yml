@@ -28,6 +28,7 @@ jobs:
       - run: npm run build:wasm
       - run: npm run build
       - run: npm run verify:pack
+      - run: npm run verify:consumer-install
       - run: npm audit --omit=dev
       - name: Verify packaged WASM fallback artifacts
         run: node scripts/verify-wasm-artifacts.mjs
