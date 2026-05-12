@@ -5,7 +5,7 @@
 //! 2. Min/max scalar quantization to `u8`.
 //! 3. A QJL-inspired residual norm sketch.
 
-use rand::{Rng, SeedableRng, rngs::StdRng};
+use rand::{RngExt, SeedableRng, rngs::StdRng};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
