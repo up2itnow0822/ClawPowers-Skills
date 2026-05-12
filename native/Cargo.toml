@@ -44,7 +44,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 
 # Crypto / Hashing
 sha2 = "0.11"
-rand = "0.9"
+rand = "0.10"
 zeroize = { version = "1", features = ["derive"] }
 
 # FFI
