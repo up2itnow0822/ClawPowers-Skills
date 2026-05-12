@@ -27,7 +27,7 @@ repository = "https://github.com/up2itnow0822/clawpowers-core"
 [workspace.dependencies]
 # EVM / Crypto
 alloy = { version = "1.8", features = ["full"] }
-alloy-signer = "1.8"
+alloy-signer = "2.0"
 alloy-signer-local = "2.0"
 alloy-primitives = "1.5"
 
