@@ -15,7 +15,9 @@
     "declarationMap": true,
     "sourceMap": true,
     "noUncheckedIndexedAccess": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "types": ["node"],
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "tests"]
