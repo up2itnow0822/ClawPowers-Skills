@@ -3,10 +3,13 @@
  * Append-only JSONL audit trail for all RSI actions.
  */
 
+import { createHash } from 'node:crypto';
 import { readFile, appendFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname } from 'node:path';
-import type { RSIAuditEntry } from '../types.js';
+import type { RSIAuditEntry, RSIAuditIntegrityResult } from '../types.js';
+
+const GENESIS_HASH = '0'.repeat(64);
 
 export class RSIAuditLog {
   private readonly filePath: string;
@@ -24,7 +27,10 @@ export class RSIAuditLog {
 
   async log(entry: RSIAuditEntry): Promise<void> {
     await this.ensureDir();
-    const line = JSON.stringify(entry) + '\n';
+    const history = await this.getHistory();
+    const previousHash = history.at(-1)?.entryHash ?? GENESIS_HASH;
+    const chainedEntry = this.withIntegrityFields(entry, previousHash);
+    const line = JSON.stringify(chainedEntry) + '\n';
     await appendFile(this.filePath, line, 'utf-8');
   }
 
@@ -51,5 +57,68 @@ export class RSIAuditLog {
   async getByMutation(mutationId: string): Promise<RSIAuditEntry[]> {
     const all = await this.getHistory();
     return all.filter(e => e.mutationId === mutationId);
+  }
+
+  async verifyIntegrity(): Promise<RSIAuditIntegrityResult> {
+    const history = await this.getHistory();
+    let previousHash = GENESIS_HASH;
+
+    for (const [index, entry] of history.entries()) {
+      if (entry.previousHash !== previousHash) {
+        return {
+          valid: false,
+          checkedEntries: index,
+          failedAt: index,
+          reason: 'previousHash does not match prior entryHash',
+        };
+      }
+
+      const expectedHash = this.hashEntry({ ...entry, entryHash: undefined }, previousHash);
+      if (entry.entryHash !== expectedHash) {
+        return {
+          valid: false,
+          checkedEntries: index,
+          failedAt: index,
+          reason: 'entryHash does not match entry contents',
+        };
+      }
+
+      previousHash = entry.entryHash;
+    }
+
+    return {
+      valid: true,
+      checkedEntries: history.length,
+      failedAt: null,
+      reason: null,
+    };
+  }
+
+  private withIntegrityFields(entry: RSIAuditEntry, previousHash: string): RSIAuditEntry {
+    const baseEntry: RSIAuditEntry = {
+      ...entry,
+      previousHash,
+      entryHash: undefined,
+    };
+
+    return {
+      ...baseEntry,
+      entryHash: this.hashEntry(baseEntry, previousHash),
+    };
+  }
+
+  private hashEntry(entry: RSIAuditEntry, previousHash: string): string {
+    const canonical = JSON.stringify({
+      timestamp: entry.timestamp,
+      action: entry.action,
+      skillName: entry.skillName,
+      mutationId: entry.mutationId,
+      hypothesis: entry.hypothesis,
+      metrics: entry.metrics,
+      decision: entry.decision,
+      previousHash,
+    });
+
+    return createHash('sha256').update(canonical).digest('hex');
   }
 }
