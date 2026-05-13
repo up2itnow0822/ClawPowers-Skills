@@ -416,4 +416,18 @@ export interface RSIAuditEntry {
   readonly hypothesis: string;
   readonly metrics: RSIAuditMetrics;
   readonly decision: string;
+  /**
+   * Hash of the previous audit entry, or the genesis marker for the first entry.
+   * Enables tamper-evident verification without changing the append-only JSONL format.
+   */
+  readonly previousHash?: string;
+  /** SHA-256 hash of this entry after binding it to previousHash. */
+  readonly entryHash?: string;
+}
+
+export interface RSIAuditIntegrityResult {
+  readonly valid: boolean;
+  readonly checkedEntries: number;
+  readonly failedAt: number | null;
+  readonly reason: string | null;
 }
