@@ -330,6 +330,19 @@ describe('AutoResearcher.research', () => {
       );
     }
   });
+
+  it('finds matching local skill-catalog candidates in ESM runtime', async () => {
+    const failure = makeFailure({
+      taskDescription: 'Open a GitHub PR for a failing workflow',
+      error: 'GitHub Actions workflow failed while reviewing pull request',
+      skillsUsed: ['github'],
+    });
+
+    const candidates = await researcher.research(failure);
+
+    expect(candidates.some(c => c.source === 'skill-catalog')).toBe(true);
+    expect(candidates[0]!.source).toBe('skill-catalog');
+  });
 });
 
 describe('runAutoResearch', () => {
