@@ -12,6 +12,8 @@ import { mkdirSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
+import { SKILLS_CATALOG } from '../skills/catalog.js';
+
 // ─── Public Interfaces ────────────────────────────────────────────────────────
 
 export interface FailureTrace {
@@ -353,37 +355,27 @@ export class AutoResearcher {
   // ─── Private Methods ───────────────────────────────────────────────────────
 
   private searchSkillCatalog(failure: FailureTrace): CandidateSolution[] {
-    // Import is dynamic to avoid circular deps — we use the static catalog if available
-    try {
-      const { SKILLS_CATALOG } = require('../skills/catalog.js') as {
-        SKILLS_CATALOG: Array<{ name: string; description: string; category: string }>;
-      };
+    const errorTokens = tokenizeWords(failure.error);
+    const taskTokens = tokenizeWords(failure.taskDescription);
+    const relevantTokens = new Set([...errorTokens, ...taskTokens]);
 
-      const errorTokens = tokenizeWords(failure.error);
-      const taskTokens = tokenizeWords(failure.taskDescription);
-      const relevantTokens = new Set([...errorTokens, ...taskTokens]);
-
-      return SKILLS_CATALOG
-        .filter(skill => {
-          const haystack = `${skill.name} ${skill.description}`.toLowerCase();
-          return [...relevantTokens].some(token => haystack.includes(token));
-        })
-        .slice(0, 3)
-        .map(skill => {
-          const base: Omit<CandidateSolution, 'confidence'> = {
-            source: 'skill-catalog',
-            description: skill.description,
-            approach: `Use the '${skill.name}' skill (category: ${skill.category}) to address this failure.`,
-          };
-          return {
-            ...base,
-            confidence: scoreConfidence(base, failure),
-          };
-        });
-    } catch {
-      // skills-catalog not yet built or not importable in this context
-      return [];
-    }
+    return SKILLS_CATALOG
+      .filter(skill => {
+        const haystack = `${skill.name} ${skill.description}`.toLowerCase();
+        return [...relevantTokens].some(token => haystack.includes(token));
+      })
+      .slice(0, 3)
+      .map(skill => {
+        const base: Omit<CandidateSolution, 'confidence'> = {
+          source: 'skill-catalog',
+          description: skill.description,
+          approach: `Use the '${skill.name}' skill (category: ${skill.category}) to address this failure.`,
+        };
+        return {
+          ...base,
+          confidence: scoreConfidence(base, failure),
+        };
+      });
   }
 
   private async searchNpmRegistry(failure: FailureTrace): Promise<CandidateSolution[]> {
