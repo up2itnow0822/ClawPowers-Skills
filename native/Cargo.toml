@@ -29,7 +29,7 @@ repository = "https://github.com/up2itnow0822/clawpowers-core"
 alloy = { version = "1.8", features = ["full"] }
 alloy-signer = "2.0"
 alloy-signer-local = "2.0"
-alloy-primitives = "1.5"
+alloy-primitives = "1.6"
 
 # Async
 tokio = { version = "1", features = ["full"] }
