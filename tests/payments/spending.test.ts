@@ -155,4 +155,32 @@ describe('SpendingPolicy', () => {
     const decision = policy.checkTransaction(5, 'api.trusted.com');
     expect(decision.allowed).toBe(true);
   });
+
+  it('reserveTransaction records spend before a later check can race', () => {
+    const policy = new SpendingPolicy({
+      dailyLimit: 100,
+      transactionLimit: 60,
+      allowedDomains: [],
+    });
+    const first = policy.reserveTransaction(60, 'a.com');
+    const second = policy.reserveTransaction(60, 'b.com');
+    expect(first.decision.allowed).toBe(true);
+    expect(first.reservation).toBeDefined();
+    expect(second.decision.allowed).toBe(false);
+    expect(policy.getDailySpent()).toBe(60);
+  });
+
+  it('voidReservation releases a failed reservation', () => {
+    const policy = new SpendingPolicy({
+      dailyLimit: 100,
+      transactionLimit: 60,
+      allowedDomains: [],
+    });
+    const reserved = policy.reserveTransaction(60, 'a.com');
+    expect(reserved.reservation).toBeDefined();
+    policy.voidReservation(reserved.reservation!);
+    expect(policy.getDailySpent()).toBe(0);
+    const retry = policy.reserveTransaction(60, 'a.com');
+    expect(retry.decision.allowed).toBe(true);
+  });
 });
