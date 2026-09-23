@@ -39,16 +39,20 @@ export class PaymentExecutor {
 
   /**
    * Execute a payment request.
-   * 1. Check spending policy
+   * 1. Reserve against spending policy (atomic with the check)
    * 2. If allowed, execute via MCP client
-   * 3. Log the result (success or failure)
-   * 4. Never auto-retry on failure
+   * 3. Release the reservation if MCP fails
+   * 4. Log the result (success or failure)
+   * 5. Never auto-retry on failure
    */
   async executePayment(request: PaymentRequest): Promise<PaymentResult> {
-    // Step 1: Check spending policy
-    const decision = this.policy.checkTransaction(request.amount, request.domain);
+    // Reserve before awaiting MCP so concurrent payments cannot overspend.
+    const { decision, reservation } = this.policy.reserveTransaction(
+      request.amount,
+      request.domain
+    );
 
-    if (!decision.allowed) {
+    if (!decision.allowed || !reservation) {
       const result: PaymentResult = {
         success: false,
         error: `Spending policy rejected: ${decision.reason}`,
@@ -58,7 +62,6 @@ export class PaymentExecutor {
       return result;
     }
 
-    // Step 2: Execute payment via MCP client
     try {
       const mcpResult = await this.client.executePayment({
         amount: request.amount,
@@ -68,9 +71,6 @@ export class PaymentExecutor {
       });
 
       if (mcpResult.status === 'success') {
-        // Record successful spend
-        this.policy.recordSpend(request.amount, request.domain);
-
         const result: PaymentResult = {
           success: true,
           txHash: mcpResult.txHash,
@@ -80,7 +80,8 @@ export class PaymentExecutor {
         return result;
       }
 
-      // MCP returned failure status
+      this.policy.voidReservation(reservation);
+
       const result: PaymentResult = {
         success: false,
         error: 'Payment execution failed at MCP layer',
@@ -89,6 +90,8 @@ export class PaymentExecutor {
       this.logAudit(request, result);
       return result;
     } catch (err: unknown) {
+      this.policy.voidReservation(reservation);
+
       // Execution error — DO NOT retry (financial safety)
       const errorMessage = err instanceof Error ? err.message : String(err);
       const result: PaymentResult = {

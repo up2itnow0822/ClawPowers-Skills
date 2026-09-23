@@ -12,6 +12,9 @@ interface SpendingRecord {
   domain: string;
 }
 
+/** Opaque handle for a reserved spend that can be released on payment failure. */
+export type SpendReservation = SpendingRecord;
+
 /**
  * Get the start of the current UTC day as a timestamp.
  */
@@ -114,6 +117,38 @@ export class SpendingPolicy {
         reason: 'Policy check failed due to internal error — rejecting for safety',
         remainingDaily: 0,
       };
+    }
+  }
+
+  /**
+   * Atomically check the policy and reserve the amount if allowed.
+   * Safe to call from concurrent payment attempts — the reservation is
+   * visible to the next check before any await yields.
+   */
+  reserveTransaction(amount: number, domain: string): {
+    decision: SpendingDecision;
+    reservation?: SpendReservation;
+  } {
+    const decision = this.checkTransaction(amount, domain);
+    if (!decision.allowed) {
+      return { decision };
+    }
+    const reservation: SpendReservation = {
+      amount,
+      timestamp: Date.now(),
+      domain,
+    };
+    this.spendingLog.push(reservation);
+    return { decision, reservation };
+  }
+
+  /**
+   * Release a reservation created by reserveTransaction (payment failed).
+   */
+  voidReservation(reservation: SpendReservation): void {
+    const idx = this.spendingLog.indexOf(reservation);
+    if (idx >= 0) {
+      this.spendingLog.splice(idx, 1);
     }
   }
 
