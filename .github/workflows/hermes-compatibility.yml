@@ -26,7 +26,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          # Track the Python version Hermes Agent itself pins. Upstream gates every
+          # core dependency on python_version >= '3.14', so an older interpreter
+          # installs hermes-agent with no dependencies (e.g. ruamel.yaml missing).
+          python-version-file: .hermes-agent/.python-version
 
       - name: Install Hermes Agent core dependencies
         working-directory: .hermes-agent
