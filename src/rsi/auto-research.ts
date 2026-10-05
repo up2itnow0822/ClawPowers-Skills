@@ -154,6 +154,24 @@ export function buildSearchQuery(failure: FailureTrace): string {
   return `${taskSummary} ${errorSummary}`.trim();
 }
 
+const SOURCE_PRIORITY: Record<CandidateSolution['source'], number> = {
+  'skill-catalog': 3,
+  'npm-registry': 2,
+  'web-search': 1,
+};
+
+/** Sort by confidence desc, then prefer more reliable sources on ties. */
+export function compareCandidates(
+  a: Pick<CandidateSolution, 'source' | 'confidence'>,
+  b: Pick<CandidateSolution, 'source' | 'confidence'>
+): number {
+  const byConfidence = b.confidence - a.confidence;
+  if (byConfidence !== 0) {
+    return byConfidence;
+  }
+  return SOURCE_PRIORITY[b.source] - SOURCE_PRIORITY[a.source];
+}
+
 /**
  * Compute confidence score for a candidate solution based on heuristics.
  * Considers source reliability and relevance signals in description/approach.
@@ -177,12 +195,12 @@ export function scoreConfidence(
       break;
   }
 
-  // Boost if approach mentions keywords from the failure description
+  // Boost if description or approach mentions keywords from the failure
   const failureWords = new Set(
     tokenizeWords(failure.taskDescription)
   );
-  const approachWords = tokenizeWords(candidate.approach);
-  const matches = approachWords.filter(w => failureWords.has(w)).length;
+  const relevanceWords = tokenizeWords(`${candidate.description} ${candidate.approach}`);
+  const matches = relevanceWords.filter(w => failureWords.has(w)).length;
   const overlap = Math.min(matches / Math.max(failureWords.size, 1), 0.25);
   base += overlap;
 
@@ -193,6 +211,38 @@ export function scoreConfidence(
 
   // Clamp to [0, 1]
   return Math.max(0, Math.min(1, base));
+}
+
+/**
+ * Match local catalog skills on whole tokens (not substrings), score them,
+ * and keep the top matches. Substring matching would treat "open" in
+ * "Open a GitHub PR" as a hit on every skill that mentions OpenClaw.
+ */
+export function searchSkillCatalog(failure: FailureTrace): CandidateSolution[] {
+  const errorTokens = tokenizeWords(failure.error);
+  const taskTokens = tokenizeWords(failure.taskDescription);
+  const relevantTokens = new Set([...errorTokens, ...taskTokens]);
+
+  return SKILLS_CATALOG
+    .filter(skill => {
+      const haystackTokens = new Set(
+        tokenizeWords(`${skill.name} ${skill.description} ${skill.category}`)
+      );
+      return [...relevantTokens].some(token => haystackTokens.has(token));
+    })
+    .map(skill => {
+      const base: Omit<CandidateSolution, 'confidence'> = {
+        source: 'skill-catalog',
+        description: skill.description,
+        approach: `Use the '${skill.name}' skill (category: ${skill.category}) to address this failure.`,
+      };
+      return {
+        ...base,
+        confidence: scoreConfidence(base, failure),
+      };
+    })
+    .sort(compareCandidates)
+    .slice(0, 3);
 }
 
 // ─── AutoResearcher ───────────────────────────────────────────────────────────
@@ -218,7 +268,7 @@ export class AutoResearcher {
     const candidates: CandidateSolution[] = [];
 
     // 1. Skill-catalog scan
-    const skillCatalogCandidates = this.searchSkillCatalog(failure);
+    const skillCatalogCandidates = searchSkillCatalog(failure);
     candidates.push(...skillCatalogCandidates);
 
     // 2. npm-registry search
@@ -229,10 +279,10 @@ export class AutoResearcher {
     const webCandidates = this.buildWebSearchCandidates(failure);
     candidates.push(...webCandidates);
 
-    // Sort by confidence descending
+    // Sort by confidence descending, skill-catalog before npm/web on ties
     return candidates
       .filter(c => c.confidence >= MIN_CONFIDENCE)
-      .sort((a, b) => b.confidence - a.confidence);
+      .sort(compareCandidates);
   }
 
   /**
@@ -353,30 +403,6 @@ export class AutoResearcher {
   }
 
   // ─── Private Methods ───────────────────────────────────────────────────────
-
-  private searchSkillCatalog(failure: FailureTrace): CandidateSolution[] {
-    const errorTokens = tokenizeWords(failure.error);
-    const taskTokens = tokenizeWords(failure.taskDescription);
-    const relevantTokens = new Set([...errorTokens, ...taskTokens]);
-
-    return SKILLS_CATALOG
-      .filter(skill => {
-        const haystack = `${skill.name} ${skill.description}`.toLowerCase();
-        return [...relevantTokens].some(token => haystack.includes(token));
-      })
-      .slice(0, 3)
-      .map(skill => {
-        const base: Omit<CandidateSolution, 'confidence'> = {
-          source: 'skill-catalog',
-          description: skill.description,
-          approach: `Use the '${skill.name}' skill (category: ${skill.category}) to address this failure.`,
-        };
-        return {
-          ...base,
-          confidence: scoreConfidence(base, failure),
-        };
-      });
-  }
 
   private async searchNpmRegistry(failure: FailureTrace): Promise<CandidateSolution[]> {
     const query = buildSearchQuery(failure);
