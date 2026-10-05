@@ -4,6 +4,10 @@ All notable changes to ClawPowers are documented here.
 
 ## Unreleased
 
+### Fixed
+
+- AutoResearch now matches the local skill catalog on whole tokens and ranks those matches by confidence, so a GitHub-domain failure keeps `skill-catalog` ahead of `npm-registry` instead of treating the word "open" as a hit on every OpenClaw skill.
+
 ## [2.2.7] - 2026-05-12
 
 ### Fixed

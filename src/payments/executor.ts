@@ -2,14 +2,21 @@
  * ClawPowers Agent — Payment Executor
  * Executes payments via agentpay-mcp with spending policy enforcement.
  * Never auto-retries failed payments (financial safety).
+ *
+ * Flow: reserve → execute → settle | release | hold-unknown.
+ * Release a reservation only when the client confirms not_charged.
+ * Thrown errors and unknown status keep the reservation counted.
  */
 
 import type {
   PaymentRequest,
   PaymentResult,
   PaymentAuditEntry,
+  PaymentSettlement,
 } from '../types.js';
-import { SpendingPolicy } from './spending.js';
+import { SpendingPolicy, type SpendReservation } from './spending.js';
+
+export type PaymentChargeStatus = PaymentSettlement;
 
 /**
  * Interface for an MCP payment client.
@@ -21,7 +28,8 @@ export interface MCPPaymentClient {
     currency: string;
     recipient: string;
     x402Headers: Readonly<Record<string, string>>;
-  }): Promise<{ txHash: string; status: 'success' | 'failed' }>;
+    idempotencyKey?: string;
+  }): Promise<{ txHash?: string; status: PaymentChargeStatus }>;
 }
 
 /**
@@ -31,6 +39,7 @@ export class PaymentExecutor {
   private readonly policy: SpendingPolicy;
   private readonly client: MCPPaymentClient;
   private readonly auditLog: PaymentAuditEntry[] = [];
+  private readonly flights = new Map<string, Promise<PaymentResult>>();
 
   constructor(policy: SpendingPolicy, client: MCPPaymentClient) {
     this.policy = policy;
@@ -39,16 +48,33 @@ export class PaymentExecutor {
 
   /**
    * Execute a payment request.
-   * 1. Check spending policy
-   * 2. If allowed, execute via MCP client
-   * 3. Log the result (success or failure)
-   * 4. Never auto-retry on failure
+   * 1. Single-flight by idempotencyKey when present
+   * 2. Reserve against spending policy (atomic with the check)
+   * 3. Execute via MCP client
+   * 4. settle | release on not_charged | hold-unknown
+   * 5. Never auto-retry on failure
    */
   async executePayment(request: PaymentRequest): Promise<PaymentResult> {
-    // Step 1: Check spending policy
-    const decision = this.policy.checkTransaction(request.amount, request.domain);
+    const key = request.idempotencyKey;
+    if (key) {
+      const existing = this.flights.get(key);
+      if (existing) {
+        return existing;
+      }
+      const flight = this.runPayment(request);
+      this.flights.set(key, flight);
+      return flight;
+    }
+    return this.runPayment(request);
+  }
 
-    if (!decision.allowed) {
+  private async runPayment(request: PaymentRequest): Promise<PaymentResult> {
+    const { decision, reservation } = this.policy.reserveTransaction(
+      request.amount,
+      request.domain
+    );
+
+    if (!decision.allowed || !reservation) {
       const result: PaymentResult = {
         success: false,
         error: `Spending policy rejected: ${decision.reason}`,
@@ -58,47 +84,69 @@ export class PaymentExecutor {
       return result;
     }
 
-    // Step 2: Execute payment via MCP client
     try {
       const mcpResult = await this.client.executePayment({
         amount: request.amount,
         currency: request.currency,
         recipient: request.recipient,
         x402Headers: request.x402Headers,
+        idempotencyKey: request.idempotencyKey,
       });
 
-      if (mcpResult.status === 'success') {
-        // Record successful spend
-        this.policy.recordSpend(request.amount, request.domain);
-
-        const result: PaymentResult = {
-          success: true,
-          txHash: mcpResult.txHash,
-        };
-
-        this.logAudit(request, result);
-        return result;
-      }
-
-      // MCP returned failure status
-      const result: PaymentResult = {
-        success: false,
-        error: 'Payment execution failed at MCP layer',
-      };
-
-      this.logAudit(request, result);
-      return result;
+      return this.finishReservation(request, reservation, mcpResult.status, mcpResult.txHash);
     } catch (err: unknown) {
-      // Execution error — DO NOT retry (financial safety)
+      // Ambiguous: payment may already have settled. Keep the reservation.
+      this.policy.markReservationUnknown(reservation);
+
       const errorMessage = err instanceof Error ? err.message : String(err);
       const result: PaymentResult = {
         success: false,
+        settlement: 'unknown',
         error: `Payment execution error: ${errorMessage}`,
       };
 
       this.logAudit(request, result);
       return result;
     }
+  }
+
+  private finishReservation(
+    request: PaymentRequest,
+    reservation: SpendReservation,
+    status: PaymentChargeStatus,
+    txHash?: string
+  ): PaymentResult {
+    if (status === 'settled') {
+      this.policy.settleReservation(reservation);
+      const result: PaymentResult = {
+        success: true,
+        settlement: 'settled',
+        txHash,
+      };
+      this.logAudit(request, result);
+      return result;
+    }
+
+    if (status === 'not_charged') {
+      this.policy.voidReservation(reservation);
+      const result: PaymentResult = {
+        success: false,
+        settlement: 'not_charged',
+        error: 'Payment execution failed at MCP layer',
+      };
+      this.logAudit(request, result);
+      return result;
+    }
+
+    this.policy.markReservationUnknown(reservation);
+    const result: PaymentResult = {
+      success: false,
+      settlement: 'unknown',
+      txHash,
+      error: 'Payment settlement unknown at MCP layer',
+    };
+    this.logAudit(request, result);
+    return result;
   }
 
   /**

@@ -28,13 +28,13 @@ function makePaymentRequest(overrides: Partial<PaymentRequest> = {}): PaymentReq
 
 function makeSuccessClient(): MCPPaymentClient {
   return {
-    executePayment: async () => ({ txHash: '0xabc123', status: 'success' }),
+    executePayment: async () => ({ txHash: '0xabc123', status: 'settled' }),
   };
 }
 
 function makeFailClient(): MCPPaymentClient {
   return {
-    executePayment: async () => ({ txHash: '', status: 'failed' }),
+    executePayment: async () => ({ txHash: '', status: 'not_charged' }),
   };
 }
 
@@ -174,10 +174,11 @@ describe('Payment Flow Integration', () => {
     const result = await executor.executePayment(makePaymentRequest({ amount: 1 }));
 
     expect(result.success).toBe(false);
+    expect(result.settlement).toBe('unknown');
     expect(result.error).toContain('Network timeout');
 
-    // No spending recorded on error
-    expect(policy.getDailySpent()).toBe(0);
+    // Thrown errors are settlement-unknown: keep the reservation counted
+    expect(policy.getDailySpent()).toBe(1);
 
     const audit = executor.getAuditLog();
     expect(audit).toHaveLength(1);

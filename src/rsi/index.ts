@@ -11,7 +11,9 @@ export {
   AutoResearcher,
   runAutoResearch,
   buildSearchQuery,
+  compareCandidates,
   scoreConfidence,
+  searchSkillCatalog,
 } from './auto-research.js';
 export type {
   FailureTrace,
