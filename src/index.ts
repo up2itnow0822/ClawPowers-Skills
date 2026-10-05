@@ -21,7 +21,7 @@ export type {
   ProfileName, SkillManifest, SkillRequirements,
   RSIMutation, RSIMutationStatus, MemoryEntry, MemoryOutcome, MemoryStats,
   StepResult, PlanResult, CriterionResult, ReviewResult, TaskOutcome, TaskCompletion,
-  WorkingMemory, PaymentRequired, PaymentRequest, PaymentResult,
+  WorkingMemory, PaymentRequired, PaymentRequest, PaymentResult, PaymentSettlement,
   SpendingDecision, PaymentAuditEntry, EpisodicEntry, ProceduralEntry, MutationRecord,
   CheckpointState, CheckpointInfo, TaskMetrics, SkillMetrics, SkillAggregateStats,
   TrendDirection, RSIHypothesis, RSITierLabel, RSIMutationExtended, RSIMutationExtendedStatus,
@@ -61,7 +61,7 @@ export {
   createPaymentHeader,
   generateWalletAddress,
 } from './payments/index.js';
-export type { MCPPaymentClient } from './payments/index.js';
+export type { MCPPaymentClient, PaymentChargeStatus } from './payments/index.js';
 
 // Memory
 export {

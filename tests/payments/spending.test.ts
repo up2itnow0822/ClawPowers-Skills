@@ -183,4 +183,17 @@ describe('SpendingPolicy', () => {
     const retry = policy.reserveTransaction(60, 'a.com');
     expect(retry.decision.allowed).toBe(true);
   });
+
+  it('markReservationUnknown keeps the reservation counted', () => {
+    const policy = new SpendingPolicy({
+      dailyLimit: 100,
+      transactionLimit: 60,
+      allowedDomains: [],
+    });
+    const reserved = policy.reserveTransaction(40, 'a.com');
+    expect(reserved.reservation).toBeDefined();
+    policy.markReservationUnknown(reserved.reservation!);
+    expect(policy.getDailySpent()).toBe(40);
+    expect(reserved.reservation!.state).toBe('unknown');
+  });
 });

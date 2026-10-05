@@ -6,13 +6,16 @@
 
 import type { SpendingDecision } from '../types.js';
 
+export type ReservationState = 'reserved' | 'settled' | 'unknown';
+
 interface SpendingRecord {
   amount: number;
   timestamp: number;
   domain: string;
+  state: ReservationState;
 }
 
-/** Opaque handle for a reserved spend that can be released on payment failure. */
+/** Opaque handle for a reserved spend that can be released only when not charged. */
 export type SpendReservation = SpendingRecord;
 
 /**
@@ -137,18 +140,37 @@ export class SpendingPolicy {
       amount,
       timestamp: Date.now(),
       domain,
+      state: 'reserved',
     };
     this.spendingLog.push(reservation);
     return { decision, reservation };
   }
 
   /**
-   * Release a reservation created by reserveTransaction (payment failed).
+   * Release a reservation only when the client confirms the payer was not charged.
    */
   voidReservation(reservation: SpendReservation): void {
     const idx = this.spendingLog.indexOf(reservation);
     if (idx >= 0) {
       this.spendingLog.splice(idx, 1);
+    }
+  }
+
+  /**
+   * Keep a reservation counted after an ambiguous settlement (timeout/throw).
+   */
+  markReservationUnknown(reservation: SpendReservation): void {
+    if (this.spendingLog.includes(reservation)) {
+      reservation.state = 'unknown';
+    }
+  }
+
+  /**
+   * Mark a reservation as settled after a confirmed charge.
+   */
+  settleReservation(reservation: SpendReservation): void {
+    if (this.spendingLog.includes(reservation)) {
+      reservation.state = 'settled';
     }
   }
 
@@ -160,6 +182,7 @@ export class SpendingPolicy {
       amount,
       timestamp: Date.now(),
       domain,
+      state: 'settled',
     });
   }
 
