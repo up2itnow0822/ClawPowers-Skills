@@ -389,15 +389,6 @@ const serverUp = await itpHealthCheck(); // false = passthrough mode
 
 ITP is most effective in parallel swarm scenarios where multiple tasks share the same model context. Prompt caching handles repeated prompt structure, and ITP reduces the changing task payload inside that structure. Cross-model savings can also compound because providers inject similar preambles across nearby model tiers.
 
-## Fee Structure
-
-| Operation | Fee |
-|-----------|-----|
-| Transaction | 0.77% |
-| Token Swap | 0.30% |
-
-Fees are applied at the payment execution layer and are included in the transaction amount.
-
 ## Python Integration
 
 ```python

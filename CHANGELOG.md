@@ -4,6 +4,15 @@ All notable changes to ClawPowers are documented here.
 
 ## Unreleased
 
+## [2.2.8] - 2026-10-07
+
+Docs and metadata only. The shipped code (`dist/`, `src/skills`, `native/`, `skills/`, `scripts/`, `skill.json`) is byte-identical to 2.2.7, so `skill.json` and the runtime version constant still read 2.2.7.
+
+### Changed
+
+- README: removed the "Fee Structure" table (0.77% transaction / 0.30% swap, "applied at the payment execution layer"). `PaymentExecutor` applies no fee.
+- CHANGELOG 2.0.0: removed the matching fee note.
+
 ## [2.2.7] - 2026-05-12
 
 ### Fixed
@@ -104,7 +113,7 @@ All notable changes to ClawPowers are documented here.
 
 ### Added
 
-- **Payments module** — x402 detection (`detect402`), `SpendingPolicy` enforcement, `PaymentExecutor` with append-only audit log. Fees: 0.77% tx / 0.30% swap.
+- **Payments module** — x402 detection (`detect402`), `SpendingPolicy` enforcement, `PaymentExecutor` with append-only audit log.
 - **Memory module** — `WorkingMemoryManager` (in-process, token-budgeted), `EpisodicMemory` (JSONL append-only), `ProceduralMemory` (atomic JSON), `CheckpointManager` (crash recovery), `ContextInjector` (relevant memory selection).
 - **RSI module** — `MetricsCollector`, `HypothesisEngine`, `MutationEngine`, `ABTestManager`, `RSIAuditLog`, `AutoResearcher`. Full measure → hypothesize → mutate → A/B test → promote/rollback cycle.
 - **Wallet module** — `WalletManager`, `generateWallet`, `importWallet`, `signMessage` with AES-256-GCM encryption at rest.
