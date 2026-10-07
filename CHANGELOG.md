@@ -4,6 +4,15 @@ All notable changes to ClawPowers are documented here.
 
 ## Unreleased
 
+## [2.2.8] - 2026-10-07
+
+Docs and metadata only. The shipped code (`dist/`, `src/skills`, `native/`, `skills/`, `scripts/`, `skill.json`) is byte-identical to 2.2.7, so `skill.json` and the runtime version constant still read 2.2.7.
+
+### Changed
+
+- README: removed the "Fee Structure" table (0.77% transaction / 0.30% swap, "applied at the payment execution layer"). `PaymentExecutor` applies no fee.
+- CHANGELOG 2.0.0: removed the matching fee note.
+
 ## [2.2.7] - 2026-05-12
 
 ### Fixed
