@@ -104,7 +104,7 @@ All notable changes to ClawPowers are documented here.
 
 ### Added
 
-- **Payments module** — x402 detection (`detect402`), `SpendingPolicy` enforcement, `PaymentExecutor` with append-only audit log. Fees: 0.77% tx / 0.30% swap.
+- **Payments module** — x402 detection (`detect402`), `SpendingPolicy` enforcement, `PaymentExecutor` with append-only audit log.
 - **Memory module** — `WorkingMemoryManager` (in-process, token-budgeted), `EpisodicMemory` (JSONL append-only), `ProceduralMemory` (atomic JSON), `CheckpointManager` (crash recovery), `ContextInjector` (relevant memory selection).
 - **RSI module** — `MetricsCollector`, `HypothesisEngine`, `MutationEngine`, `ABTestManager`, `RSIAuditLog`, `AutoResearcher`. Full measure → hypothesize → mutate → A/B test → promote/rollback cycle.
 - **Wallet module** — `WalletManager`, `generateWallet`, `importWallet`, `signMessage` with AES-256-GCM encryption at rest.
