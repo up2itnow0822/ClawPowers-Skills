@@ -1,0 +1,44 @@
+name: hermes-canary
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * 1"
+
+jobs:
+  hermes-canary-main:
+    name: Hermes canary (main)
+    runs-on: ubuntu-latest
+    # Advisory canary against hermes-agent@main. A green run means
+    # `pip install -e .` on main succeeds again, so the v0.22.4 pin
+    # on hermes-compatibility.yml can be lifted.
+    steps:
+      - name: Checkout ClawPowers-Skills
+        uses: actions/checkout@v6
+
+      - name: Checkout Hermes Agent
+        uses: actions/checkout@v6
+        with:
+          repository: NousResearch/hermes-agent
+          ref: main
+          path: .hermes-agent
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          # Track the Python version Hermes Agent itself pins. Upstream gates every
+          # core dependency on python_version >= '3.14', so an older interpreter
+          # installs hermes-agent with no dependencies (e.g. ruamel.yaml missing).
+          python-version-file: .hermes-agent/.python-version
+
+      - name: Install Hermes Agent core dependencies
+        working-directory: .hermes-agent
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Syntax-check Hermes verifier
+        run: python3 -m py_compile scripts/verify_hermes_wrappers.py
+
+      - name: Verify ClawPowers skills load in latest Hermes Agent
+        run: python3 scripts/verify_hermes_wrappers.py --hermes-agent "$GITHUB_WORKSPACE/.hermes-agent"
