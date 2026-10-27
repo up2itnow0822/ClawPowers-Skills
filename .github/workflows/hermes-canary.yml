@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: "0 12 * * 1"
 
+permissions:
+  contents: read
+
 jobs:
   hermes-canary-main:
     name: Hermes canary (main)
