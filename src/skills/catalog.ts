@@ -17,6 +17,8 @@ export interface SkillEntry {
   description: string;
   source: 'openclaw-bundled' | 'clawpowers' | 'managed';
   category: string;
+  /** When 'paused', AutoResearch / catalog recommenders must not suggest this skill. */
+  status?: 'active' | 'paused';
 }
 
 // ─── OpenClaw Bundled Skills (51) ─────────────────────────────────────────────
@@ -424,9 +426,10 @@ export const SKILLS_CATALOG: SkillEntry[] = [
   },
   {
     name: 'webmcp-payments',
-    description: 'Handle HTTP 402 Payment Required responses via agentpay-mcp, enabling autonomous micropayment execution within configured spending limits.',
+    description: 'Paused for security maintenance. Do not use in production.',
     source: 'managed',
     category: 'finance',
+    status: 'paused',
   },
 ];
 

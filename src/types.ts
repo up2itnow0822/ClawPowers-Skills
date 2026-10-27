@@ -227,18 +227,23 @@ export interface PaymentRequired {
   readonly x402Headers: Readonly<Record<string, string>>;
 }
 
+export type PaymentSettlement = 'settled' | 'not_charged' | 'unknown';
+
 export interface PaymentRequest {
   readonly amount: number;
   readonly currency: string;
   readonly recipient: string;
   readonly x402Headers: Readonly<Record<string, string>>;
   readonly domain: string;
+  /** Caller-supplied key so retries share one in-flight payment. */
+  readonly idempotencyKey?: string;
 }
 
 export interface PaymentResult {
   readonly success: boolean;
   readonly txHash?: string;
   readonly error?: string;
+  readonly settlement?: PaymentSettlement;
 }
 
 export interface SpendingDecision {

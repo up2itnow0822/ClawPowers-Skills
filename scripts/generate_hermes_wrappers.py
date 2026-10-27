@@ -11,7 +11,7 @@ text = catalog_path.read_text()
 overrides = json.loads(overrides_path.read_text()) if overrides_path.exists() else {}
 
 pattern = re.compile(
-    r"\{\s*name:\s*'(?P<name>[^']+)'\s*,\s*description:\s*'(?P<desc>(?:[^'\\]|\\.)*)'\s*,\s*source:\s*'(?P<source>[^']+)'\s*,\s*category:\s*'(?P<category>[^']+)'\s*,\s*\}",
+    r"\{\s*name:\s*'(?P<name>[^']+)'\s*,\s*description:\s*'(?P<desc>(?:[^'\\]|\\.)*)'\s*,\s*source:\s*'(?P<source>[^']+)'\s*,\s*category:\s*'(?P<category>[^']+)'\s*(?:,\s*status:\s*'(?P<status>[^']+)'\s*)?,?\s*\}",
     re.S,
 )
 
@@ -35,12 +35,13 @@ for m in pattern.finditer(text):
             'description': desc,
             'source': m.group('source'),
             'category': m.group('category'),
+            'status': m.group('status') or 'active',
         }
     )
 
 skills_root = repo / 'skills'
 skills_root.mkdir(exist_ok=True)
-manual_skills = {'itp'}
+manual_skills = {'itp', 'webmcp-payments'}
 generated_count = 0
 rich_count = 0
 

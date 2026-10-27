@@ -153,7 +153,7 @@ Exported helpers include `calculateTransactionFee`, `createPaymentHeader`, `gene
                                               │         PaymentExecutor           │
                                               │  ┌───────────┐  ┌─────────────┐  │
                                               │  │ MCP Client │  │ Audit Log   │  │
-                                              │  │ (agentpay) │  │ (append-only│  │
+                                              │  │ (external) │  │ (append-only│  │
                                               │  └─────┬─────┘  └─────────────┘  │
                                               └───────┬───────────────────────────┘
                                                       │
@@ -388,15 +388,6 @@ const serverUp = await itpHealthCheck(); // false = passthrough mode
 - **Hybrid swarm benchmark:** **63.25%** effective input-cost reduction from live ITP compression plus modeled prompt caching
 
 ITP is most effective in parallel swarm scenarios where multiple tasks share the same model context. Prompt caching handles repeated prompt structure, and ITP reduces the changing task payload inside that structure. Cross-model savings can also compound because providers inject similar preambles across nearby model tiers.
-
-## Fee Structure
-
-| Operation | Fee |
-|-----------|-----|
-| Transaction | 0.77% |
-| Token Swap | 0.30% |
-
-Fees are applied at the payment execution layer and are included in the transaction amount.
 
 ## Python Integration
 

@@ -27,7 +27,9 @@ import { tmpdir } from 'node:os';
 import {
   AutoResearcher,
   buildSearchQuery,
+  compareCandidates,
   scoreConfidence,
+  searchSkillCatalog,
   runAutoResearch,
 } from '../../src/rsi/auto-research.js';
 import type {
@@ -144,6 +146,39 @@ describe('scoreConfidence', () => {
     const low = scoreConfidence(lowOverlap, failure);
     const high = scoreConfidence(highOverlap, failure);
     expect(high).toBeGreaterThan(low);
+  });
+
+  it('description keywords count toward overlap, not only approach text', () => {
+    const failure = makeFailure({
+      taskDescription: 'validate json schema config',
+    });
+    const descriptionOverlap = {
+      source: 'web-search' as const,
+      description: 'validate json schema config helper',
+      approach: 'Use xyz toolchain.',
+    };
+    const noOverlap = {
+      source: 'web-search' as const,
+      description: 'unrelated topic helper notes',
+      approach: 'Use xyz toolchain.',
+    };
+    expect(scoreConfidence(descriptionOverlap, failure)).toBeGreaterThan(
+      scoreConfidence(noOverlap, failure)
+    );
+  });
+
+  it('skill-catalog outranks npm-registry when confidence is tied', () => {
+    const ranked = [
+      { source: 'npm-registry' as const, confidence: 0.7 },
+      { source: 'skill-catalog' as const, confidence: 0.7 },
+      { source: 'web-search' as const, confidence: 0.7 },
+    ].sort(compareCandidates);
+
+    expect(ranked.map(c => c.source)).toEqual([
+      'skill-catalog',
+      'npm-registry',
+      'web-search',
+    ]);
   });
 
   it('test 10 — confidence score is always clamped to [0, 1]', () => {
@@ -342,6 +377,28 @@ describe('AutoResearcher.research', () => {
 
     expect(candidates.some(c => c.source === 'skill-catalog')).toBe(true);
     expect(candidates[0]!.source).toBe('skill-catalog');
+    expect(candidates[0]!.approach).toMatch(/github|gh-issues/i);
+  });
+});
+
+describe('searchSkillCatalog', () => {
+  const githubFailure: FailureTrace = {
+    taskDescription: 'Open a GitHub PR for a failing workflow',
+    error: 'GitHub Actions workflow failed while reviewing pull request',
+    executionSteps: [],
+    skillsUsed: ['github'],
+    attemptCount: 1,
+  };
+
+  it('matches github skills on whole tokens, not OpenClaw substrings', () => {
+    const candidates = searchSkillCatalog(githubFailure);
+    const approaches = candidates.map(c => c.approach);
+
+    expect(approaches.some(text => /'(github|gh-issues)' skill/.test(text))).toBe(true);
+    expect(approaches.some(text => /'(apple-notes|things-mac)' skill/.test(text))).toBe(false);
+    expect(candidates[0]!.source).toBe('skill-catalog');
+    expect(candidates[0]!.approach).toMatch(/github|gh-issues/i);
+    expect(candidates[0]!.confidence).toBeGreaterThan(0.7);
   });
 });
 

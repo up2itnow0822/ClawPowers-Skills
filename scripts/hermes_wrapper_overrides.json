@@ -1,6 +1,6 @@
 {
   "autoresearch": {
-    "title": "Autoresearch — Autonomous Code Quality & RSI Loop",
+    "title": "Autoresearch \u2014 Autonomous Code Quality & RSI Loop",
     "summary": "Autonomous code quality and harness-improvement loop for audits, baselines, and keep-or-revert mutation experiments.",
     "when_to_use": [
       "when you need a code audit or quality scan",
@@ -165,20 +165,19 @@
   },
   "webmcp-payments": {
     "title": "WebMCP Payments",
-    "summary": "Payments workflow wrapper for handling HTTP 402 Payment Required responses through agentpay-mcp within approved spending limits.",
+    "summary": "PAUSED \u2014 payment rails disabled for security maintenance pending contract-level enforcement. Do not use agentpay-mcp.",
     "when_to_use": [
-      "when a workflow hits an HTTP 402 payment-required response",
-      "when an agent needs to decide whether a micropayment is allowed",
-      "when connecting payment-required APIs to a policy-controlled execution path"
+      "NEVER for live spend while status is paused \u2014 refuse AgentPay / agentwallet / webmcp-payments execution",
+      "only to explain that payment rails are paused and point maintainers at the pause notice"
     ],
     "quickstart": [
-      "detect the 402 and capture the payment metadata first",
-      "check the spending policy before attempting execution",
-      "route execution through the AgentPay MCP lane instead of treating payment as an unguarded side effect"
+      "do not detect-402-and-pay; surface the pause to the operator instead",
+      "do not install or invoke agentpay-mcp / agentwallet-sdk / webmcp-payments",
+      "do not set AGENT_PRIVATE_KEY to restore payments while paused"
     ],
     "notes": [
-      "Current product naming in the broader workspace is AgentPay MCP, while this catalog entry remains webmcp-payments.",
-      "This wrapper does not imply payment credentials, wallets, or spending policies are already configured inside Hermes."
+      "Status: paused (2026-10-17). Regenerate wrappers only from this override until unpaused.",
+      "Current product naming in the broader workspace is AgentPay MCP; this catalog entry remains webmcp-payments but must stay paused."
     ]
   }
 }
