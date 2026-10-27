@@ -8,23 +8,31 @@ on:
   schedule:
     - cron: "17 9 * * *"
 
+permissions:
+  contents: read
+
 jobs:
-  latest-hermes-skill-surface:
-    name: Verify skills against latest Hermes Agent
+  pinned-hermes-skill-surface:
+    name: Verify skills against pinned Hermes Agent (v0.22.4)
     runs-on: ubuntu-latest
-    # Failing run: https://github.com/up2itnow0822/ClawPowers-Skills/actions/runs/40301823425
-    # Upstream hermes-agent install fails with ResolutionImpossible (since 2026-10-22).
-    # Remove continue-on-error once `pip install hermes-agent` (latest) resolves again.
-    continue-on-error: true
     steps:
       - name: Checkout ClawPowers-Skills
         uses: actions/checkout@v6
 
-      - name: Checkout latest Hermes Agent
+      - name: Checkout Hermes Agent
         uses: actions/checkout@v6
         with:
           repository: NousResearch/hermes-agent
-          ref: main
+          # Pin to v0.22.4, the last Hermes release whose core extra
+          # resolves under pip. Hermes v0.22.5+ / main pin
+          # Pillow==13.0.0 on Python 3.14+ (27c61463814, GHSA-8g5g-8vmr-9782)
+          # while browser-harness 0.1.13 still pins pillow==12.3.0, so
+          # `pip install -e .` raises ResolutionImpossible. Hermes itself
+          # works around this with a [tool.uv] override that pip does not
+          # honor, and no newer browser-harness exists. Lift this pin when
+          # browser-harness allows Pillow 13 or `pip install -e .` on
+          # hermes-agent@main succeeds again.
+          ref: 4d04303818b61bf3aa09278af48356315515965b # v0.22.4
           path: .hermes-agent
 
       - name: Set up Python
@@ -44,5 +52,5 @@ jobs:
       - name: Syntax-check Hermes verifier
         run: python3 -m py_compile scripts/verify_hermes_wrappers.py
 
-      - name: Verify ClawPowers skills load in latest Hermes Agent
+      - name: Verify ClawPowers skills load in pinned Hermes Agent (v0.22.4)
         run: python3 scripts/verify_hermes_wrappers.py --hermes-agent "$GITHUB_WORKSPACE/.hermes-agent"
