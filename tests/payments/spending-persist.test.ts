@@ -182,6 +182,8 @@ describe('SpendingPolicy persistence', () => {
     const first = persistedPolicy(dir);
     const reserved = first.reserveTransaction(6, 'a.com');
     expect(reserved.reservation).toBeDefined();
+    expect(persistedPolicy(dir).getDailySpent()).toBe(6);
+    expect(persistedPolicy(dir).getSpendingLog().map(r => r.state)).toEqual(['reserved']);
     first.markReservationUnknown(reserved.reservation!);
     first.recordSpend(4, 'b.com');
     expect(first.getDailySpent()).toBe(10);
@@ -189,6 +191,43 @@ describe('SpendingPolicy persistence', () => {
     const second = persistedPolicy(dir);
     expect(second.getDailySpent()).toBe(10);
     expect(second.getSpendingLog().map(r => r.state).sort()).toEqual(['settled', 'unknown']);
+  });
+
+  it('does not persist a mutated reservation amount', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    const policy = persistedPolicy(dir);
+    const reserved = policy.reserveTransaction(15, 'a.com');
+    expect(reserved.reservation).toBeDefined();
+    expect(() => {
+      reserved.reservation!.amount = 1;
+    }).toThrow();
+    expect(policy.getDailySpent()).toBe(15);
+    policy.settleReservation(reserved.reservation!);
+    expect(persistedPolicy(dir).getDailySpent()).toBe(15);
+  });
+
+  it('does not record non-positive spend on a persist-enabled policy', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    const policy = persistedPolicy(dir);
+    policy.recordSpend(0, 'a.com');
+    policy.recordSpend(-1, 'a.com');
+    policy.recordSpend(Number.NaN, 'a.com');
+    expect(policy.getDailySpent()).toBe(0);
+    expect(persistedPolicy(dir).getDailySpent()).toBe(0);
+    expect(persistedPolicy(dir).checkTransaction(5, 'a.com').allowed).toBe(true);
+  });
+
+  it('keeps in-memory spend when recordSpend persist I/O fails', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    const policy = persistedPolicy(dir);
+    chmodSync(dir, 0o555);
+    policy.recordSpend(5, 'a.com');
+    chmodSync(dir, 0o755);
+    expect(policy.getDailySpent()).toBe(5);
+    expect(persistedPolicy(dir).getDailySpent()).toBe(0);
   });
 
   it('returns no reservation when persist I/O fails on reserve', () => {
@@ -294,9 +333,10 @@ describe('SpendingPolicy persistence', () => {
       ...({ records: [], seedLog: [], importLog: '[]' } as object),
     } as ConstructorParameters<typeof SpendingPolicy>[0]);
     expect(seeded.getDailySpent()).toBe(15);
-    expect(Object.getOwnPropertyNames(Object.getPrototypeOf(policy))).not.toEqual(
-      expect.arrayContaining(['importLog', 'replaceLog', 'loadState'])
-    );
+    const names = Object.getOwnPropertyNames(Object.getPrototypeOf(policy));
+    expect(names).not.toContain('importLog');
+    expect(names).not.toContain('replaceLog');
+    expect(names).not.toContain('loadState');
   });
 
   it('does not let getSpendingLog copies lower counters', () => {

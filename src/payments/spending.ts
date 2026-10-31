@@ -5,7 +5,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { z } from 'zod';
 import type { SpendingDecision } from '../types.js';
@@ -69,6 +69,23 @@ function cloneRecord(record: SpendingRecord): SpendingRecord {
   };
 }
 
+function sealSpendIdentity(record: SpendingRecord): SpendingRecord {
+  Object.defineProperties(record, {
+    amount: { value: record.amount, writable: false, enumerable: true, configurable: false },
+    timestamp: { value: record.timestamp, writable: false, enumerable: true, configurable: false },
+    domain: { value: record.domain, writable: false, enumerable: true, configurable: false },
+    state: { value: record.state, writable: true, enumerable: true, configurable: false },
+  });
+  return record;
+}
+
+function isPersistableRecord(record: SpendingRecord, now: number): boolean {
+  return Number.isFinite(record.amount)
+    && record.amount > 0
+    && Number.isFinite(record.timestamp)
+    && record.timestamp <= now + CLOCK_SKEW_MS;
+}
+
 function keyBytes(key: IntegrityKey | undefined): Buffer | null {
   if (key === undefined) {
     return null;
@@ -93,12 +110,7 @@ function usableKey(key: IntegrityKey | undefined): Buffer | null {
 function canonicalPayload(records: readonly SpendingRecord[]): string {
   return JSON.stringify({
     version: PERSIST_VERSION,
-    records: records.map(record => ({
-      amount: record.amount,
-      timestamp: record.timestamp,
-      domain: record.domain,
-      state: record.state,
-    })),
+    records: records.map(cloneRecord),
   });
 }
 
@@ -123,20 +135,26 @@ function macMatches(key: Buffer, records: readonly SpendingRecord[], hex: string
 }
 
 function ensureParentDir(filePath: string): void {
-  const dir = dirname(filePath);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
+  mkdirSync(dirname(filePath), { recursive: true });
 }
 
-function writeSignedEnvelope(filePath: string, key: Buffer, records: readonly SpendingRecord[], flag?: 'wx'): void {
-  const envelope = {
+function envelopeBody(key: Buffer, records: readonly SpendingRecord[]): string {
+  const cloned = records.map(cloneRecord);
+  return `${JSON.stringify({
     version: PERSIST_VERSION,
-    records: records.map(cloneRecord),
-    mac: macHex(key, records),
-  };
-  const body = `${JSON.stringify(envelope, null, 2)}\n`;
-  if (flag === 'wx') {
+    records: cloned,
+    mac: macHex(key, cloned),
+  }, null, 2)}\n`;
+}
+
+function writeSignedEnvelope(
+  filePath: string,
+  key: Buffer,
+  records: readonly SpendingRecord[],
+  exclusive: boolean,
+): void {
+  const body = envelopeBody(key, records);
+  if (exclusive) {
     writeFileSync(filePath, body, { encoding: 'utf-8', flag: 'wx', mode: 0o600 });
     return;
   }
@@ -157,7 +175,7 @@ export function initializeSpendingPersist(persistPath: string, integrityKey: Int
     throw new Error('initializeSpendingPersist requires a persist path');
   }
   ensureParentDir(persistPath);
-  writeSignedEnvelope(persistPath, key, [], 'wx');
+  writeSignedEnvelope(persistPath, key, [], true);
 }
 
 export class SpendingPolicy {
@@ -201,10 +219,6 @@ export class SpendingPolicy {
       this.failClosed = true;
       return;
     }
-    if (!existsSync(this.persistPath)) {
-      this.failClosed = true;
-      return;
-    }
     try {
       const raw = readFileSync(this.persistPath, 'utf-8');
       const parsed: unknown = JSON.parse(raw);
@@ -215,28 +229,31 @@ export class SpendingPolicy {
       }
       const now = Date.now();
       for (const record of envelope.records) {
-        if (!Number.isFinite(record.amount) || record.amount <= 0) {
-          this.failClosed = true;
-          return;
-        }
-        if (record.timestamp > now + CLOCK_SKEW_MS) {
+        if (!isPersistableRecord(record, now)) {
           this.failClosed = true;
           return;
         }
       }
-      this.spendingLog = envelope.records.map(cloneRecord);
+      this.spendingLog = envelope.records.map(record => sealSpendIdentity(cloneRecord(record)));
     } catch {
       this.failClosed = true;
     }
   }
 
   private persistLiveLog(): boolean {
-    if (this.failClosed || this.persistPath === null || this.integrityKey === null) {
+    if (this.failClosed) {
+      return false;
+    }
+    if (this.persistPath === null || this.integrityKey === null) {
+      return true;
+    }
+    const now = Date.now();
+    if (!this.spendingLog.every(record => isPersistableRecord(record, now))) {
       return false;
     }
     try {
       ensureParentDir(this.persistPath);
-      writeSignedEnvelope(this.persistPath, this.integrityKey, this.spendingLog);
+      writeSignedEnvelope(this.persistPath, this.integrityKey, this.spendingLog, false);
       return true;
     } catch {
       return false;
@@ -327,14 +344,14 @@ export class SpendingPolicy {
     if (!decision.allowed) {
       return { decision };
     }
-    const reservation: SpendReservation = {
+    const reservation = sealSpendIdentity({
       amount,
       timestamp: Date.now(),
       domain,
       state: 'reserved',
-    };
+    });
     this.spendingLog.push(reservation);
-    if (this.persistPath !== null && !this.persistLiveLog()) {
+    if (!this.persistLiveLog()) {
       this.spendingLog.pop();
       return {
         decision: {
@@ -362,7 +379,7 @@ export class SpendingPolicy {
     if (removed === undefined) {
       return;
     }
-    if (this.persistPath !== null && !this.persistLiveLog()) {
+    if (!this.persistLiveLog()) {
       this.spendingLog.splice(idx, 0, removed);
     }
   }
@@ -382,9 +399,12 @@ export class SpendingPolicy {
     if (!this.spendingLog.includes(reservation)) {
       return;
     }
+    if (reservation.state === state) {
+      return;
+    }
     const previous = reservation.state;
     reservation.state = state;
-    if (this.persistPath !== null && !this.persistLiveLog()) {
+    if (!this.persistLiveLog()) {
       reservation.state = previous;
     }
   }
@@ -393,15 +413,16 @@ export class SpendingPolicy {
     if (this.failClosed) {
       return;
     }
-    this.spendingLog.push({
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return;
+    }
+    this.spendingLog.push(sealSpendIdentity({
       amount,
       timestamp: Date.now(),
       domain,
       state: 'settled',
-    });
-    if (this.persistPath !== null) {
-      this.persistLiveLog();
-    }
+    }));
+    this.persistLiveLog();
   }
 
   reset(): void {
