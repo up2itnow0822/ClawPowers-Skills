@@ -69,10 +69,15 @@ export class RSIAuditLog {
       await this.awaitUntilDeadline(previous, deadline);
       await work();
     } finally {
-      release();
-      if (mutexByPath.get(key) === next) {
-        mutexByPath.delete(key);
-      }
+      // Do not open the successor slot until this predecessor has settled.
+      // A timed-out waiter must reject immediately but must not delete the
+      // map tail or resolve `next` while the holder is still in the CS.
+      void previous.finally(() => {
+        release();
+        if (mutexByPath.get(key) === next) {
+          mutexByPath.delete(key);
+        }
+      });
     }
   }
 

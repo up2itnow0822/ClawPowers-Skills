@@ -176,6 +176,34 @@ describe('RSIAuditLog', () => {
     );
   });
 
+  it('keeps a later caller queued after a mutex waiter times out', async () => {
+    const auditPath = join(tmpDir, 'audit.jsonl');
+    const lockdir = `${resolve(auditPath)}.lock`;
+    mkdirSync(lockdir);
+
+    const holder = new RSIAuditLog(auditPath, { lockTimeoutMs: 200 });
+    const waiter = new RSIAuditLog(auditPath, { lockTimeoutMs: 40 });
+    const holderAttempt = holder.log(makeAuditEntry({ mutationId: 'mut-holder' }));
+    await new Promise(resolve => setTimeout(resolve, 15));
+    await expect(waiter.log(makeAuditEntry({ mutationId: 'mut-waiter' }))).rejects.toMatchObject({
+      name: 'AuditLogLockTimeoutError',
+    });
+
+    const later = new RSIAuditLog(auditPath, { lockTimeoutMs: 40 });
+    const laterAttempt = later.log(makeAuditEntry({ mutationId: 'mut-later' }));
+    const laterRejected = expect(laterAttempt).rejects.toMatchObject({
+      name: 'AuditLogLockTimeoutError',
+    });
+    await expect(holderAttempt).rejects.toMatchObject({ name: 'AuditLogLockTimeoutError' });
+    await laterRejected;
+    expect(existsSync(auditPath)).toBe(false);
+    expect(existsSync(lockdir)).toBe(true);
+
+    rmSync(lockdir, { recursive: true, force: true });
+    await later.log(makeAuditEntry({ mutationId: 'mut-recovered' }));
+    await expect(later.verifyIntegrity()).resolves.toMatchObject({ valid: true, checkedEntries: 1 });
+  });
+
   it('fails closed on lock timeout and writes no line', async () => {
     const auditPath = join(tmpDir, 'audit.jsonl');
     const lockdir = `${resolve(auditPath)}.lock`;
