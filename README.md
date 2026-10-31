@@ -34,7 +34,7 @@ npm install clawpowers
 
 ```bash
 npm install clawpowers
-node -e "
+node --input-type=module -e "
 const { generateWallet, detect402, SpendingPolicy, getActiveTier } = await import('clawpowers');
 
 // 1. Generate a real Ethereum wallet (MetaMask-compatible)
@@ -136,7 +136,7 @@ Pre-built `.wasm` artifacts are included in the package so consumers are **not**
 | Payments | `JsX402Client` | Base64 JSON header |
 | Payments | `JsAgentWallet` (native only) | TS wallet + WASM secp256k1 + Keccak for real Ethereum addresses |
 | Memory | `JsCanonicalStore`, `JsTurboCompressor`, `JsWriteFirewall` | File/JSONL memory; simplified firewall |
-| Wallet / secp256k1 | Native + WASM: `deriveEthereumAddress`, `derivePublicKey`, `signEcdsa`, `verifyEcdsa`, `computeKeccak256` / `keccak256Bytes` | Tier 3: legacy digest-based “address” + HMAC signing fallback only |
+| Wallet / secp256k1 | Native + WASM: `deriveEthereumAddress`, `derivePublicKey`, `signEcdsa`, `verifyEcdsa`, `computeKeccak256` / `keccak256Bytes` | Tier 3: no secp256k1/Keccak — wallet derivation, import, and signing fail loudly (no legacy digest address or HMAC fallback) |
 
 Exported helpers include `calculateTransactionFee`, `createPaymentHeader`, `generateWalletAddress`, `compressVector`, `getBestCanonicalStore`, `digestForWalletAddress`, and the full loader API in `src/native/index.ts`.
 
@@ -184,12 +184,24 @@ import { SpendingPolicy, PaymentExecutor, detect402 } from 'clawpowers';
 // Configure spending limits
 const policy = new SpendingPolicy({
   dailyLimit: 25,        // $25/day
+  weeklyLimit: 100,      // $100 per rolling 7 days (optional)
   transactionLimit: 10,  // $10 per tx
   allowedDomains: ['api.example.com'],
 });
 
+// The spend log is in-memory only, so persist it across restarts —
+// otherwise a crash/restart silently resets the daily counter to $0.
+const saved = policy.serialize();            // write this to durable storage
+const restored = SpendingPolicy.deserialize(saved, {
+  dailyLimit: 25,
+  weeklyLimit: 100,
+  transactionLimit: 10,
+  allowedDomains: ['api.example.com'],
+});
+// restored.getDailySpent() and restored.getWeeklySpent() continue where you left off
+
 // Create executor with your MCP client
-const executor = new PaymentExecutor(policy, mcpClient);
+const executor = new PaymentExecutor(restored, mcpClient);
 
 // Detect and handle 402 responses
 const payment = detect402({ status: 402, headers: responseHeaders });
@@ -263,8 +275,8 @@ const result = ab.evaluateTest(test.testId);
 **Tier behavior:**
 - **Tier 1** (native `.node` addon, built locally with `cargo`): full secp256k1 + ECDSA + Keccak-256 via the `k256` Rust crate
 - **Tier 2** (pre-built WASM, ships in the npm package): same secp256k1 + ECDSA + Keccak-256 via `k256` compiled to WebAssembly
-> **⚠️ Wallet safety:** If both Tier 1 (native) and Tier 2 (WASM) fail to load, the library falls back to Tier 3 pure-TypeScript signing, which uses a legacy SHA-256 digest and HMAC — **not standard secp256k1, not production-safe for on-chain use.** Because Tier 2 WASM ships pre-built in every npm tarball, this fallback should only occur in heavily sandboxed environments. Call `getActiveTier()` at startup to verify you are running Tier 1 or Tier 2 before sending any real funds.
-- **Tier 3** (pure TypeScript, used only if Tier 1 AND Tier 2 both fail to load): legacy SHA-256 digest and HMAC signing — **not production-safe for on-chain use**
+> **⚠️ Wallet safety:** If both Tier 1 (native) and Tier 2 (WASM) fail to load, the library enters Tier 3 (pure TypeScript), which has no secp256k1 or Keccak-256. Tier 3 cannot derive a real Ethereum address or produce a valid signature, so `generateWallet()`, `importWallet()`, and `signMessage()` all **fail loudly with an error** instead of returning a fake address or a non-standard signature — **not production-safe for on-chain use.** Because Tier 2 WASM ships pre-built in every npm tarball, this should only occur in heavily sandboxed environments. Call `getActiveTier()` at startup to verify you are running Tier 1 or Tier 2 before sending any real funds.
+- **Tier 3** (pure TypeScript, used only if Tier 1 AND Tier 2 both fail to load): no secp256k1/Keccak — address derivation, import, and signing throw instead of fabricating a non-spendable `0x` address or a legacy HMAC signature
 
 Since Tier 2 WASM artifacts ship pre-built in the npm package, **every install gets real Ethereum wallets out of the box** — no Rust toolchain required.
 
@@ -282,8 +294,9 @@ console.log(info.address); // 0x... — real Ethereum address, EIP-55 checksumme
 
 // Low-level API for direct key handling
 const sig = await signMessage(privateKeyHex, 'Hello, Ethereum');
-// Returns 65-byte ECDSA signature (r || s || recovery) as 0x-prefixed hex
-// Verifiable by any Ethereum node, ethers.js, viem, or MetaMask
+// Returns a 65-byte ECDSA signature (r || s || recovery) over the EIP-191
+// personal_sign digest of the message, as 0x-prefixed hex
+// Verifiable by any Ethereum node, ethers.js verifyMessage, viem, or MetaMask
 ```
 
 For production on-chain sending and transaction construction, you can still use [`viem`](https://viem.sh) or [`ethers`](https://docs.ethers.org) alongside ClawPowers — our wallet produces the same addresses they do.
@@ -420,7 +433,7 @@ decision = json.loads(result.stdout)
 ### Payments
 - `detect402(response)` — Parse x402 headers from 402 response
 - `isPaymentRequired(error)` — Type guard for 402 errors
-- `SpendingPolicy` — Enforce daily/transaction/domain limits
+- `SpendingPolicy` — Enforce daily/weekly/transaction/domain limits; `serialize()` / `deserialize()` / `exportState()` / `importState()` persist the spend log so counters survive a process restart
 - `PaymentExecutor` — Execute payments via MCP client
 - `calculateTransactionFee`, `createPaymentHeader`, `generateWalletAddress` — Native/WASM-accelerated payment helpers (with TS fallbacks)
 
@@ -450,8 +463,8 @@ decision = json.loads(result.stdout)
 - `WalletManager` — High-level wallet operations
 - `generateWallet(config)` — Generate new wallet (**v2.2.0+**: standard Ethereum address via secp256k1 when Tier 1/2 is active)
 - `importWallet(key, config)` — Import existing wallet (same derivation)
-- `signMessage(message, keyFile, passphrase)` — Sign; uses **ECDSA (secp256k1) over Keccak-256(UTF-8 message)** when native/WASM provides crypto, else legacy HMAC
-- `signMessage(privateKeyHex, message)` — Same ECDSA path; returns `0x` + 130 hex chars (65-byte signature)
+- `signMessage(message, keyFile, passphrase)` — Sign; uses **ECDSA (secp256k1) over the EIP-191 personal_sign digest** of the UTF-8 message when native/WASM provides crypto; throws otherwise (the legacy HMAC fallback was removed)
+- `signMessage(privateKeyHex, message)` — Same EIP-191/ECDSA path; returns `0x` + 130 hex chars (65-byte signature)
 
 ### Config
 - `loadConfig()` / `saveConfig()` — Zod-validated config CRUD

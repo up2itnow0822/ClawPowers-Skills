@@ -7,6 +7,12 @@ All notable changes to ClawPowers are documented here.
 ### Fixed
 
 - AutoResearch now matches the local skill catalog on whole tokens and ranks those matches by confidence, so a GitHub-domain failure keeps `skill-catalog` ahead of `npm-registry` instead of treating the word "open" as a hit on every OpenClaw skill.
+- `signMessage()` now signs the EIP-191 `personal_sign` digest instead of raw `keccak256(message)`, so signatures verify with viem/ethers `verifyMessage`, MetaMask, and on-chain `ecrecover` as the README promises.
+- `SpendingPolicy` can now export and rehydrate its spend log (`serialize()`/`deserialize()`, `exportState()`/`importState()`, and a `state` constructor option), so daily/weekly counters survive a process restart instead of silently resetting to zero.
+- `SpendingPolicy` now enforces the configured `weeklyLimit` (rolling 7-day window), which previously had no enforcement path.
+- Tier 3 (pure TypeScript) wallet calls now fail loudly instead of returning a non-secp256k1 address or a non-standard signature.
+- `RSIAuditLog.log()` serializes concurrent appends, preventing the hash chain from forking and falsely reporting tampering.
+- AutoResearch no longer interpolates candidate-derived package/skill names into double-quoted bash; it uses single-quote shell escaping.
 
 ## [2.2.7] - 2026-05-12
 

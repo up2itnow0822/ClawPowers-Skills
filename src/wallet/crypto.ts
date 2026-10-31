@@ -2,7 +2,9 @@
  * ClawPowers Skills — Wallet Crypto
  * Ethereum-oriented wallet generation, import, and signing.
  * Address derivation: secp256k1 public key → Keccak-256 → last 20 bytes (MetaMask-compatible)
- * when Tier 1 (native) or Tier 2 (WASM) is available; legacy hash-of-key digest only on Tier 3.
+ * when Tier 1 (native) or Tier 2 (WASM) is available. Tier 3 (pure TypeScript) cannot
+ * derive a spendable EVM address or sign, so those calls fail loudly instead of returning
+ * a non-secp256k1 address or a non-standard signature.
  */
 
 import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from 'node:crypto';
@@ -11,7 +13,6 @@ import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  digestForWalletAddress,
   deriveEthereumAddress as deriveEthAddressNative,
   keccak256Digest,
   signEcdsa as signEcdsaNative,
@@ -31,11 +32,20 @@ const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 const GENERATED_PASSPHRASE_BYTES = 32;
 
-/** Tier 3: last 20 bytes of the 32-byte digest as `0x`-prefixed address (legacy). */
-function addressFromKeyMaterial(keyMaterial: Buffer): string {
-  const digestHex = digestForWalletAddress(keyMaterial);
-  const hash = Buffer.from(digestHex.replace(/^0x/, ''), 'hex');
-  return '0x' + hash.subarray(hash.length - 20).toString('hex');
+const EIP191_PREFIX = '\x19Ethereum Signed Message:\n';
+
+/**
+ * Compute the EIP-191 `personal_sign` digest for a UTF-8 message:
+ * keccak256("\x19Ethereum Signed Message:\n" + byteLength(message) + message).
+ *
+ * This mirrors the Rust `sign_message` implementation and is what viem/ethers
+ * `verifyMessage`, MetaMask, and on-chain `ecrecover` expect, so signatures this
+ * module produces verify against the derived wallet address.
+ */
+function eip191Digest(message: string): Buffer | null {
+  const encoded = Buffer.from(message, 'utf8');
+  const prefix = Buffer.from(`${EIP191_PREFIX}${encoded.length}`, 'utf8');
+  return keccak256Digest(Buffer.concat([prefix, encoded]));
 }
 
 function deriveKey(passphrase: string, salt: Buffer): Buffer {
@@ -124,8 +134,14 @@ function generateAddress(privateKeyHex: string): string {
     dlog('address derivation: secp256k1+keccak (tier %s)', getActiveTier());
     return eth;
   }
-  dlog('address derivation: tier3 legacy digest (tier %s)', getActiveTier());
-  return addressFromKeyMaterial(privBuf);
+  // Tier 3 (no native/WASM secp256k1) cannot derive a spendable EVM address.
+  // Returning the last 20 bytes of a SHA-256 digest produced an address that
+  // looked valid but could never be signed for, so it is now refused loudly.
+  dlog('address derivation: refusing to fabricate a Tier 3 address (tier %s)', getActiveTier());
+  throw new Error(
+    'Unable to derive a real Ethereum address: secp256k1 + Keccak (Tier 1 native or Tier 2 WASM) is required. ' +
+      `Current active tier is "${getActiveTier()}". A Tier-3 fallback address would not be spendable, so it is refused.`,
+  );
 }
 
 async function ensureDir(dir: string): Promise<void> {
@@ -185,8 +201,7 @@ async function signMessageFromKeyFile(
     passphrase
   );
 
-  const msgBuf = Buffer.from(message, 'utf8');
-  const hash = keccak256Digest(msgBuf);
+  const hash = eip191Digest(message);
   const sigEcdsa = hash ? signEcdsaNative(privateKey, hash) : null;
   if (sigEcdsa) {
     dlog('signMessage (keyfile): secp256k1 ECDSA (tier %s)', getActiveTier());
@@ -214,7 +229,7 @@ async function signMessageFromPrivateKey(privateKeyHex: string, message: string)
     throw new Error('Invalid private key: must be 32 bytes (64 hex characters)');
   }
   const priv = Buffer.from(cleaned, 'hex');
-  const hash = keccak256Digest(Buffer.from(message, 'utf8'));
+  const hash = eip191Digest(message);
   if (!hash) {
     throw new Error(
       'Ethereum signing requires Keccak-256 (Tier 1 native or Tier 2 WASM). Pure TypeScript tier has no Keccak.',
@@ -278,7 +293,9 @@ export async function importWallet(privateKeyHex: string, config: WalletConfig):
 
 /**
  * Sign a message using an encrypted key file and passphrase (returns structured result).
- * Uses secp256k1 ECDSA over Keccak-256(UTF-8 message) when native/WASM tiers provide it.
+ * Uses secp256k1 ECDSA over the EIP-191 personal_sign digest of the UTF-8 message
+ * (keccak256("\x19Ethereum Signed Message:\n" + len + message)) when native/WASM tiers provide it,
+ * matching the Rust signer and the README's verifiability promise.
  */
 export async function signMessage(
   message: string,

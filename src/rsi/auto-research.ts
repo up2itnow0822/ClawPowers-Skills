@@ -487,10 +487,10 @@ export class AutoResearcher {
       // Extract the package name from the approach
       const match = /npm package '([^']+)'/.exec(candidate.approach);
       if (match) {
-        const pkgName = match[1];
+        const pkgName = match[1] ?? '';
         lines.push(`# Check if the npm package exists in the registry`);
-        lines.push(`npm view "${pkgName}" name > /dev/null 2>&1`);
-        lines.push(`echo "Package '${pkgName}' exists in npm registry"`);
+        lines.push(`npm view ${shellSingleQuote(pkgName)} name > /dev/null 2>&1`);
+        lines.push(`echo ${shellSingleQuote(`Package '${pkgName}' exists in npm registry`)}`);
       } else {
         lines.push('echo "npm-registry candidate: no package name extractable"');
         lines.push('exit 0');
@@ -499,8 +499,9 @@ export class AutoResearcher {
       // Validate that the skill name is mentioned
       const match = /skill '([^']+)'/.exec(candidate.approach);
       if (match) {
-        lines.push(`# Validate skill '${match[1]}' reference`);
-        lines.push(`echo "Skill catalog candidate: ${match[1]}"`);
+        const skillName = match[1] ?? '';
+        lines.push(`# Validate skill ${sanitizeShellComment(`'${skillName}'`, 100)} reference`);
+        lines.push(`echo ${shellSingleQuote(`Skill catalog candidate: ${skillName}`)}`);
         lines.push('exit 0');
       } else {
         lines.push('echo "skill-catalog candidate validated"');

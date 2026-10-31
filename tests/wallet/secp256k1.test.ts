@@ -133,4 +133,27 @@ describe('secp256k1 / Ethereum wallet', () => {
     expect(sig.startsWith('0x')).toBe(true);
     expect(sig.length).toBe(2 + 130);
   });
+
+  it('signMessage signs the EIP-191 personal_sign digest, not raw keccak256(message) (issue #126)', async () => {
+    const priv = Buffer.from(HARDHAT_0_SK.replace(/^0x/i, ''), 'hex');
+    const pub = derivePublicKey(priv);
+    expect(pub).not.toBeNull();
+
+    const message = 'hello eip-191';
+    const sigHex = await signMessage(HARDHAT_0_SK, message);
+    const sig = Buffer.from(sigHex.replace(/^0x/, ''), 'hex');
+
+    const encoded = Buffer.from(message, 'utf8');
+    const prefix = Buffer.from(`\x19Ethereum Signed Message:\n${encoded.length}`, 'utf8');
+    const eip191Hash = keccak256Digest(Buffer.concat([prefix, encoded]));
+    expect(eip191Hash).not.toBeNull();
+
+    // The EIP-191 digest is what viem/ethers verifyMessage expects.
+    expect(verifyEcdsa(pub!, eip191Hash!, sig)).toBe(true);
+
+    // Raw keccak256(message) — the previous, non-standard behavior — must not verify.
+    const rawHash = keccak256Digest(encoded);
+    expect(rawHash).not.toBeNull();
+    expect(verifyEcdsa(pub!, rawHash!, sig)).toBe(false);
+  });
 });

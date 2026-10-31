@@ -282,4 +282,24 @@ describe('PaymentExecutor', () => {
     expect(result.settlement).toBe('unknown');
     expect(policy.getDailySpent()).toBe(10);
   });
+
+  it('enforces the daily limit on a policy rehydrated after a restart (issue #126)', async () => {
+    const before = createPolicy(25, 25);
+    before.recordSpend(25, 'api.example.com');
+    const persisted = before.serialize();
+
+    // Simulated restart: build a fresh policy from the persisted snapshot.
+    const restarted = SpendingPolicy.deserialize(persisted, {
+      dailyLimit: 25,
+      transactionLimit: 25,
+      allowedDomains: [],
+    });
+    expect(restarted.getDailySpent()).toBe(25);
+
+    const executor = new PaymentExecutor(restarted, createMockClient('settled'));
+    const result = await executor.executePayment({ ...mockRequest, amount: 10 });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Spending policy rejected');
+    expect(restarted.getDailySpent()).toBe(25);
+  });
 });

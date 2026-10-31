@@ -56,12 +56,21 @@ export {
   detect402,
   isPaymentRequired,
   SpendingPolicy,
+  SPENDING_POLICY_STATE_VERSION,
   PaymentExecutor,
   calculateTransactionFee,
   createPaymentHeader,
   generateWalletAddress,
 } from './payments/index.js';
-export type { MCPPaymentClient, PaymentChargeStatus } from './payments/index.js';
+export type {
+  MCPPaymentClient,
+  PaymentChargeStatus,
+  SpendingPolicyOptions,
+  SpendingPolicyState,
+  SpendingRecord,
+  SpendReservation,
+  ReservationState,
+} from './payments/index.js';
 
 // Memory
 export {

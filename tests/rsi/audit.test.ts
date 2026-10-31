@@ -121,4 +121,24 @@ describe('RSIAuditLog', () => {
     expect(result.failedAt).toBe(0);
     expect(result.reason).toBe('entryHash does not match entry contents');
   });
+
+  it('serializes concurrent log() calls so the hash chain does not fork (issue #126)', async () => {
+    await Promise.all([
+      auditLog.log(makeAuditEntry({ mutationId: 'concurrent-1' })),
+      auditLog.log(makeAuditEntry({ mutationId: 'concurrent-2' })),
+      auditLog.log(makeAuditEntry({ mutationId: 'concurrent-3' })),
+      auditLog.log(makeAuditEntry({ mutationId: 'concurrent-4' })),
+    ]);
+
+    const history = await auditLog.getHistory();
+    expect(history).toHaveLength(4);
+
+    // Every entry links to the previous entry's hash — no forks.
+    await expect(auditLog.verifyIntegrity()).resolves.toEqual({
+      valid: true,
+      checkedEntries: 4,
+      failedAt: null,
+      reason: null,
+    });
+  });
 });

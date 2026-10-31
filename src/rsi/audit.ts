@@ -13,6 +13,13 @@ const GENESIS_HASH = '0'.repeat(64);
 
 export class RSIAuditLog {
   private readonly filePath: string;
+  /**
+   * Serializes log() calls on this instance. Without it, two overlapping log()
+   * calls both read the same chain tail and append entries claiming the same
+   * previousHash, forking the hash chain and permanently marking the
+   * append-only log as tampered by verifyIntegrity().
+   */
+  private writeChain: Promise<void> = Promise.resolve();
 
   constructor(filePath: string) {
     this.filePath = filePath;
@@ -26,6 +33,21 @@ export class RSIAuditLog {
   }
 
   async log(entry: RSIAuditEntry): Promise<void> {
+    const previousWrite = this.writeChain;
+    let release!: () => void;
+    this.writeChain = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    await previousWrite;
+    try {
+      await this.appendEntry(entry);
+    } finally {
+      release();
+    }
+  }
+
+  private async appendEntry(entry: RSIAuditEntry): Promise<void> {
     await this.ensureDir();
     const history = await this.getHistory();
     const previousHash = history.at(-1)?.entryHash ?? GENESIS_HASH;
