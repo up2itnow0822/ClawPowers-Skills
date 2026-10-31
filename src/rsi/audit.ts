@@ -4,29 +4,133 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readFile, appendFile, mkdir } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, rmdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import type { RSIAuditEntry, RSIAuditIntegrityResult } from '../types.js';
 
 const GENESIS_HASH = '0'.repeat(64);
+const DEFAULT_LOCK_TIMEOUT_MS = 5000;
+const LOCK_POLL_MS = 10;
+
+const mutexByPath = new Map<string, Promise<void>>();
+
+type RSIAuditLogOptions = {
+  lockTimeoutMs?: number;
+};
+
+class AuditLogLockTimeoutError extends Error {
+  constructor(lockdirPath: string) {
+    super(`Timed out waiting for audit log lockdir: ${lockdirPath}`);
+    this.name = 'AuditLogLockTimeoutError';
+  }
+}
 
 export class RSIAuditLog {
   private readonly filePath: string;
+  private readonly resolvedPath: string;
+  private readonly lockTimeoutMs: number;
 
-  constructor(filePath: string) {
+  constructor(filePath: string, options: RSIAuditLogOptions = {}) {
     this.filePath = filePath;
+    this.resolvedPath = resolve(filePath);
+    const lockTimeoutMs = options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS;
+    if (!Number.isFinite(lockTimeoutMs) || lockTimeoutMs <= 0) {
+      throw new Error('lockTimeoutMs must be a finite positive number');
+    }
+    this.lockTimeoutMs = lockTimeoutMs;
+  }
+
+  private lockdirPath(): string {
+    return `${this.resolvedPath}.lock`;
   }
 
   private async ensureDir(): Promise<void> {
-    const dir = dirname(this.filePath);
+    const dir = dirname(this.resolvedPath);
     if (!existsSync(dir)) {
       await mkdir(dir, { recursive: true });
     }
   }
 
   async log(entry: RSIAuditEntry): Promise<void> {
+    const deadline = Date.now() + this.lockTimeoutMs;
+    await this.withPathMutex(deadline, async () => {
+      await this.withLockdir(deadline, async () => {
+        await this.appendEntry(entry);
+      });
+    });
+  }
+
+  private async withPathMutex(deadline: number, work: () => Promise<void>): Promise<void> {
+    const key = this.resolvedPath;
+    let release!: () => void;
+    const previous = mutexByPath.get(key) ?? Promise.resolve();
+    const next = new Promise<void>((resolveNext) => {
+      release = resolveNext;
+    });
+    mutexByPath.set(key, next);
+
+    try {
+      await this.awaitUntilDeadline(previous, deadline);
+      await work();
+    } finally {
+      release();
+      if (mutexByPath.get(key) === next) {
+        mutexByPath.delete(key);
+      }
+    }
+  }
+
+  private async awaitUntilDeadline(pending: Promise<void>, deadline: number): Promise<void> {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      throw new AuditLogLockTimeoutError(this.lockdirPath());
+    }
+
+    const timeout = delay(remaining).then(() => {
+      throw new AuditLogLockTimeoutError(this.lockdirPath());
+    });
+
+    await Promise.race([pending, timeout]);
+  }
+
+  private async withLockdir(deadline: number, work: () => Promise<void>): Promise<void> {
     await this.ensureDir();
+    const lockdir = this.lockdirPath();
+    let acquired = false;
+
+    while (!acquired) {
+      try {
+        await mkdir(lockdir);
+        acquired = true;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === 'EEXIST') {
+          if (Date.now() >= deadline) {
+            throw new AuditLogLockTimeoutError(lockdir);
+          }
+          await delay(LOCK_POLL_MS);
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    try {
+      await work();
+    } finally {
+      try {
+        await rmdir(lockdir);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          throw error;
+        }
+      }
+    }
+  }
+
+  private async appendEntry(entry: RSIAuditEntry): Promise<void> {
     const history = await this.getHistory();
     const previousHash = history.at(-1)?.entryHash ?? GENESIS_HASH;
     const chainedEntry = this.withIntegrityFields(entry, previousHash);

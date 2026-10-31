@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { RSIAuditLog } from '../../src/rsi/audit.js';
 import type { RSIAuditEntry } from '../../src/types.js';
@@ -120,5 +120,74 @@ describe('RSIAuditLog', () => {
     expect(result.valid).toBe(false);
     expect(result.failedAt).toBe(0);
     expect(result.reason).toBe('entryHash does not match entry contents');
+  });
+
+  it('serializes concurrent appends from two instances on resolved path aliases', async () => {
+    const relativePath = join(tmpDir, 'audit.jsonl');
+    const aliasedPath = join(tmpDir, '.', 'audit.jsonl');
+    const first = new RSIAuditLog(relativePath);
+    const second = new RSIAuditLog(aliasedPath);
+
+    await Promise.all(
+      Array.from({ length: 20 }, (_, i) => {
+        const log = i % 2 === 0 ? first : second;
+        return log.log(
+          makeAuditEntry({
+            mutationId: `mut-${i}`,
+            timestamp: `2026-03-25T10:00:${String(i).padStart(2, '0')}.000Z`,
+          }),
+        );
+      }),
+    );
+
+    const history = await first.getHistory();
+    expect(history).toHaveLength(20);
+    await expect(first.verifyIntegrity()).resolves.toEqual({
+      valid: true,
+      checkedEntries: 20,
+      failedAt: null,
+      reason: null,
+    });
+  });
+
+  it('releases the lockdir after a thrown write so a later log succeeds', async () => {
+    const auditPath = join(tmpDir, 'audit.jsonl');
+    await auditLog.log(makeAuditEntry({ mutationId: 'mut-ok' }));
+
+    chmodSync(auditPath, 0o444);
+    await expect(auditLog.log(makeAuditEntry({ mutationId: 'mut-fail' }))).rejects.toThrow();
+    expect(existsSync(`${resolve(auditPath)}.lock`)).toBe(false);
+
+    chmodSync(auditPath, 0o644);
+    await auditLog.log(makeAuditEntry({ mutationId: 'mut-retry' }));
+
+    const history = await auditLog.getHistory();
+    expect(history.map(entry => entry.mutationId)).toEqual(['mut-ok', 'mut-retry']);
+    await expect(auditLog.verifyIntegrity()).resolves.toMatchObject({ valid: true, checkedEntries: 2 });
+  });
+
+  it('rejects a non-positive lock timeout at construction', () => {
+    const auditPath = join(tmpDir, 'audit.jsonl');
+    expect(() => new RSIAuditLog(auditPath, { lockTimeoutMs: 0 })).toThrow(
+      'lockTimeoutMs must be a finite positive number',
+    );
+    expect(() => new RSIAuditLog(auditPath, { lockTimeoutMs: Number.NaN })).toThrow(
+      'lockTimeoutMs must be a finite positive number',
+    );
+  });
+
+  it('fails closed on lock timeout and writes no line', async () => {
+    const auditPath = join(tmpDir, 'audit.jsonl');
+    const lockdir = `${resolve(auditPath)}.lock`;
+    mkdirSync(lockdir);
+
+    const timed = new RSIAuditLog(auditPath, { lockTimeoutMs: 40 });
+    await expect(timed.log(makeAuditEntry({ mutationId: 'mut-timeout' }))).rejects.toMatchObject({
+      name: 'AuditLogLockTimeoutError',
+      message: expect.stringContaining(lockdir),
+    });
+
+    expect(existsSync(auditPath)).toBe(false);
+    expect(existsSync(lockdir)).toBe(true);
   });
 });
