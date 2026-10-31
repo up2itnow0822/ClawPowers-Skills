@@ -55,13 +55,22 @@ export type { LoadTier, NativeModule, WasmModule } from './native/index.js';
 export {
   detect402,
   isPaymentRequired,
+  CLOCK_SKEW_MS,
+  initializeSpendingPersist,
+  MIN_INTEGRITY_KEY_BYTES,
   SpendingPolicy,
   PaymentExecutor,
   calculateTransactionFee,
   createPaymentHeader,
   generateWalletAddress,
 } from './payments/index.js';
-export type { MCPPaymentClient, PaymentChargeStatus } from './payments/index.js';
+export type {
+  IntegrityKey,
+  MCPPaymentClient,
+  PaymentChargeStatus,
+  ReservationState,
+  SpendReservation,
+} from './payments/index.js';
 
 // Memory
 export {
