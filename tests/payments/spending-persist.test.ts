@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -240,6 +241,21 @@ describe('SpendingPolicy persistence', () => {
     expect(policy.checkTransaction(1, 'a.com').allowed).toBe(false);
     chmodSync(dir, 0o755);
     expect(persistedPolicy(dir).getDailySpent()).toBe(0);
+  });
+
+  it('keeps two completed $10 charges while persist is failing and writes both on recovery', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    const policy = persistedPolicy(dir, { dailyLimit: 20, transactionLimit: 10 });
+    chmodSync(dir, 0o555);
+    policy.recordSpend(10, 'a.com');
+    policy.recordSpend(10, 'b.com');
+    expect(policy.getDailySpent()).toBe(20);
+    expect(policy.checkTransaction(1, 'c.com').allowed).toBe(false);
+    chmodSync(dir, 0o755);
+    expect(policy.checkTransaction(1, 'c.com').allowed).toBe(false);
+    expect(persistedPolicy(dir).getDailySpent()).toBe(20);
+    expect(persistedPolicy(dir).checkTransaction(1, 'c.com').allowed).toBe(false);
   });
 
   it('returns no reservation when persist I/O fails on reserve', () => {
@@ -543,7 +559,7 @@ describe('SpendingPolicy persistence', () => {
     expect(relative(dir, persistPath(dir))).toBe('spend.json');
   });
 
-  it('drops prior UTC-day rows from the next persist snapshot', () => {
+  it('keeps yesterday and drops only rows older than day-1', () => {
     const dir = tempDir();
     const dayStart = Date.UTC(
       new Date().getUTCFullYear(),
@@ -551,11 +567,18 @@ describe('SpendingPolicy persistence', () => {
       new Date().getUTCDate(),
       0, 0, 0, 0
     );
+    const msPerDay = 86_400_000;
     writeFileSync(persistPath(dir), signEnvelope([
+      {
+        amount: 3,
+        timestamp: dayStart - msPerDay - 1,
+        domain: 'ancient.com',
+        state: 'settled',
+      },
       {
         amount: 9,
         timestamp: dayStart - 1,
-        domain: 'old.com',
+        domain: 'yesterday.com',
         state: 'settled',
       },
     ]));
@@ -564,8 +587,70 @@ describe('SpendingPolicy persistence', () => {
     policy.recordSpend(4, 'today.com');
     expect(policy.getDailySpent()).toBe(4);
     const saved = JSON.parse(readFileSync(persistPath(dir), 'utf-8')) as { records: PersistRecord[] };
-    expect(saved.records).toHaveLength(1);
-    expect(saved.records[0]!.amount).toBe(4);
-    expect(saved.records[0]!.domain).toBe('today.com');
+    expect(saved.records.map(r => r.domain).sort()).toEqual(['today.com', 'yesterday.com']);
+  });
+
+  it('does not erase today from the signed file after a forward clock jump', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    const policy = persistedPolicy(dir);
+    policy.recordSpend(7, 'today.com');
+    const realNow = Date.now;
+    const jumped = realNow() + 2 * 86_400_000;
+    try {
+      Date.now = () => jumped;
+      policy.recordSpend(3, 'future.com');
+    } finally {
+      Date.now = realNow;
+    }
+    const saved = JSON.parse(readFileSync(persistPath(dir), 'utf-8')) as { records: PersistRecord[] };
+    expect(saved.records.map(r => r.domain)).toEqual(['today.com', 'future.com']);
+    expect(policy.getDailySpent()).toBe(7);
+  });
+
+  it('rejects forged and other-policy reservation handles', () => {
+    const dirA = tempDir();
+    const dirB = tempDir();
+    initializeSpendingPersist(persistPath(dirA), KEY);
+    initializeSpendingPersist(persistPath(dirB), KEY);
+    const policyA = persistedPolicy(dirA);
+    const policyB = persistedPolicy(dirB);
+    const reserved = policyA.reserveTransaction(8, 'a.com');
+    expect(reserved.reservation).toBeDefined();
+    const forged = {
+      amount: 8,
+      timestamp: Date.now(),
+      domain: 'a.com',
+      state: 'reserved' as const,
+    };
+    policyA.voidReservation(forged);
+    expect(policyA.getDailySpent()).toBe(8);
+    expect(() => policyA.settleReservation(forged)).toThrow(/already released/i);
+    policyB.voidReservation(reserved.reservation!);
+    expect(policyA.getDailySpent()).toBe(8);
+    expect(() => policyB.settleReservation(reserved.reservation!)).toThrow(/already released/i);
+    expect(policyB.getDailySpent()).toBe(0);
+  });
+
+  it('clears refuse-state after a later successful save', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    const policy = persistedPolicy(dir, { dailyLimit: 100 });
+    chmodSync(dir, 0o555);
+    policy.recordSpend(10, 'a.com');
+    expect(policy.checkTransaction(5, 'a.com').allowed).toBe(false);
+    chmodSync(dir, 0o755);
+    expect(policy.checkTransaction(5, 'a.com').allowed).toBe(true);
+    expect(persistedPolicy(dir).getDailySpent()).toBe(10);
+  });
+
+  it('creates persist parent directories with mode 0700 when not root', () => {
+    if (typeof process.getuid === 'function' && process.getuid() === 0) {
+      return;
+    }
+    const dir = tempDir();
+    const nested = join(dir, 'private', 'spend.json');
+    initializeSpendingPersist(nested, KEY);
+    expect(statSync(join(dir, 'private')).mode & 0o777).toBe(0o700);
   });
 });

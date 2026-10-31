@@ -204,7 +204,7 @@ if (payment) {
 }
 ```
 
-Daily spend is in-memory unless you opt in. To keep the UTC-day total across restarts, exclusive-create a signed log once, then construct with the same path and a caller-held HMAC key of at least 16 bytes (`initializeSpendingPersist`, `persistPath`, `integrityKey`). The key is never derived by this package. Tampered, unsigned, missing, or malformed state fails closed: the policy refuses spends and does not reset counters to a usable zero. Stored timestamps more than `CLOCK_SKEW_MS` (five minutes) in the future, or records with `amount <= 0`, poison the load the same way. See [Known Limitations](./KNOWN_LIMITATIONS.md) for residuals this snapshot does not cover.
+Daily spend is in-memory unless you opt in. To keep the UTC-day total across restarts, exclusive-create a signed log once, then construct with the same path and a caller-held HMAC key of at least 16 bytes (`initializeSpendingPersist`, `persistPath`, `integrityKey`). Use one integrity key per persist file; that key is only for HMAC integrity of that file, and the signed bytes have no path binding. Keep the persist directory private (created as mode `0700`; do not make it group- or world-writable). The key is never derived by this package. Tampered, unsigned, missing, or malformed state fails closed: the policy refuses spends and does not reset counters to a usable zero. Stored timestamps more than `CLOCK_SKEW_MS` (five minutes) in the future, or records with `amount <= 0`, poison the load the same way. See [Known Limitations](./KNOWN_LIMITATIONS.md) for residuals this snapshot does not cover.
 
 ### Memory
 

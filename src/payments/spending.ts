@@ -37,6 +37,7 @@ const FAIL_CLOSED_REASON = 'Spending policy persist integrity failed — refusin
 const PERSIST_WRITE_REASON = 'Spending policy persist write failed — refusing reservation';
 const RELEASED_RESERVATION_REASON = 'Reservation was already released';
 const EMPTY_PERSIST_PATH_REASON = 'SpendingPolicy persistPath must be a non-empty path';
+const INVALID_LIMIT_REASON = 'SpendingPolicy dailyLimit and transactionLimit must be finite and non-negative';
 
 interface SpendingRecord {
   amount: number;
@@ -175,8 +176,14 @@ function macMatches(key: Buffer, records: readonly SpendingRecord[], hex: string
   return timingSafeEqual(provided, expected);
 }
 
+function assertFiniteNonNegativeLimit(value: number): void {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(INVALID_LIMIT_REASON);
+  }
+}
+
 function ensureParentDir(filePath: string): void {
-  mkdirSync(dirname(filePath), { recursive: true });
+  mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 });
 }
 
 function envelopeBody(key: Buffer, records: readonly SpendingRecord[]): string {
@@ -262,6 +269,7 @@ export class SpendingPolicy {
   #integrityKey: Buffer | null = null;
   #failClosed = false;
   #unsavedCharge = false;
+  #trustedDayStart = getUtcDayStart();
 
   constructor(options: {
     dailyLimit: number;
@@ -270,9 +278,11 @@ export class SpendingPolicy {
     persistPath?: string;
     integrityKey?: IntegrityKey;
   }) {
+    assertFiniteNonNegativeLimit(options.dailyLimit);
+    assertFiniteNonNegativeLimit(options.transactionLimit);
     this.dailyLimit = options.dailyLimit;
     this.transactionLimit = options.transactionLimit;
-    this.allowedDomains = options.allowedDomains;
+    this.allowedDomains = Object.freeze([...options.allowedDomains]);
 
     if (Object.hasOwn(options, 'persistPath')) {
       const supplied = options.persistPath;
@@ -304,7 +314,7 @@ export class SpendingPolicy {
     return {
       dailyLimit: this.dailyLimit,
       transactionLimit: this.transactionLimit,
-      allowedDomains: this.allowedDomains,
+      allowedDomains: [...this.allowedDomains],
     };
   }
 
@@ -346,19 +356,33 @@ export class SpendingPolicy {
         }
       }
       this.#spendingLog = envelope.records.map(record => this.#installRecord(cloneRecord(record)));
+      this.#rememberTrustedDays();
     } catch {
       this.#failClosed = true;
     }
   }
 
+  #rememberTrustedDays(): void {
+    for (const record of this.#spendingLog) {
+      const dayStart = getUtcDayStart(record.timestamp);
+      if (dayStart > this.#trustedDayStart) {
+        this.#trustedDayStart = dayStart;
+      }
+    }
+  }
+
   #compactPriorUtcDays(now: number): void {
-    const dayStart = getUtcDayStart(now);
-    if (!this.#spendingLog.some(record => record.timestamp < dayStart)) {
+    const nowDay = getUtcDayStart(now);
+    if (nowDay <= this.#trustedDayStart + MS_PER_UTC_DAY) {
+      this.#trustedDayStart = Math.max(this.#trustedDayStart, nowDay);
+    }
+    const pruneBefore = this.#trustedDayStart - MS_PER_UTC_DAY;
+    if (!this.#spendingLog.some(record => record.timestamp < pruneBefore)) {
       return;
     }
     const kept: InternalRecord[] = [];
     for (const record of this.#spendingLog) {
-      if (record.timestamp >= dayStart) {
+      if (record.timestamp >= pruneBefore) {
         kept.push(record);
         continue;
       }
@@ -574,7 +598,7 @@ export class SpendingPolicy {
   }
 
   recordSpend(amount: number, domain: string): void {
-    if (this.#refuseUntilPersisted()) {
+    if (this.#failClosed) {
       return;
     }
     if (!Number.isFinite(amount) || amount <= 0) {

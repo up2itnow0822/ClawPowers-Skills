@@ -197,4 +197,55 @@ describe('SpendingPolicy', () => {
     expect(policy.getDailySpent()).toBe(40);
     expect(reserved.reservation!.state).toBe('unknown');
   });
+
+  it('rejects non-finite or negative limits', () => {
+    expect(() => new SpendingPolicy({
+      dailyLimit: Number.NaN,
+      transactionLimit: 10,
+      allowedDomains: [],
+    })).toThrow(/finite and non-negative/);
+    expect(() => new SpendingPolicy({
+      dailyLimit: -1,
+      transactionLimit: 10,
+      allowedDomains: [],
+    })).toThrow(/finite and non-negative/);
+    expect(() => new SpendingPolicy({
+      dailyLimit: 10,
+      transactionLimit: Number.POSITIVE_INFINITY,
+      allowedDomains: [],
+    })).toThrow(/finite and non-negative/);
+    expect(() => new SpendingPolicy({
+      dailyLimit: 10,
+      transactionLimit: -0.01,
+      allowedDomains: [],
+    })).toThrow(/finite and non-negative/);
+  });
+
+  it('allows a zero daily limit and refuses spend', () => {
+    const policy = new SpendingPolicy({
+      dailyLimit: 0,
+      transactionLimit: 10,
+      allowedDomains: [],
+    });
+    expect(policy.checkTransaction(1, 'example.com').allowed).toBe(false);
+  });
+
+  it('copies and freezes allowedDomains so the caller cannot extend them', () => {
+    const domains = ['api.trusted.com'];
+    const policy = new SpendingPolicy({
+      dailyLimit: 100,
+      transactionLimit: 50,
+      allowedDomains: domains,
+    });
+    domains.push('evil.com');
+    expect(policy.checkTransaction(5, 'evil.com').allowed).toBe(false);
+    expect(policy.checkTransaction(5, 'api.trusted.com').allowed).toBe(true);
+    const json = policy.toJSON();
+    json.allowedDomains.push('evil.com');
+    expect(policy.checkTransaction(5, 'evil.com').allowed).toBe(false);
+    expect(policy.allowedDomains).toEqual(['api.trusted.com']);
+    expect(() => {
+      (policy.allowedDomains as string[]).push('evil.com');
+    }).toThrow();
+  });
 });
