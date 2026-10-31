@@ -70,6 +70,13 @@ export class RSIAuditLog {
     await mkdir(dirname(this.resolvedPath), { recursive: true });
   }
 
+  /**
+   * Append an entry to the hash-chained audit log.
+   *
+   * Callers MUST NOT apply an RSI change when this method rejects (lock
+   * timeout, I/O error, or any other failure). A rejected log() means the
+   * change was not recorded, so the caller must abort the change.
+   */
   async log(entry: RSIAuditEntry): Promise<void> {
     const deadline = Date.now() + this.lockTimeoutMs;
     await this.withPathMutex(deadline, async () => {
