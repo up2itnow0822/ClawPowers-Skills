@@ -5,7 +5,6 @@
 
 import { createHash } from 'node:crypto';
 import { appendFile, mkdir, readFile, rmdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { RSIAuditEntry, RSIAuditIntegrityResult } from '../types.js';
@@ -28,12 +27,10 @@ class AuditLogLockTimeoutError extends Error {
 }
 
 export class RSIAuditLog {
-  private readonly filePath: string;
   private readonly resolvedPath: string;
   private readonly lockTimeoutMs: number;
 
   constructor(filePath: string, options: RSIAuditLogOptions = {}) {
-    this.filePath = filePath;
     this.resolvedPath = resolve(filePath);
     const lockTimeoutMs = options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS;
     if (!Number.isFinite(lockTimeoutMs) || lockTimeoutMs <= 0) {
@@ -47,10 +44,7 @@ export class RSIAuditLog {
   }
 
   private async ensureDir(): Promise<void> {
-    const dir = dirname(this.resolvedPath);
-    if (!existsSync(dir)) {
-      await mkdir(dir, { recursive: true });
-    }
+    await mkdir(dirname(this.resolvedPath), { recursive: true });
   }
 
   async log(entry: RSIAuditEntry): Promise<void> {
@@ -88,11 +82,17 @@ export class RSIAuditLog {
       throw new AuditLogLockTimeoutError(this.lockdirPath());
     }
 
-    const timeout = delay(remaining).then(() => {
+    const controller = new AbortController();
+    const timeout = delay(remaining, { signal: controller.signal }).then(() => {
       throw new AuditLogLockTimeoutError(this.lockdirPath());
     });
+    void timeout.catch(() => undefined);
 
-    await Promise.race([pending, timeout]);
+    try {
+      await Promise.race([pending, timeout]);
+    } finally {
+      controller.abort();
+    }
   }
 
   private async withLockdir(deadline: number, work: () => Promise<void>): Promise<void> {
@@ -107,10 +107,7 @@ export class RSIAuditLog {
       } catch (error) {
         const code = (error as NodeJS.ErrnoException).code;
         if (code === 'EEXIST') {
-          if (Date.now() >= deadline) {
-            throw new AuditLogLockTimeoutError(lockdir);
-          }
-          await delay(LOCK_POLL_MS);
+          await this.awaitUntilDeadline(delay(LOCK_POLL_MS), deadline);
           continue;
         }
         throw error;
@@ -135,14 +132,19 @@ export class RSIAuditLog {
     const previousHash = history.at(-1)?.entryHash ?? GENESIS_HASH;
     const chainedEntry = this.withIntegrityFields(entry, previousHash);
     const line = JSON.stringify(chainedEntry) + '\n';
-    await appendFile(this.filePath, line, 'utf-8');
+    await appendFile(this.resolvedPath, line, 'utf-8');
   }
 
   async getHistory(limit?: number): Promise<RSIAuditEntry[]> {
-    if (!existsSync(this.filePath)) {
-      return [];
+    let content: string;
+    try {
+      content = await readFile(this.resolvedPath, 'utf-8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return [];
+      }
+      throw error;
     }
-    const content = await readFile(this.filePath, 'utf-8');
     const lines = content.split('\n').filter(l => l.trim().length > 0);
     const entries: RSIAuditEntry[] = [];
     for (const line of lines) {
