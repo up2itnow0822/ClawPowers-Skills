@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { RSIAuditLog } from '../../src/rsi/audit.js';
+import { fileURLToPath } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
+import { RSIAuditLog, setRSIAuditLogTestHooks } from '../../src/rsi/audit.js';
 import type { RSIAuditEntry } from '../../src/types.js';
 
 function makeAuditEntry(overrides: Partial<RSIAuditEntry> = {}): RSIAuditEntry {
@@ -32,6 +35,7 @@ describe('RSIAuditLog', () => {
   });
 
   afterEach(() => {
+    setRSIAuditLogTestHooks(null);
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
@@ -154,11 +158,17 @@ describe('RSIAuditLog', () => {
     const auditPath = join(tmpDir, 'audit.jsonl');
     await auditLog.log(makeAuditEntry({ mutationId: 'mut-ok' }));
 
-    chmodSync(auditPath, 0o444);
-    await expect(auditLog.log(makeAuditEntry({ mutationId: 'mut-fail' }))).rejects.toThrow();
+    setRSIAuditLogTestHooks({
+      beforeAppend: async () => {
+        throw new Error('injected append failure');
+      },
+    });
+    await expect(auditLog.log(makeAuditEntry({ mutationId: 'mut-fail' }))).rejects.toThrow(
+      'injected append failure',
+    );
     expect(existsSync(`${resolve(auditPath)}.lock`)).toBe(false);
 
-    chmodSync(auditPath, 0o644);
+    setRSIAuditLogTestHooks(null);
     await auditLog.log(makeAuditEntry({ mutationId: 'mut-retry' }));
 
     const history = await auditLog.getHistory();
@@ -202,6 +212,68 @@ describe('RSIAuditLog', () => {
     rmSync(lockdir, { recursive: true, force: true });
     await later.log(makeAuditEntry({ mutationId: 'mut-recovered' }));
     await expect(later.verifyIntegrity()).resolves.toMatchObject({ valid: true, checkedEntries: 1 });
+  });
+
+  it('does not append when the lock is acquired after the deadline', async () => {
+    const auditPath = join(tmpDir, 'audit.jsonl');
+    setRSIAuditLogTestHooks({
+      afterExclusiveLock: async () => {
+        await delay(62);
+      },
+    });
+
+    const timed = new RSIAuditLog(auditPath, { lockTimeoutMs: 20 });
+    await expect(timed.log(makeAuditEntry({ mutationId: 'mut-late-lock' }))).rejects.toMatchObject({
+      name: 'AuditLogLockTimeoutError',
+    });
+
+    expect(existsSync(auditPath)).toBe(false);
+    expect(existsSync(`${resolve(auditPath)}.lock`)).toBe(false);
+  });
+
+  it('serializes appends from independent child processes', async () => {
+    const auditPath = join(tmpDir, 'audit.jsonl');
+    const workerSource = fileURLToPath(new URL('./audit-lock-worker.ts', import.meta.url));
+    const workerOut = join(tmpDir, 'audit-lock-worker.mjs');
+    const esbuildBin = resolve(dirname(fileURLToPath(import.meta.url)), '../../node_modules/.bin/esbuild');
+    const bundled = spawnSync(
+      esbuildBin,
+      [workerSource, '--bundle', '--platform=node', '--format=esm', `--outfile=${workerOut}`],
+      { encoding: 'utf8' },
+    );
+    expect(bundled.status, bundled.stderr).toBe(0);
+
+    const childCount = 8;
+    await Promise.all(
+      Array.from({ length: childCount }, (_, i) => {
+        return new Promise<void>((resolvePromise, reject) => {
+          const child = spawn(process.execPath, [workerOut, auditPath, `mut-p-${i}`], {
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+          let stderr = '';
+          child.stderr.on('data', chunk => {
+            stderr += String(chunk);
+          });
+          child.on('error', reject);
+          child.on('exit', code => {
+            if (code === 0) {
+              resolvePromise();
+              return;
+            }
+            reject(new Error(`worker mut-p-${i} exited ${code}: ${stderr}`));
+          });
+        });
+      }),
+    );
+
+    const history = await auditLog.getHistory();
+    expect(history).toHaveLength(childCount);
+    await expect(auditLog.verifyIntegrity()).resolves.toEqual({
+      valid: true,
+      checkedEntries: childCount,
+      failedAt: null,
+      reason: null,
+    });
   });
 
   it('fails closed on lock timeout and writes no line', async () => {

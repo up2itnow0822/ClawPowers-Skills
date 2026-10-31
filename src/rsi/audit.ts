@@ -13,11 +13,34 @@ const GENESIS_HASH = '0'.repeat(64);
 const DEFAULT_LOCK_TIMEOUT_MS = 5000;
 const LOCK_POLL_MS = 10;
 
-const mutexByPath = new Map<string, Promise<void>>();
+type MutexWaiter = {
+  resolve: () => void;
+  reject: (error: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+};
+
+type PathMutex = {
+  held: boolean;
+  waiters: MutexWaiter[];
+};
+
+const mutexByPath = new Map<string, PathMutex>();
 
 type RSIAuditLogOptions = {
   lockTimeoutMs?: number;
 };
+
+type RSIAuditLogTestHooks = {
+  afterExclusiveLock?: () => Promise<void>;
+  beforeAppend?: () => Promise<void>;
+};
+
+let testHooks: RSIAuditLogTestHooks | null = null;
+
+/** Test-only hooks. Not exported from the package entry. */
+export function setRSIAuditLogTestHooks(hooks: RSIAuditLogTestHooks | null): void {
+  testHooks = hooks;
+}
 
 class AuditLogLockTimeoutError extends Error {
   constructor(lockdirPath: string) {
@@ -58,26 +81,57 @@ export class RSIAuditLog {
 
   private async withPathMutex(deadline: number, work: () => Promise<void>): Promise<void> {
     const key = this.resolvedPath;
-    let release!: () => void;
-    const previous = mutexByPath.get(key) ?? Promise.resolve();
-    const next = new Promise<void>((resolveNext) => {
-      release = resolveNext;
-    });
-    mutexByPath.set(key, next);
+    let state = mutexByPath.get(key);
+    if (!state) {
+      state = { held: false, waiters: [] };
+      mutexByPath.set(key, state);
+    }
+    const queue = state;
 
+    if (queue.held) {
+      await new Promise<void>((resolve, reject) => {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+          reject(new AuditLogLockTimeoutError(this.lockdirPath()));
+          return;
+        }
+
+        const waiter: MutexWaiter = {
+          resolve,
+          reject,
+          timeout: setTimeout(() => {
+            const index = queue.waiters.indexOf(waiter);
+            if (index < 0) {
+              return;
+            }
+            queue.waiters.splice(index, 1);
+            if (!queue.held && queue.waiters.length === 0) {
+              mutexByPath.delete(key);
+            }
+            reject(new AuditLogLockTimeoutError(this.lockdirPath()));
+          }, remaining),
+        };
+        queue.waiters.push(waiter);
+      });
+    }
+
+    queue.held = true;
     try {
-      await this.awaitUntilDeadline(previous, deadline);
+      if (Date.now() >= deadline) {
+        throw new AuditLogLockTimeoutError(this.lockdirPath());
+      }
       await work();
     } finally {
-      // Do not open the successor slot until this predecessor has settled.
-      // A timed-out waiter must reject immediately but must not delete the
-      // map tail or resolve `next` while the holder is still in the CS.
-      void previous.finally(() => {
-        release();
-        if (mutexByPath.get(key) === next) {
+      const next = queue.waiters.shift();
+      if (next) {
+        clearTimeout(next.timeout);
+        next.resolve();
+      } else {
+        queue.held = false;
+        if (queue.waiters.length === 0) {
           mutexByPath.delete(key);
         }
-      });
+      }
     }
   }
 
@@ -88,7 +142,7 @@ export class RSIAuditLog {
     }
 
     const controller = new AbortController();
-    const timeout = delay(remaining, { signal: controller.signal }).then(() => {
+    const timeout = delay(remaining, undefined, { signal: controller.signal }).then(() => {
       throw new AuditLogLockTimeoutError(this.lockdirPath());
     });
     void timeout.catch(() => undefined);
@@ -105,34 +159,47 @@ export class RSIAuditLog {
     const lockdir = this.lockdirPath();
     let acquired = false;
 
-    while (!acquired) {
-      try {
-        await mkdir(lockdir);
-        acquired = true;
-      } catch (error) {
-        const code = (error as NodeJS.ErrnoException).code;
-        if (code === 'EEXIST') {
-          await this.awaitUntilDeadline(delay(LOCK_POLL_MS), deadline);
-          continue;
-        }
-        throw error;
-      }
-    }
-
     try {
+      while (!acquired) {
+        try {
+          await mkdir(lockdir);
+          acquired = true;
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          if (code === 'EEXIST') {
+            await this.awaitUntilDeadline(delay(LOCK_POLL_MS), deadline);
+            continue;
+          }
+          throw error;
+        }
+      }
+
+      if (testHooks?.afterExclusiveLock) {
+        await testHooks.afterExclusiveLock();
+      }
+
+      if (Date.now() >= deadline) {
+        throw new AuditLogLockTimeoutError(lockdir);
+      }
+
       await work();
     } finally {
-      try {
-        await rmdir(lockdir);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-          throw error;
+      if (acquired) {
+        try {
+          await rmdir(lockdir);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+            throw error;
+          }
         }
       }
     }
   }
 
   private async appendEntry(entry: RSIAuditEntry): Promise<void> {
+    if (testHooks?.beforeAppend) {
+      await testHooks.beforeAppend();
+    }
     const history = await this.getHistory();
     const previousHash = history.at(-1)?.entryHash ?? GENESIS_HASH;
     const chainedEntry = this.withIntegrityFields(entry, previousHash);
