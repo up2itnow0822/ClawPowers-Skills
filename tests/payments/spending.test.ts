@@ -248,4 +248,43 @@ describe('SpendingPolicy', () => {
       (policy.allowedDomains as string[]).push('evil.com');
     }).toThrow();
   });
+
+  it('rejects assignment to dailyLimit, transactionLimit, and allowedDomains', () => {
+    const policy = new SpendingPolicy({
+      dailyLimit: 25,
+      transactionLimit: 10,
+      allowedDomains: ['a.com'],
+    });
+    expect(() => {
+      (policy as { dailyLimit: number }).dailyLimit = 1e9;
+    }).toThrow();
+    expect(() => {
+      (policy as { transactionLimit: number }).transactionLimit = 1e9;
+    }).toThrow();
+    expect(() => {
+      (policy as { allowedDomains: string[] }).allowedDomains = [];
+    }).toThrow();
+    expect(policy.dailyLimit).toBe(25);
+    expect(policy.transactionLimit).toBe(10);
+    expect(policy.allowedDomains).toEqual(['a.com']);
+    expect(policy.checkTransaction(5, 'a.com').allowed).toBe(true);
+  });
+
+  it('rejects allowedDomains that are not an array of strings', () => {
+    expect(() => new SpendingPolicy({
+      dailyLimit: 25,
+      transactionLimit: 10,
+      allowedDomains: 'a.com' as unknown as string[],
+    })).toThrow(/array of strings/);
+    expect(() => new SpendingPolicy({
+      dailyLimit: 25,
+      transactionLimit: 10,
+      allowedDomains: [1, 2] as unknown as string[],
+    })).toThrow(/array of strings/);
+    expect(() => new SpendingPolicy({
+      dailyLimit: 25,
+      transactionLimit: 10,
+      allowedDomains: [null] as unknown as string[],
+    })).toThrow(/array of strings/);
+  });
 });

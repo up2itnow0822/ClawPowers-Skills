@@ -608,6 +608,111 @@ describe('SpendingPolicy persistence', () => {
     expect(policy.getDailySpent()).toBe(7);
   });
 
+  it('keeps today when reopened during a forward clock jump', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    persistedPolicy(dir).recordSpend(15, 'today.com');
+    const realNow = Date.now;
+    const jumped = realNow() + 2 * 86_400_000;
+    try {
+      Date.now = () => jumped;
+      const reopened = persistedPolicy(dir);
+      const reserved = reopened.reserveTransaction(3, 'future.com');
+      if (reserved.reservation !== undefined) {
+        reopened.voidReservation(reserved.reservation);
+      }
+      const saved = JSON.parse(readFileSync(persistPath(dir), 'utf-8')) as { records: PersistRecord[] };
+      expect(saved.records.map(r => r.domain)).toContain('today.com');
+      expect(saved.records.find(r => r.domain === 'today.com')!.amount).toBe(15);
+    } finally {
+      Date.now = realNow;
+    }
+    const restored = persistedPolicy(dir);
+    expect(restored.getDailySpent()).toBe(15);
+    expect(restored.checkTransaction(6, 'later.com').allowed).toBe(false);
+    expect(restored.checkTransaction(5, 'later.com').allowed).toBe(true);
+  });
+
+  it('keeps today across repeated one-day clock jumps', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    persistedPolicy(dir).recordSpend(15, 'today.com');
+    const realNow = Date.now;
+    const msPerDay = 86_400_000;
+    try {
+      for (let day = 1; day <= 3; day += 1) {
+        Date.now = () => realNow() + day * msPerDay;
+        const reopened = persistedPolicy(dir);
+        const reserved = reopened.reserveTransaction(1, `jump-${day}.com`);
+        if (reserved.reservation !== undefined) {
+          reopened.voidReservation(reserved.reservation);
+        }
+        const saved = JSON.parse(readFileSync(persistPath(dir), 'utf-8')) as { records: PersistRecord[] };
+        expect(saved.records.map(r => r.domain)).toContain('today.com');
+        expect(saved.records.find(r => r.domain === 'today.com')!.amount).toBe(15);
+      }
+    } finally {
+      Date.now = realNow;
+    }
+    const restored = persistedPolicy(dir);
+    expect(restored.getDailySpent()).toBe(15);
+    expect(restored.checkTransaction(6, 'later.com').allowed).toBe(false);
+  });
+
+  it('treats an explicit undefined persistPath as omitted', () => {
+    const policy = new SpendingPolicy({
+      ...limits(),
+      persistPath: undefined,
+    });
+    expect(policy.checkTransaction(5, 'a.com').allowed).toBe(true);
+    policy.recordSpend(5, 'a.com');
+    expect(policy.getDailySpent()).toBe(5);
+  });
+
+  it('counts a next-day skewed record against today', () => {
+    const dir = tempDir();
+    const dayStart = Date.UTC(
+      new Date().getUTCFullYear(),
+      new Date().getUTCMonth(),
+      new Date().getUTCDate(),
+      0, 0, 0, 0
+    );
+    const msPerDay = 86_400_000;
+    const justBeforeMidnight = dayStart + msPerDay - 60_000;
+    const justAfterMidnight = dayStart + msPerDay + 60_000;
+    const realNow = Date.now;
+    try {
+      Date.now = () => justBeforeMidnight;
+      writeFileSync(persistPath(dir), signEnvelope([{
+        amount: 12,
+        timestamp: justAfterMidnight,
+        domain: 'skew.com',
+        state: 'settled',
+      }]));
+      const policy = persistedPolicy(dir, { dailyLimit: 20 });
+      expect(policy.getDailySpent()).toBe(12);
+      expect(policy.checkTransaction(9, 'a.com').allowed).toBe(false);
+      expect(policy.checkTransaction(8, 'a.com').allowed).toBe(true);
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  it('retries a voided reservation after persist recovers', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    const policy = persistedPolicy(dir, { dailyLimit: 100 });
+    const reserved = policy.reserveTransaction(40, 'a.com');
+    expect(reserved.reservation).toBeDefined();
+    chmodSync(dir, 0o555);
+    policy.voidReservation(reserved.reservation!);
+    expect(policy.getDailySpent()).toBe(0);
+    expect(policy.checkTransaction(5, 'a.com').allowed).toBe(false);
+    chmodSync(dir, 0o755);
+    expect(policy.checkTransaction(5, 'a.com').allowed).toBe(true);
+    expect(persistedPolicy(dir).getDailySpent()).toBe(0);
+  });
+
   it('rejects forged and other-policy reservation handles', () => {
     const dirA = tempDir();
     const dirB = tempDir();

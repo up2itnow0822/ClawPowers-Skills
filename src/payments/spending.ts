@@ -15,6 +15,7 @@ import {
   unlinkSync,
   writeSync,
 } from 'node:fs';
+import { platform } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { inspect } from 'node:util';
 import { z } from 'zod';
@@ -38,6 +39,7 @@ const PERSIST_WRITE_REASON = 'Spending policy persist write failed — refusing 
 const RELEASED_RESERVATION_REASON = 'Reservation was already released';
 const EMPTY_PERSIST_PATH_REASON = 'SpendingPolicy persistPath must be a non-empty path';
 const INVALID_LIMIT_REASON = 'SpendingPolicy dailyLimit and transactionLimit must be finite and non-negative';
+const INVALID_DOMAINS_REASON = 'SpendingPolicy allowedDomains must be an array of strings';
 
 interface SpendingRecord {
   amount: number;
@@ -182,6 +184,19 @@ function assertFiniteNonNegativeLimit(value: number): void {
   }
 }
 
+function assertAllowedDomains(value: unknown): asserts value is readonly string[] {
+  if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
+    throw new Error(INVALID_DOMAINS_REASON);
+  }
+}
+
+function isWindowsReadonlyFsync(error: unknown): boolean {
+  if (platform() !== 'win32' || typeof error !== 'object' || error === null) {
+    return false;
+  }
+  return 'code' in error && (error as { code?: string }).code === 'EPERM';
+}
+
 function ensureParentDir(filePath: string): void {
   mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 });
 }
@@ -195,19 +210,38 @@ function envelopeBody(key: Buffer, records: readonly SpendingRecord[]): string {
   }, null, 2)}\n`;
 }
 
-function fsyncPath(path: string): void {
-  const fd = openSync(path, 'r');
+function fsyncDirectory(dir: string): void {
   try {
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
+    const fd = openSync(dir, 'r');
+    try {
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+  } catch (error) {
+    if (isWindowsReadonlyFsync(error)) {
+      return;
+    }
+    // Dest is already committed; directory sync is best-effort.
+  }
+}
+
+function writeAllSync(fd: number, body: string): void {
+  const bytes = Buffer.from(body, 'utf8');
+  let offset = 0;
+  while (offset < bytes.length) {
+    const written = writeSync(fd, bytes, offset, bytes.length - offset);
+    if (written <= 0) {
+      throw new Error('persist write made no progress');
+    }
+    offset += written;
   }
 }
 
 function writeExclusiveFile(filePath: string, body: string): void {
   const fd = openSync(filePath, 'wx', 0o600);
   try {
-    writeSync(fd, body, undefined, 'utf8');
+    writeAllSync(fd, body);
     fsyncSync(fd);
   } finally {
     closeSync(fd);
@@ -224,7 +258,7 @@ function writeSignedEnvelope(
   const dir = dirname(filePath);
   if (exclusive) {
     writeExclusiveFile(filePath, body);
-    fsyncPath(dir);
+    fsyncDirectory(dir);
     return;
   }
   const tmpPath = join(dir, `.spend-${randomBytes(16).toString('hex')}.tmp`);
@@ -239,7 +273,7 @@ function writeSignedEnvelope(
     }
     throw error;
   }
-  fsyncPath(dir);
+  fsyncDirectory(dir);
 }
 
 /**
@@ -259,17 +293,16 @@ export function initializeSpendingPersist(persistPath: string, integrityKey: Int
 }
 
 export class SpendingPolicy {
-  readonly dailyLimit: number;
-  readonly transactionLimit: number;
-  readonly allowedDomains: readonly string[];
-
+  #dailyLimit: number;
+  #transactionLimit: number;
+  #allowedDomains: readonly string[];
   #spendingLog: InternalRecord[] = [];
   #handles = new WeakMap<SpendReservation, InternalRecord>();
   #persistPath: string | null = null;
   #integrityKey: Buffer | null = null;
   #failClosed = false;
   #unsavedCharge = false;
-  #trustedDayStart = getUtcDayStart();
+  #maxDayStart = 0;
 
   constructor(options: {
     dailyLimit: number;
@@ -280,13 +313,14 @@ export class SpendingPolicy {
   }) {
     assertFiniteNonNegativeLimit(options.dailyLimit);
     assertFiniteNonNegativeLimit(options.transactionLimit);
-    this.dailyLimit = options.dailyLimit;
-    this.transactionLimit = options.transactionLimit;
-    this.allowedDomains = Object.freeze([...options.allowedDomains]);
+    assertAllowedDomains(options.allowedDomains);
+    this.#dailyLimit = options.dailyLimit;
+    this.#transactionLimit = options.transactionLimit;
+    this.#allowedDomains = Object.freeze([...options.allowedDomains]);
 
     if (Object.hasOwn(options, 'persistPath')) {
       const supplied = options.persistPath;
-      if (typeof supplied !== 'string' || supplied.length === 0) {
+      if (supplied !== undefined && (typeof supplied !== 'string' || supplied.length === 0)) {
         throw new Error(EMPTY_PERSIST_PATH_REASON);
       }
     }
@@ -299,11 +333,25 @@ export class SpendingPolicy {
       this.#persistPath = persistPath;
       this.#integrityKey = key;
       this.#loadPersistedLog();
+      Object.freeze(this);
       return;
     }
     if (persistPath !== null || options.integrityKey !== undefined) {
       this.#failClosed = true;
     }
+    Object.freeze(this);
+  }
+
+  get dailyLimit(): number {
+    return this.#dailyLimit;
+  }
+
+  get transactionLimit(): number {
+    return this.#transactionLimit;
+  }
+
+  get allowedDomains(): readonly string[] {
+    return this.#allowedDomains;
   }
 
   toJSON(): {
@@ -356,27 +404,46 @@ export class SpendingPolicy {
         }
       }
       this.#spendingLog = envelope.records.map(record => this.#installRecord(cloneRecord(record)));
-      this.#rememberTrustedDays();
+      this.#maxDayStart = this.#newestRecordDayStart() ?? 0;
+      this.#compactPriorUtcDays();
     } catch {
       this.#failClosed = true;
     }
   }
 
-  #rememberTrustedDays(): void {
+  #newestRecordDayStart(): number | null {
+    let newest: number | null = null;
     for (const record of this.#spendingLog) {
       const dayStart = getUtcDayStart(record.timestamp);
-      if (dayStart > this.#trustedDayStart) {
-        this.#trustedDayStart = dayStart;
+      if (newest === null || dayStart > newest) {
+        newest = dayStart;
       }
     }
+    return newest;
   }
 
-  #compactPriorUtcDays(now: number): void {
-    const nowDay = getUtcDayStart(now);
-    if (nowDay <= this.#trustedDayStart + MS_PER_UTC_DAY) {
-      this.#trustedDayStart = Math.max(this.#trustedDayStart, nowDay);
+  #pruneAnchorDayStart(): number | null {
+    const newest = this.#newestRecordDayStart();
+    if (newest === null && this.#maxDayStart === 0) {
+      return null;
     }
-    const pruneBefore = this.#trustedDayStart - MS_PER_UTC_DAY;
+    let anchor = this.#maxDayStart > 0 ? this.#maxDayStart : newest;
+    if (anchor === null) {
+      return null;
+    }
+    if (newest !== null && newest <= anchor + MS_PER_UTC_DAY && newest > anchor) {
+      anchor = newest;
+    }
+    this.#maxDayStart = anchor;
+    return anchor;
+  }
+
+  #compactPriorUtcDays(): void {
+    const anchor = this.#pruneAnchorDayStart();
+    if (anchor === null) {
+      return;
+    }
+    const pruneBefore = anchor - MS_PER_UTC_DAY;
     if (!this.#spendingLog.some(record => record.timestamp < pruneBefore)) {
       return;
     }
@@ -399,7 +466,7 @@ export class SpendingPolicy {
       return true;
     }
     const now = Date.now();
-    this.#compactPriorUtcDays(now);
+    this.#compactPriorUtcDays();
     if (!this.#spendingLog.every(record => isPersistableRecord(record, now))) {
       return false;
     }
@@ -450,10 +517,15 @@ export class SpendingPolicy {
   }
 
   getDailySpent(): number {
-    const dayStart = getUtcDayStart();
+    const now = Date.now();
+    const dayStart = getUtcDayStart(now);
     const dayEnd = dayStart + MS_PER_UTC_DAY;
+    const skewEnd = now + CLOCK_SKEW_MS;
     return this.#spendingLog
-      .filter(r => r.timestamp >= dayStart && r.timestamp < dayEnd)
+      .filter(r => (
+        (r.timestamp >= dayStart && r.timestamp < dayEnd)
+        || (r.timestamp >= dayEnd && r.timestamp <= skewEnd)
+      ))
       .reduce((sum, r) => sum + r.amount, 0);
   }
 
@@ -565,11 +637,10 @@ export class SpendingPolicy {
     if (removed === undefined) {
       return;
     }
-    if (!this.#persistLiveLog()) {
-      this.#spendingLog.splice(idx, 0, removed);
-      return;
-    }
     this.#handles.delete(removed.handle);
+    if (!this.#persistLiveLog()) {
+      this.#unsavedCharge = true;
+    }
   }
 
   markReservationUnknown(reservation: SpendReservation): void {
