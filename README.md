@@ -437,7 +437,7 @@ decision = json.loads(result.stdout)
 - `HypothesisEngine` — Generate improvement hypotheses
 - `MutationEngine` — Create/apply/revert mutations
 - `ABTestManager` — A/B test mutations
-- `RSIAuditLog` — Append-only audit trail
+- `RSIAuditLog` — Append-only audit trail. Callers must abort an RSI change when `log()` returns an error (rejects); a rejected `log()` means the change was not recorded.
 - `AutoResearcher` — Research solutions to failures
 
 ### Skills

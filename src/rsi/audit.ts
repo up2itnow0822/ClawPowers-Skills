@@ -4,41 +4,226 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readFile, appendFile, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { appendFile, mkdir, readFile, rmdir } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import type { RSIAuditEntry, RSIAuditIntegrityResult } from '../types.js';
 
 const GENESIS_HASH = '0'.repeat(64);
+const DEFAULT_LOCK_TIMEOUT_MS = 5000;
+const LOCK_POLL_MS = 10;
+
+type MutexWaiter = {
+  resolve: () => void;
+  reject: (error: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+};
+
+type PathMutex = {
+  held: boolean;
+  waiters: MutexWaiter[];
+};
+
+const mutexByPath = new Map<string, PathMutex>();
+
+type RSIAuditLogOptions = {
+  lockTimeoutMs?: number;
+};
+
+type RSIAuditLogTestHooks = {
+  afterExclusiveLock?: () => Promise<void>;
+  beforeAppend?: () => Promise<void>;
+};
+
+let testHooks: RSIAuditLogTestHooks | null = null;
+
+/** Test-only hooks. Not exported from the package entry. */
+export function setRSIAuditLogTestHooks(hooks: RSIAuditLogTestHooks | null): void {
+  testHooks = hooks;
+}
+
+class AuditLogLockTimeoutError extends Error {
+  constructor(lockdirPath: string) {
+    super(`Timed out waiting for audit log lockdir: ${lockdirPath}`);
+    this.name = 'AuditLogLockTimeoutError';
+  }
+}
 
 export class RSIAuditLog {
-  private readonly filePath: string;
+  private readonly resolvedPath: string;
+  private readonly lockTimeoutMs: number;
 
-  constructor(filePath: string) {
-    this.filePath = filePath;
+  constructor(filePath: string, options: RSIAuditLogOptions = {}) {
+    this.resolvedPath = resolve(filePath);
+    const lockTimeoutMs = options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS;
+    if (!Number.isFinite(lockTimeoutMs) || lockTimeoutMs <= 0) {
+      throw new Error('lockTimeoutMs must be a finite positive number');
+    }
+    this.lockTimeoutMs = lockTimeoutMs;
+  }
+
+  private lockdirPath(): string {
+    return `${this.resolvedPath}.lock`;
   }
 
   private async ensureDir(): Promise<void> {
-    const dir = dirname(this.filePath);
-    if (!existsSync(dir)) {
-      await mkdir(dir, { recursive: true });
+    await mkdir(dirname(this.resolvedPath), { recursive: true });
+  }
+
+  /**
+   * Append an entry to the hash-chained audit log.
+   *
+   * Callers MUST NOT apply an RSI change when this method rejects (lock
+   * timeout, I/O error, or any other failure). A rejected log() means the
+   * change was not recorded, so the caller must abort the change.
+   */
+  async log(entry: RSIAuditEntry): Promise<void> {
+    const deadline = Date.now() + this.lockTimeoutMs;
+    await this.withPathMutex(deadline, async () => {
+      await this.withLockdir(deadline, async () => {
+        await this.appendEntry(entry);
+      });
+    });
+  }
+
+  private async withPathMutex(deadline: number, work: () => Promise<void>): Promise<void> {
+    const key = this.resolvedPath;
+    let state = mutexByPath.get(key);
+    if (!state) {
+      state = { held: false, waiters: [] };
+      mutexByPath.set(key, state);
+    }
+    const queue = state;
+
+    if (queue.held) {
+      await new Promise<void>((resolve, reject) => {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+          reject(new AuditLogLockTimeoutError(this.lockdirPath()));
+          return;
+        }
+
+        const waiter: MutexWaiter = {
+          resolve,
+          reject,
+          timeout: setTimeout(() => {
+            const index = queue.waiters.indexOf(waiter);
+            if (index < 0) {
+              return;
+            }
+            queue.waiters.splice(index, 1);
+            if (!queue.held && queue.waiters.length === 0) {
+              mutexByPath.delete(key);
+            }
+            reject(new AuditLogLockTimeoutError(this.lockdirPath()));
+          }, remaining),
+        };
+        queue.waiters.push(waiter);
+      });
+    }
+
+    queue.held = true;
+    try {
+      if (Date.now() >= deadline) {
+        throw new AuditLogLockTimeoutError(this.lockdirPath());
+      }
+      await work();
+    } finally {
+      const next = queue.waiters.shift();
+      if (next) {
+        clearTimeout(next.timeout);
+        next.resolve();
+      } else {
+        queue.held = false;
+        if (queue.waiters.length === 0) {
+          mutexByPath.delete(key);
+        }
+      }
     }
   }
 
-  async log(entry: RSIAuditEntry): Promise<void> {
+  private async awaitUntilDeadline(pending: Promise<void>, deadline: number): Promise<void> {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      throw new AuditLogLockTimeoutError(this.lockdirPath());
+    }
+
+    const controller = new AbortController();
+    const timeout = delay(remaining, undefined, { signal: controller.signal }).then(() => {
+      throw new AuditLogLockTimeoutError(this.lockdirPath());
+    });
+    void timeout.catch(() => undefined);
+
+    try {
+      await Promise.race([pending, timeout]);
+    } finally {
+      controller.abort();
+    }
+  }
+
+  private async withLockdir(deadline: number, work: () => Promise<void>): Promise<void> {
     await this.ensureDir();
+    const lockdir = this.lockdirPath();
+    let acquired = false;
+
+    try {
+      while (!acquired) {
+        try {
+          await mkdir(lockdir);
+          acquired = true;
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          if (code === 'EEXIST') {
+            await this.awaitUntilDeadline(delay(LOCK_POLL_MS), deadline);
+            continue;
+          }
+          throw error;
+        }
+      }
+
+      if (testHooks?.afterExclusiveLock) {
+        await testHooks.afterExclusiveLock();
+      }
+
+      if (Date.now() >= deadline) {
+        throw new AuditLogLockTimeoutError(lockdir);
+      }
+
+      await work();
+    } finally {
+      if (acquired) {
+        try {
+          await rmdir(lockdir);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+            throw error;
+          }
+        }
+      }
+    }
+  }
+
+  private async appendEntry(entry: RSIAuditEntry): Promise<void> {
+    if (testHooks?.beforeAppend) {
+      await testHooks.beforeAppend();
+    }
     const history = await this.getHistory();
     const previousHash = history.at(-1)?.entryHash ?? GENESIS_HASH;
     const chainedEntry = this.withIntegrityFields(entry, previousHash);
     const line = JSON.stringify(chainedEntry) + '\n';
-    await appendFile(this.filePath, line, 'utf-8');
+    await appendFile(this.resolvedPath, line, 'utf-8');
   }
 
   async getHistory(limit?: number): Promise<RSIAuditEntry[]> {
-    if (!existsSync(this.filePath)) {
-      return [];
+    let content: string;
+    try {
+      content = await readFile(this.resolvedPath, 'utf-8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return [];
+      }
+      throw error;
     }
-    const content = await readFile(this.filePath, 'utf-8');
     const lines = content.split('\n').filter(l => l.trim().length > 0);
     const entries: RSIAuditEntry[] = [];
     for (const line of lines) {

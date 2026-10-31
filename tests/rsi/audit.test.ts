@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { RSIAuditLog } from '../../src/rsi/audit.js';
+import { fileURLToPath } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
+import { RSIAuditLog, setRSIAuditLogTestHooks } from '../../src/rsi/audit.js';
 import type { RSIAuditEntry } from '../../src/types.js';
 
 function makeAuditEntry(overrides: Partial<RSIAuditEntry> = {}): RSIAuditEntry {
@@ -32,6 +35,7 @@ describe('RSIAuditLog', () => {
   });
 
   afterEach(() => {
+    setRSIAuditLogTestHooks(null);
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
@@ -120,5 +124,170 @@ describe('RSIAuditLog', () => {
     expect(result.valid).toBe(false);
     expect(result.failedAt).toBe(0);
     expect(result.reason).toBe('entryHash does not match entry contents');
+  });
+
+  it('serializes concurrent appends from two instances on resolved path aliases', async () => {
+    const relativePath = join(tmpDir, 'audit.jsonl');
+    const aliasedPath = join(tmpDir, '.', 'audit.jsonl');
+    const first = new RSIAuditLog(relativePath);
+    const second = new RSIAuditLog(aliasedPath);
+
+    await Promise.all(
+      Array.from({ length: 20 }, (_, i) => {
+        const log = i % 2 === 0 ? first : second;
+        return log.log(
+          makeAuditEntry({
+            mutationId: `mut-${i}`,
+            timestamp: `2026-03-25T10:00:${String(i).padStart(2, '0')}.000Z`,
+          }),
+        );
+      }),
+    );
+
+    const history = await first.getHistory();
+    expect(history).toHaveLength(20);
+    await expect(first.verifyIntegrity()).resolves.toEqual({
+      valid: true,
+      checkedEntries: 20,
+      failedAt: null,
+      reason: null,
+    });
+  });
+
+  it('releases the lockdir after a thrown write so a later log succeeds', async () => {
+    const auditPath = join(tmpDir, 'audit.jsonl');
+    await auditLog.log(makeAuditEntry({ mutationId: 'mut-ok' }));
+
+    setRSIAuditLogTestHooks({
+      beforeAppend: async () => {
+        throw new Error('injected append failure');
+      },
+    });
+    await expect(auditLog.log(makeAuditEntry({ mutationId: 'mut-fail' }))).rejects.toThrow(
+      'injected append failure',
+    );
+    expect(existsSync(`${resolve(auditPath)}.lock`)).toBe(false);
+
+    setRSIAuditLogTestHooks(null);
+    await auditLog.log(makeAuditEntry({ mutationId: 'mut-retry' }));
+
+    const history = await auditLog.getHistory();
+    expect(history.map(entry => entry.mutationId)).toEqual(['mut-ok', 'mut-retry']);
+    await expect(auditLog.verifyIntegrity()).resolves.toMatchObject({ valid: true, checkedEntries: 2 });
+  });
+
+  it('rejects a non-positive lock timeout at construction', () => {
+    const auditPath = join(tmpDir, 'audit.jsonl');
+    expect(() => new RSIAuditLog(auditPath, { lockTimeoutMs: 0 })).toThrow(
+      'lockTimeoutMs must be a finite positive number',
+    );
+    expect(() => new RSIAuditLog(auditPath, { lockTimeoutMs: Number.NaN })).toThrow(
+      'lockTimeoutMs must be a finite positive number',
+    );
+  });
+
+  it('keeps a later caller queued after a mutex waiter times out', async () => {
+    const auditPath = join(tmpDir, 'audit.jsonl');
+    const lockdir = `${resolve(auditPath)}.lock`;
+    mkdirSync(lockdir);
+
+    const holder = new RSIAuditLog(auditPath, { lockTimeoutMs: 200 });
+    const waiter = new RSIAuditLog(auditPath, { lockTimeoutMs: 40 });
+    const holderAttempt = holder.log(makeAuditEntry({ mutationId: 'mut-holder' }));
+    await new Promise(resolve => setTimeout(resolve, 15));
+    await expect(waiter.log(makeAuditEntry({ mutationId: 'mut-waiter' }))).rejects.toMatchObject({
+      name: 'AuditLogLockTimeoutError',
+    });
+
+    const later = new RSIAuditLog(auditPath, { lockTimeoutMs: 40 });
+    const laterAttempt = later.log(makeAuditEntry({ mutationId: 'mut-later' }));
+    const laterRejected = expect(laterAttempt).rejects.toMatchObject({
+      name: 'AuditLogLockTimeoutError',
+    });
+    await expect(holderAttempt).rejects.toMatchObject({ name: 'AuditLogLockTimeoutError' });
+    await laterRejected;
+    expect(existsSync(auditPath)).toBe(false);
+    expect(existsSync(lockdir)).toBe(true);
+
+    rmSync(lockdir, { recursive: true, force: true });
+    await later.log(makeAuditEntry({ mutationId: 'mut-recovered' }));
+    await expect(later.verifyIntegrity()).resolves.toMatchObject({ valid: true, checkedEntries: 1 });
+  });
+
+  it('does not append when the lock is acquired after the deadline', async () => {
+    const auditPath = join(tmpDir, 'audit.jsonl');
+    setRSIAuditLogTestHooks({
+      afterExclusiveLock: async () => {
+        await delay(62);
+      },
+    });
+
+    const timed = new RSIAuditLog(auditPath, { lockTimeoutMs: 20 });
+    await expect(timed.log(makeAuditEntry({ mutationId: 'mut-late-lock' }))).rejects.toMatchObject({
+      name: 'AuditLogLockTimeoutError',
+    });
+
+    expect(existsSync(auditPath)).toBe(false);
+    expect(existsSync(`${resolve(auditPath)}.lock`)).toBe(false);
+  });
+
+  it('serializes appends from independent child processes', async () => {
+    const auditPath = join(tmpDir, 'audit.jsonl');
+    const workerSource = fileURLToPath(new URL('./audit-lock-worker.ts', import.meta.url));
+    const workerOut = join(tmpDir, 'audit-lock-worker.mjs');
+    const esbuildBin = resolve(dirname(fileURLToPath(import.meta.url)), '../../node_modules/.bin/esbuild');
+    const bundled = spawnSync(
+      esbuildBin,
+      [workerSource, '--bundle', '--platform=node', '--format=esm', `--outfile=${workerOut}`],
+      { encoding: 'utf8' },
+    );
+    expect(bundled.status, bundled.stderr).toBe(0);
+
+    const childCount = 8;
+    await Promise.all(
+      Array.from({ length: childCount }, (_, i) => {
+        return new Promise<void>((resolvePromise, reject) => {
+          const child = spawn(process.execPath, [workerOut, auditPath, `mut-p-${i}`], {
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+          let stderr = '';
+          child.stderr.on('data', chunk => {
+            stderr += String(chunk);
+          });
+          child.on('error', reject);
+          child.on('exit', code => {
+            if (code === 0) {
+              resolvePromise();
+              return;
+            }
+            reject(new Error(`worker mut-p-${i} exited ${code}: ${stderr}`));
+          });
+        });
+      }),
+    );
+
+    const history = await auditLog.getHistory();
+    expect(history).toHaveLength(childCount);
+    await expect(auditLog.verifyIntegrity()).resolves.toEqual({
+      valid: true,
+      checkedEntries: childCount,
+      failedAt: null,
+      reason: null,
+    });
+  });
+
+  it('fails closed on lock timeout and writes no line', async () => {
+    const auditPath = join(tmpDir, 'audit.jsonl');
+    const lockdir = `${resolve(auditPath)}.lock`;
+    mkdirSync(lockdir);
+
+    const timed = new RSIAuditLog(auditPath, { lockTimeoutMs: 40 });
+    await expect(timed.log(makeAuditEntry({ mutationId: 'mut-timeout' }))).rejects.toMatchObject({
+      name: 'AuditLogLockTimeoutError',
+      message: expect.stringContaining(lockdir),
+    });
+
+    expect(existsSync(auditPath)).toBe(false);
+    expect(existsSync(lockdir)).toBe(true);
   });
 });
