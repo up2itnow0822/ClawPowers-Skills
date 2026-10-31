@@ -1,7 +1,18 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { createHmac } from 'node:crypto';
+import { inspect } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
 import { PaymentExecutor } from '../../src/payments/executor.js';
 import {
@@ -225,8 +236,9 @@ describe('SpendingPolicy persistence', () => {
     const policy = persistedPolicy(dir);
     chmodSync(dir, 0o555);
     policy.recordSpend(5, 'a.com');
-    chmodSync(dir, 0o755);
     expect(policy.getDailySpent()).toBe(5);
+    expect(policy.checkTransaction(1, 'a.com').allowed).toBe(false);
+    chmodSync(dir, 0o755);
     expect(persistedPolicy(dir).getDailySpent()).toBe(0);
   });
 
@@ -409,5 +421,151 @@ describe('SpendingPolicy persistence', () => {
     initializeSpendingPersist(nested, KEY);
     expect(existsSync(nested)).toBe(true);
     mkdirSync(join(dir, 'other'), { recursive: true });
+  });
+
+  it('never includes the integrity key in JSON, inspect, or own properties', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    const policy = persistedPolicy(dir);
+    policy.recordSpend(5, 'a.com');
+    const json = JSON.stringify(policy);
+    const shown = inspect(policy, { showHidden: true, depth: 8, getters: true });
+    expect(json).not.toMatch(/integrityKey|07 07|"data":\[7,7/);
+    expect(shown).not.toMatch(/integrityKey|07 07/);
+    expect(Object.getOwnPropertyNames(policy)).not.toContain('integrityKey');
+    expect(Object.values(policy)).not.toEqual(expect.arrayContaining([KEY]));
+    const cloned = structuredClone(policy);
+    expect(JSON.stringify(cloned)).not.toMatch(/integrityKey|"data":\[7,7/);
+    expect(inspect(cloned, { showHidden: true, depth: 8 })).not.toMatch(/integrityKey|07 07/);
+  });
+
+  it('does not let a caller revert handle state and release a settled row', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    const policy = persistedPolicy(dir);
+    const reserved = policy.reserveTransaction(15, 'a.com');
+    expect(reserved.reservation).toBeDefined();
+    policy.settleReservation(reserved.reservation!);
+    expect(() => {
+      reserved.reservation!.state = 'reserved';
+    }).toThrow();
+    expect(reserved.reservation!.state).toBe('settled');
+    policy.voidReservation(reserved.reservation!);
+    expect(policy.getDailySpent()).toBe(15);
+    expect(persistedPolicy(dir).getDailySpent()).toBe(15);
+  });
+
+  it('throws when settling a reservation after it was released', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    const policy = persistedPolicy(dir);
+    const reserved = policy.reserveTransaction(6, 'a.com');
+    policy.voidReservation(reserved.reservation!);
+    expect(() => policy.settleReservation(reserved.reservation!)).toThrow(/already released/i);
+    expect(policy.getDailySpent()).toBe(0);
+  });
+
+  it('throws on an explicitly empty persistPath', () => {
+    expect(() => new SpendingPolicy({
+      ...limits(),
+      persistPath: '',
+    })).toThrow(/non-empty path/);
+    expect(() => new SpendingPolicy({
+      ...limits(),
+      persistPath: '',
+      integrityKey: KEY,
+    })).toThrow(/non-empty path/);
+  });
+
+  it('keeps a settled reservation after a persist failure and refuses further spends', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    const policy = persistedPolicy(dir);
+    const reserved = policy.reserveTransaction(10, 'a.com');
+    expect(reserved.reservation).toBeDefined();
+    chmodSync(dir, 0o555);
+    policy.settleReservation(reserved.reservation!);
+    expect(reserved.reservation!.state).toBe('settled');
+    policy.voidReservation(reserved.reservation!);
+    expect(policy.getDailySpent()).toBe(10);
+    expect(policy.checkTransaction(1, 'a.com').allowed).toBe(false);
+    chmodSync(dir, 0o755);
+  });
+
+  it('fails closed when a record field is edited but the MAC is left unchanged', () => {
+    const dir = tempDir();
+    initializeSpendingPersist(persistPath(dir), KEY);
+    persistedPolicy(dir).recordSpend(15, 'a.com');
+    const envelope = JSON.parse(readFileSync(persistPath(dir), 'utf-8')) as {
+      version: number;
+      records: PersistRecord[];
+      mac: string;
+    };
+    envelope.records[0]!.amount = 1;
+    writeFileSync(persistPath(dir), `${JSON.stringify(envelope, null, 2)}\n`);
+    const policy = persistedPolicy(dir);
+    expect(policy.checkTransaction(5, 'a.com').allowed).toBe(false);
+    expect(policy.getDailySpent()).toBe(0);
+  });
+
+  it('does not follow a predictable persistPath.tmp symlink', () => {
+    const dir = tempDir();
+    const victim = join(dir, 'victim.txt');
+    writeFileSync(victim, 'keep-me\n');
+    initializeSpendingPersist(persistPath(dir), KEY);
+    symlinkSync(victim, `${persistPath(dir)}.tmp`);
+    persistedPolicy(dir).recordSpend(8, 'a.com');
+    expect(readFileSync(victim, 'utf-8')).toBe('keep-me\n');
+    expect(persistedPolicy(dir).getDailySpent()).toBe(8);
+  });
+
+  it('pins a relative persistPath against later chdir', () => {
+    const dir = tempDir();
+    const cwd = process.cwd();
+    try {
+      process.chdir(dir);
+      initializeSpendingPersist('spend.json', KEY);
+      const policy = new SpendingPolicy({
+        ...limits(),
+        persistPath: 'spend.json',
+        integrityKey: KEY,
+      });
+      process.chdir(tmpdir());
+      policy.recordSpend(15, 'a.com');
+      expect(new SpendingPolicy({
+        ...limits(),
+        persistPath: persistPath(dir),
+        integrityKey: KEY,
+      }).getDailySpent()).toBe(15);
+    } finally {
+      process.chdir(cwd);
+    }
+    expect(relative(dir, persistPath(dir))).toBe('spend.json');
+  });
+
+  it('drops prior UTC-day rows from the next persist snapshot', () => {
+    const dir = tempDir();
+    const dayStart = Date.UTC(
+      new Date().getUTCFullYear(),
+      new Date().getUTCMonth(),
+      new Date().getUTCDate(),
+      0, 0, 0, 0
+    );
+    writeFileSync(persistPath(dir), signEnvelope([
+      {
+        amount: 9,
+        timestamp: dayStart - 1,
+        domain: 'old.com',
+        state: 'settled',
+      },
+    ]));
+    const policy = persistedPolicy(dir);
+    expect(policy.getDailySpent()).toBe(0);
+    policy.recordSpend(4, 'today.com');
+    expect(policy.getDailySpent()).toBe(4);
+    const saved = JSON.parse(readFileSync(persistPath(dir), 'utf-8')) as { records: PersistRecord[] };
+    expect(saved.records).toHaveLength(1);
+    expect(saved.records[0]!.amount).toBe(4);
+    expect(saved.records[0]!.domain).toBe('today.com');
   });
 });

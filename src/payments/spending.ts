@@ -4,9 +4,19 @@
  * Fail-closed: any policy error results in rejection.
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import {
+  closeSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeSync,
+} from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { inspect } from 'node:util';
 import { z } from 'zod';
 import type { SpendingDecision } from '../types.js';
 
@@ -18,17 +28,29 @@ export const CLOCK_SKEW_MS = 300_000;
 /** Minimum HMAC key length (NIST SP 800-224: at least 128 bits). */
 export const MIN_INTEGRITY_KEY_BYTES = 16;
 
+const MS_PER_UTC_DAY = 86_400_000;
+
 export type IntegrityKey = string | Uint8Array | Buffer;
 
 const PERSIST_VERSION = 1;
 const FAIL_CLOSED_REASON = 'Spending policy persist integrity failed — refusing spends';
 const PERSIST_WRITE_REASON = 'Spending policy persist write failed — refusing reservation';
+const RELEASED_RESERVATION_REASON = 'Reservation was already released';
+const EMPTY_PERSIST_PATH_REASON = 'SpendingPolicy persistPath must be a non-empty path';
 
 interface SpendingRecord {
   amount: number;
   timestamp: number;
   domain: string;
   state: ReservationState;
+}
+
+interface InternalRecord {
+  amount: number;
+  timestamp: number;
+  domain: string;
+  state: ReservationState;
+  handle: SpendReservation;
 }
 
 /** Opaque handle for a reserved spend that can be released only when not charged. */
@@ -49,15 +71,14 @@ const PersistEnvelopeSchema = z.object({
   mac: z.string().min(1),
 });
 
-function getUtcDayStart(): number {
-  const now = new Date();
-  const utcStart = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
+function getUtcDayStart(now = Date.now()): number {
+  const date = new Date(now);
+  return Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
     0, 0, 0, 0
-  ));
-  return utcStart.getTime();
+  );
 }
 
 function cloneRecord(record: SpendingRecord): SpendingRecord {
@@ -69,14 +90,34 @@ function cloneRecord(record: SpendingRecord): SpendingRecord {
   };
 }
 
-function sealSpendIdentity(record: SpendingRecord): SpendingRecord {
-  Object.defineProperties(record, {
-    amount: { value: record.amount, writable: false, enumerable: true, configurable: false },
-    timestamp: { value: record.timestamp, writable: false, enumerable: true, configurable: false },
-    domain: { value: record.domain, writable: false, enumerable: true, configurable: false },
-    state: { value: record.state, writable: true, enumerable: true, configurable: false },
-  });
-  return record;
+function createHandle(record: InternalRecord): SpendReservation {
+  const handle: SpendReservation = {
+    get amount() {
+      return record.amount;
+    },
+    get timestamp() {
+      return record.timestamp;
+    },
+    get domain() {
+      return record.domain;
+    },
+    get state() {
+      return record.state;
+    },
+    set amount(_value: number) {
+      throw new TypeError('SpendReservation.amount is immutable');
+    },
+    set timestamp(_value: number) {
+      throw new TypeError('SpendReservation.timestamp is immutable');
+    },
+    set domain(_value: string) {
+      throw new TypeError('SpendReservation.domain is immutable');
+    },
+    set state(_value: ReservationState) {
+      throw new TypeError('SpendReservation.state is immutable');
+    },
+  };
+  return Object.freeze(handle);
 }
 
 function isPersistableRecord(record: SpendingRecord, now: number): boolean {
@@ -147,6 +188,25 @@ function envelopeBody(key: Buffer, records: readonly SpendingRecord[]): string {
   }, null, 2)}\n`;
 }
 
+function fsyncPath(path: string): void {
+  const fd = openSync(path, 'r');
+  try {
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function writeExclusiveFile(filePath: string, body: string): void {
+  const fd = openSync(filePath, 'wx', 0o600);
+  try {
+    writeSync(fd, body, undefined, 'utf8');
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function writeSignedEnvelope(
   filePath: string,
   key: Buffer,
@@ -154,13 +214,25 @@ function writeSignedEnvelope(
   exclusive: boolean,
 ): void {
   const body = envelopeBody(key, records);
+  const dir = dirname(filePath);
   if (exclusive) {
-    writeFileSync(filePath, body, { encoding: 'utf-8', flag: 'wx', mode: 0o600 });
+    writeExclusiveFile(filePath, body);
+    fsyncPath(dir);
     return;
   }
-  const tmpPath = `${filePath}.tmp`;
-  writeFileSync(tmpPath, body, { encoding: 'utf-8', mode: 0o600 });
-  renameSync(tmpPath, filePath);
+  const tmpPath = join(dir, `.spend-${randomBytes(16).toString('hex')}.tmp`);
+  try {
+    writeExclusiveFile(tmpPath, body);
+    renameSync(tmpPath, filePath);
+  } catch (error) {
+    try {
+      unlinkSync(tmpPath);
+    } catch {
+      // The tmp name is exclusive; ignore cleanup if it never landed.
+    }
+    throw error;
+  }
+  fsyncPath(dir);
 }
 
 /**
@@ -174,8 +246,9 @@ export function initializeSpendingPersist(persistPath: string, integrityKey: Int
   if (persistPath.length === 0) {
     throw new Error('initializeSpendingPersist requires a persist path');
   }
-  ensureParentDir(persistPath);
-  writeSignedEnvelope(persistPath, key, [], true);
+  const dest = resolve(persistPath);
+  ensureParentDir(dest);
+  writeSignedEnvelope(dest, key, [], true);
 }
 
 export class SpendingPolicy {
@@ -183,10 +256,12 @@ export class SpendingPolicy {
   readonly transactionLimit: number;
   readonly allowedDomains: readonly string[];
 
-  private spendingLog: SpendingRecord[] = [];
-  private readonly persistPath: string | null = null;
-  private readonly integrityKey: Buffer | null = null;
-  private failClosed = false;
+  #spendingLog: InternalRecord[] = [];
+  #handles = new WeakMap<SpendReservation, InternalRecord>();
+  #persistPath: string | null = null;
+  #integrityKey: Buffer | null = null;
+  #failClosed = false;
+  #unsavedCharge = false;
 
   constructor(options: {
     dailyLimit: number;
@@ -199,68 +274,122 @@ export class SpendingPolicy {
     this.transactionLimit = options.transactionLimit;
     this.allowedDomains = options.allowedDomains;
 
+    if (Object.hasOwn(options, 'persistPath')) {
+      const supplied = options.persistPath;
+      if (typeof supplied !== 'string' || supplied.length === 0) {
+        throw new Error(EMPTY_PERSIST_PATH_REASON);
+      }
+    }
+
     const persistPath = options.persistPath !== undefined && options.persistPath.length > 0
-      ? options.persistPath
+      ? resolve(options.persistPath)
       : null;
     const key = usableKey(options.integrityKey);
     if (persistPath !== null && key !== null) {
-      this.persistPath = persistPath;
-      this.integrityKey = key;
-      this.loadPersistedLog();
+      this.#persistPath = persistPath;
+      this.#integrityKey = key;
+      this.#loadPersistedLog();
       return;
     }
     if (persistPath !== null || options.integrityKey !== undefined) {
-      this.failClosed = true;
+      this.#failClosed = true;
     }
   }
 
-  private loadPersistedLog(): void {
-    if (this.persistPath === null || this.integrityKey === null) {
-      this.failClosed = true;
+  toJSON(): {
+    dailyLimit: number;
+    transactionLimit: number;
+    allowedDomains: readonly string[];
+  } {
+    return {
+      dailyLimit: this.dailyLimit,
+      transactionLimit: this.transactionLimit,
+      allowedDomains: this.allowedDomains,
+    };
+  }
+
+  [inspect.custom](): ReturnType<SpendingPolicy['toJSON']> {
+    return this.toJSON();
+  }
+
+  #installRecord(record: SpendingRecord): InternalRecord {
+    const internal: InternalRecord = {
+      amount: record.amount,
+      timestamp: record.timestamp,
+      domain: record.domain,
+      state: record.state,
+      handle: undefined as unknown as SpendReservation,
+    };
+    internal.handle = createHandle(internal);
+    this.#handles.set(internal.handle, internal);
+    return internal;
+  }
+
+  #loadPersistedLog(): void {
+    if (this.#persistPath === null || this.#integrityKey === null) {
+      this.#failClosed = true;
       return;
     }
     try {
-      const raw = readFileSync(this.persistPath, 'utf-8');
+      const raw = readFileSync(this.#persistPath, 'utf-8');
       const parsed: unknown = JSON.parse(raw);
       const envelope = PersistEnvelopeSchema.parse(parsed);
-      if (!macMatches(this.integrityKey, envelope.records, envelope.mac)) {
-        this.failClosed = true;
+      if (!macMatches(this.#integrityKey, envelope.records, envelope.mac)) {
+        this.#failClosed = true;
         return;
       }
       const now = Date.now();
       for (const record of envelope.records) {
         if (!isPersistableRecord(record, now)) {
-          this.failClosed = true;
+          this.#failClosed = true;
           return;
         }
       }
-      this.spendingLog = envelope.records.map(record => sealSpendIdentity(cloneRecord(record)));
+      this.#spendingLog = envelope.records.map(record => this.#installRecord(cloneRecord(record)));
     } catch {
-      this.failClosed = true;
+      this.#failClosed = true;
     }
   }
 
-  private persistLiveLog(): boolean {
-    if (this.failClosed) {
+  #compactPriorUtcDays(now: number): void {
+    const dayStart = getUtcDayStart(now);
+    if (!this.#spendingLog.some(record => record.timestamp < dayStart)) {
+      return;
+    }
+    const kept: InternalRecord[] = [];
+    for (const record of this.#spendingLog) {
+      if (record.timestamp >= dayStart) {
+        kept.push(record);
+        continue;
+      }
+      this.#handles.delete(record.handle);
+    }
+    this.#spendingLog = kept;
+  }
+
+  #persistLiveLog(): boolean {
+    if (this.#failClosed) {
       return false;
     }
-    if (this.persistPath === null || this.integrityKey === null) {
+    if (this.#persistPath === null || this.#integrityKey === null) {
       return true;
     }
     const now = Date.now();
-    if (!this.spendingLog.every(record => isPersistableRecord(record, now))) {
+    this.#compactPriorUtcDays(now);
+    if (!this.#spendingLog.every(record => isPersistableRecord(record, now))) {
       return false;
     }
     try {
-      ensureParentDir(this.persistPath);
-      writeSignedEnvelope(this.persistPath, this.integrityKey, this.spendingLog, false);
+      ensureParentDir(this.#persistPath);
+      writeSignedEnvelope(this.#persistPath, this.#integrityKey, this.#spendingLog, false);
+      this.#unsavedCharge = false;
       return true;
     } catch {
       return false;
     }
   }
 
-  private closedDecision(): SpendingDecision {
+  #closedDecision(): SpendingDecision {
     return {
       allowed: false,
       reason: FAIL_CLOSED_REASON,
@@ -268,16 +397,45 @@ export class SpendingPolicy {
     };
   }
 
+  #refuseUntilPersisted(): boolean {
+    if (this.#failClosed) {
+      return true;
+    }
+    if (!this.#unsavedCharge) {
+      return false;
+    }
+    return !this.#persistLiveLog();
+  }
+
+  #lookup(reservation: SpendReservation): InternalRecord | undefined {
+    return this.#handles.get(reservation);
+  }
+
+  #setReservationState(record: InternalRecord, state: ReservationState): void {
+    switch (state) {
+      case 'reserved':
+      case 'settled':
+      case 'unknown':
+        record.state = state;
+        return;
+      default: {
+        const _never: never = state;
+        throw new Error(`unexpected reservation state: ${_never}`);
+      }
+    }
+  }
+
   getDailySpent(): number {
     const dayStart = getUtcDayStart();
-    return this.spendingLog
-      .filter(r => r.timestamp >= dayStart)
+    const dayEnd = dayStart + MS_PER_UTC_DAY;
+    return this.#spendingLog
+      .filter(r => r.timestamp >= dayStart && r.timestamp < dayEnd)
       .reduce((sum, r) => sum + r.amount, 0);
   }
 
   checkTransaction(amount: number, domain: string): SpendingDecision {
-    if (this.failClosed) {
-      return this.closedDecision();
+    if (this.#refuseUntilPersisted()) {
+      return this.#closedDecision();
     }
     try {
       if (amount <= 0 || !Number.isFinite(amount)) {
@@ -337,22 +495,22 @@ export class SpendingPolicy {
     decision: SpendingDecision;
     reservation?: SpendReservation;
   } {
-    if (this.failClosed) {
-      return { decision: this.closedDecision() };
+    if (this.#refuseUntilPersisted()) {
+      return { decision: this.#closedDecision() };
     }
     const decision = this.checkTransaction(amount, domain);
     if (!decision.allowed) {
       return { decision };
     }
-    const reservation = sealSpendIdentity({
+    const record = this.#installRecord({
       amount,
       timestamp: Date.now(),
       domain,
       state: 'reserved',
     });
-    this.spendingLog.push(reservation);
-    if (!this.persistLiveLog()) {
-      this.spendingLog.pop();
+    this.#spendingLog.push(record);
+    if (!this.#persistLiveLog()) {
+      this.#spendingLog.pop();
       return {
         decision: {
           allowed: false,
@@ -361,78 +519,87 @@ export class SpendingPolicy {
         },
       };
     }
-    return { decision, reservation };
+    return { decision, reservation: record.handle };
   }
 
   voidReservation(reservation: SpendReservation): void {
-    if (this.failClosed) {
+    if (this.#failClosed) {
       return;
     }
-    if (this.persistPath !== null && reservation.state !== 'reserved') {
+    const record = this.#lookup(reservation);
+    if (record === undefined) {
       return;
     }
-    const idx = this.spendingLog.indexOf(reservation);
+    if (record.state !== 'reserved') {
+      return;
+    }
+    const idx = this.#spendingLog.indexOf(record);
     if (idx < 0) {
       return;
     }
-    const [removed] = this.spendingLog.splice(idx, 1);
+    const [removed] = this.#spendingLog.splice(idx, 1);
     if (removed === undefined) {
       return;
     }
-    if (!this.persistLiveLog()) {
-      this.spendingLog.splice(idx, 0, removed);
+    if (!this.#persistLiveLog()) {
+      this.#spendingLog.splice(idx, 0, removed);
+      return;
     }
+    this.#handles.delete(removed.handle);
   }
 
   markReservationUnknown(reservation: SpendReservation): void {
-    this.updateReservationState(reservation, 'unknown');
+    this.#updateReservationState(reservation, 'unknown');
   }
 
   settleReservation(reservation: SpendReservation): void {
-    this.updateReservationState(reservation, 'settled');
+    this.#updateReservationState(reservation, 'settled');
   }
 
-  private updateReservationState(reservation: SpendReservation, state: ReservationState): void {
-    if (this.failClosed) {
+  #updateReservationState(reservation: SpendReservation, state: ReservationState): void {
+    if (this.#failClosed) {
       return;
     }
-    if (!this.spendingLog.includes(reservation)) {
+    const record = this.#lookup(reservation);
+    if (record === undefined) {
+      throw new Error(RELEASED_RESERVATION_REASON);
+    }
+    if (record.state === state) {
       return;
     }
-    if (reservation.state === state) {
-      return;
-    }
-    const previous = reservation.state;
-    reservation.state = state;
-    if (!this.persistLiveLog()) {
-      reservation.state = previous;
+    this.#setReservationState(record, state);
+    if (!this.#persistLiveLog()) {
+      this.#unsavedCharge = true;
     }
   }
 
   recordSpend(amount: number, domain: string): void {
-    if (this.failClosed) {
+    if (this.#refuseUntilPersisted()) {
       return;
     }
     if (!Number.isFinite(amount) || amount <= 0) {
       return;
     }
-    this.spendingLog.push(sealSpendIdentity({
+    const record = this.#installRecord({
       amount,
       timestamp: Date.now(),
       domain,
       state: 'settled',
-    }));
-    this.persistLiveLog();
+    });
+    this.#spendingLog.push(record);
+    if (this.#persistPath !== null && !this.#persistLiveLog()) {
+      this.#unsavedCharge = true;
+    }
   }
 
   reset(): void {
-    if (this.persistPath !== null || this.failClosed) {
+    if (this.#persistPath !== null || this.#failClosed || this.#unsavedCharge) {
       return;
     }
-    this.spendingLog = [];
+    this.#spendingLog = [];
   }
 
   getSpendingLog(): readonly SpendingRecord[] {
-    return this.spendingLog.map(cloneRecord);
+    return this.#spendingLog.map(cloneRecord);
   }
 }
