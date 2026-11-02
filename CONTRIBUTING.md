@@ -3,8 +3,8 @@
 ## Development environment
 
 The published package supports Node.js 22+. The development toolchain requires
-Node.js `^22.13.0 || ^24.0.0 || >=26.0.0`; this matches the supported ranges
-of the locked Vitest and ESLint releases. `npm install`, `npm ci`, and `npm run`
+Node.js `^22.18.0 || ^24.11.0 || >=26.0.0`; this matches the supported ranges
+of the locked Vitest, ESLint, and tsup releases. `npm install`, `npm ci`, and `npm run`
 enforce that contributor-only requirement through `devEngines`.
 
 ## Before opening a PR

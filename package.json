@@ -79,7 +79,7 @@
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "^22.13.0 || ^24.0.0 || >=26.0.0",
+      "version": "^22.18.0 || ^24.11.0 || >=26.0.0",
       "onFail": "error"
     }
   },
@@ -92,7 +92,7 @@
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^10.3.0",
     "globals": "^17.4.0",
-    "tsup": "^8.0.0",
+    "tsup": "^9.0.0",
     "typescript": "^6.0.3",
     "vitest": "^5.0.1"
   }
