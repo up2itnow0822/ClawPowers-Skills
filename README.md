@@ -204,6 +204,8 @@ if (payment) {
 }
 ```
 
+Daily spend is in-memory unless you opt in. To keep the UTC-day total across restarts, exclusive-create a signed log once, then construct with the same path and a caller-held HMAC key of at least 16 bytes (`initializeSpendingPersist`, `persistPath`, `integrityKey`). Use one integrity key per persist file; that key is only for HMAC integrity of that file, and the signed bytes have no path binding. Keep the persist directory private (created as mode `0700`; do not make it group- or world-writable). The key is never derived by this package. Tampered, unsigned, missing, or malformed state fails closed: the policy refuses spends and does not reset counters to a usable zero. Stored timestamps more than `CLOCK_SKEW_MS` (five minutes) in the future, or records with `amount <= 0`, poison the load the same way. See [Known Limitations](./KNOWN_LIMITATIONS.md) for residuals this snapshot does not cover.
+
 ### Memory
 
 ```typescript
@@ -420,7 +422,9 @@ decision = json.loads(result.stdout)
 ### Payments
 - `detect402(response)` — Parse x402 headers from 402 response
 - `isPaymentRequired(error)` — Type guard for 402 errors
-- `SpendingPolicy` — Enforce daily/transaction/domain limits
+- `SpendingPolicy` — Enforce daily/transaction/domain limits; optional HMAC-signed persist of the spend log
+- `initializeSpendingPersist(path, key)` — Exclusive-create an empty signed spend log (operator ritual, not a boot ensure)
+- `CLOCK_SKEW_MS` — Documented 5-minute allowance when rejecting future timestamps on load
 - `PaymentExecutor` — Execute payments via MCP client
 - `calculateTransactionFee`, `createPaymentHeader`, `generateWalletAddress` — Native/WASM-accelerated payment helpers (with TS fallbacks)
 
