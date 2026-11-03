@@ -180,6 +180,7 @@ describe('SpendingPolicy', () => {
     expect(reserved.reservation).toBeDefined();
     policy.voidReservation(reserved.reservation!);
     expect(policy.getDailySpent()).toBe(0);
+    expect(() => policy.settleReservation(reserved.reservation!)).toThrow(/already released/i);
     const retry = policy.reserveTransaction(60, 'a.com');
     expect(retry.decision.allowed).toBe(true);
   });
