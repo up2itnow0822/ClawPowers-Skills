@@ -186,10 +186,32 @@ function impliedNameFromLockKey(key) {
   if (!rest) return null;
   if (rest.startsWith('@')) {
     const parts = rest.split('/');
-    if (parts.length < 2) return null;
+    if (parts.length < 2 || !parts[1]) return null;
     return `${parts[0]}/${parts[1]}`;
   }
-  return rest.split('/')[0];
+  return rest.split('/')[0] || null;
+}
+
+function resolvedPathnamePrefix(implied) {
+  return `/${implied}/-/`;
+}
+
+function resolvedPathnameMatchesImplied(resolved, implied) {
+  if (typeof resolved !== 'string' || resolved.length === 0) return true;
+  let url;
+  try {
+    url = new URL(resolved);
+  } catch {
+    return true;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return true;
+  let pathname = url.pathname;
+  try {
+    pathname = decodeURIComponent(url.pathname);
+  } catch {
+    pathname = url.pathname;
+  }
+  return pathname.startsWith(resolvedPathnamePrefix(implied));
 }
 
 function isNpmjsResolved(resolved) {
@@ -232,11 +254,25 @@ function checkLockfile(root, pkg, findings) {
   }
 
   const declared = workspacePatterns(pkg);
+  const rootSpecFields = [
+    'dependencies',
+    'devDependencies',
+    'optionalDependencies',
+    'peerDependencies',
+  ];
   for (const [key, entry] of Object.entries(packages)) {
-    if (key === '') continue;
-    const lockKey = `package-lock.json:${key}`;
+    const isRoot = key === '';
+    const lockKey = isRoot ? 'package-lock.json:(root)' : `package-lock.json:${key}`;
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
       failClosed(findings, lockKey, 'parse error');
+      continue;
+    }
+
+    if (isRoot) {
+      for (const field of rootSpecFields) {
+        if (!Object.hasOwn(entry, field)) continue;
+        walkSpecs(entry[field], `${lockKey}.${field}`, findings);
+      }
       continue;
     }
 
@@ -260,9 +296,11 @@ function checkLockfile(root, pkg, findings) {
       }
     }
 
+    if (workspaceLink) continue;
+
     const implied = impliedNameFromLockKey(key);
+    if (!implied) continue;
     if (
-      implied &&
       typeof entry.name === 'string' &&
       entry.name.length > 0 &&
       entry.name !== implied
@@ -271,6 +309,13 @@ function checkLockfile(root, pkg, findings) {
         code: 'F4',
         key: lockKey,
         reason: `name differs from path-implied ${implied}`,
+      });
+    }
+    if (!resolvedPathnameMatchesImplied(entry.resolved, implied)) {
+      findings.push({
+        code: 'F4',
+        key: lockKey,
+        reason: `resolved pathname does not start with ${resolvedPathnamePrefix(implied)}`,
       });
     }
   }

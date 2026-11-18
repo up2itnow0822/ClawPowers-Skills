@@ -155,3 +155,17 @@ test('replay 79592d6 picomatch override + lock name mismatch FAIL', () => {
   ]);
   process.stdout.write(`replay-79592d6 FAIL ${result.out}`);
 });
+
+test('p1 lockfile-only alias via resolved pathname FAIL F4', () => {
+  const result = assertFail('p1', join(fixtures, 'p1'), [
+    /FAIL F4 package-lock\.json:node_modules\/picomatch/,
+  ]);
+  process.stdout.write(`p1 FAIL ${result.out}`);
+});
+
+test('p5 root lock entry npm: alias FAIL', () => {
+  const result = assertFail('p5', join(fixtures, 'p5'), [
+    /FAIL F1 package-lock\.json:\(root\)\.dependencies\.picomatch/,
+  ]);
+  process.stdout.write(`p5 FAIL ${result.out}`);
+});
