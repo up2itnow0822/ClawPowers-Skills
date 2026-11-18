@@ -1,0 +1,8 @@
+{
+  "name": "t4-github",
+  "private": true,
+  "version": "0.0.0",
+  "dependencies": {
+    "foo": "github:user/repo"
+  }
+}

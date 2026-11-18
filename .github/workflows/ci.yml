@@ -17,6 +17,8 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
+      - name: Check dependency sources
+        run: node scripts/check-dependency-sources.mjs
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Install wasm-pack

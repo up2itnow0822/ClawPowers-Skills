@@ -1,0 +1,9 @@
+{
+  "name": "replay-79592d6",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Reconstructed from up2itnow0822/agentpay-mcp commit 79592d6 (read successfully): picomatch npm alias override plus lock name mismatch.",
+  "overrides": {
+    "picomatch": "npm:@ryotsu/picomatch@4.0.7-a"
+  }
+}

@@ -25,6 +25,15 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Check dependency sources
+        run: node scripts/check-dependency-sources.mjs
+
+      - name: Security
+        run: npm run security
+
+      - name: Test dependency source fixtures
+        run: node --test test/check-dependency-sources.test.mjs
+
       - name: Detect toolchain and build
         shell: bash
         run: |
@@ -37,6 +46,7 @@ jobs:
 
           if [ -f package.json ]; then
             echo "Detected Node.js $(node -v)"
+            node scripts/check-dependency-sources.mjs
             if [ -f pnpm-lock.yaml ]; then
               corepack enable
               pnpm install --frozen-lockfile || pnpm install

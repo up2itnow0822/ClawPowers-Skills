@@ -1,0 +1,8 @@
+{
+  "name": "t4-file",
+  "private": true,
+  "version": "0.0.0",
+  "dependencies": {
+    "foo": "file:../x"
+  }
+}

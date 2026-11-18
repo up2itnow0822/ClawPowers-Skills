@@ -42,6 +42,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src tests benchmarks",
+    "security": "node scripts/check-dependency-sources.mjs",
     "verify:pack": "npm pack --dry-run",
     "verify:pack:surface": "npm pack --dry-run --ignore-scripts",
     "verify:hermes": "node scripts/run-python-script.mjs scripts/verify_hermes_wrappers.py",
