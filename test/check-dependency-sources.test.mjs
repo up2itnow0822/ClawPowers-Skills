@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -168,4 +169,107 @@ test('p5 root lock entry npm: alias FAIL', () => {
     /FAIL F1 package-lock\.json:\(root\)\.dependencies\.picomatch/,
   ]);
   process.stdout.write(`p5 FAIL ${result.out}`);
+});
+
+test('c1-http-npmrc http registry FAIL', () => {
+  const result = assertFail('c1-http-npmrc', join(fixtures, 'c1-http-npmrc'), [
+    /FAIL F6 \.npmrc registry/,
+  ]);
+  process.stdout.write(`c1-http-npmrc FAIL ${result.out}`);
+});
+
+test('c1-http-scoped-npmrc http scoped registry FAIL', () => {
+  const result = assertFail('c1-http-scoped-npmrc', join(fixtures, 'c1-http-scoped-npmrc'), [
+    /FAIL F6 \.npmrc @foo:registry/,
+  ]);
+  process.stdout.write(`c1-http-scoped-npmrc FAIL ${result.out}`);
+});
+
+test('c1-http-publishconfig http publishConfig FAIL', () => {
+  const result = assertFail('c1-http-publishconfig', join(fixtures, 'c1-http-publishconfig'), [
+    /FAIL F6 package\.json:publishConfig\.registry/,
+  ]);
+  process.stdout.write(`c1-http-publishconfig FAIL ${result.out}`);
+});
+
+test('c1-http-resolved http lock resolved FAIL', () => {
+  const result = assertFail('c1-http-resolved', join(fixtures, 'c1-http-resolved'), [
+    /FAIL F3 package-lock\.json:node_modules\/foo/,
+  ]);
+  process.stdout.write(`c1-http-resolved FAIL ${result.out}`);
+});
+
+test('c2-shrinkwrap-only-clean PASS', () => {
+  const result = assertPass('c2-shrinkwrap-only-clean', join(fixtures, 'c2-shrinkwrap-only-clean'));
+  process.stdout.write(`c2-shrinkwrap-only-clean PASS ${result.out}`);
+});
+
+test('c2-shrinkwrap-evil FAIL', () => {
+  const result = assertFail('c2-shrinkwrap-evil', join(fixtures, 'c2-shrinkwrap-evil'), [
+    /FAIL F3 npm-shrinkwrap\.json:node_modules\/foo/,
+  ]);
+  process.stdout.write(`c2-shrinkwrap-evil FAIL ${result.out}`);
+});
+
+test('c2-lock-and-shrinkwrap-differ FAIL', () => {
+  const result = assertFail('c2-lock-and-shrinkwrap-differ', join(fixtures, 'c2-lock-and-shrinkwrap-differ'), [
+    /FAIL F7 npm-shrinkwrap\.json/,
+  ]);
+  process.stdout.write(`c2-lock-and-shrinkwrap-differ FAIL ${result.out}`);
+});
+
+test('c3-pnpm unvalidated pnpm-lock FAIL', () => {
+  const result = assertFail('c3-pnpm', join(fixtures, 'c3-pnpm'), [
+    /FAIL F7 pnpm-lock\.yaml/,
+  ]);
+  process.stdout.write(`c3-pnpm FAIL ${result.out}`);
+});
+
+test('c3-yarn unvalidated yarn.lock FAIL', () => {
+  const result = assertFail('c3-yarn', join(fixtures, 'c3-yarn'), [
+    /FAIL F7 yarn\.lock/,
+  ]);
+  process.stdout.write(`c3-yarn FAIL ${result.out}`);
+});
+
+test('c3 build.yml never installs from an unchecked lockfile', () => {
+  const yml = readFileSync(join(repoRoot, '.github/workflows/build.yml'), 'utf8');
+  assert.doesNotMatch(yml, /pnpm install/);
+  assert.doesNotMatch(yml, /yarn install/);
+  assert.doesNotMatch(yml, /npm ci \|\| npm install/);
+  assert.match(yml, /pnpm-lock\.yaml/);
+  assert.match(yml, /yarn\.lock/);
+  process.stdout.write('c3-build-yml PASS\n');
+});
+
+test('c4-workspace-valid PASS', () => {
+  const result = assertPass('c4-workspace-valid', join(fixtures, 'c4-workspace-valid'));
+  process.stdout.write(`c4-workspace-valid PASS ${result.out}`);
+});
+
+test('c4-workspace-escape ../outside FAIL', () => {
+  const result = assertFail('c4-workspace-escape', join(fixtures, 'c4-workspace-escape'), [
+    /FAIL F3 package-lock\.json:node_modules\/a/,
+  ]);
+  process.stdout.write(`c4-workspace-escape FAIL ${result.out}`);
+});
+
+test('c4-workspace-bad-registry FAIL', () => {
+  const result = assertFail('c4-workspace-bad-registry', join(fixtures, 'c4-workspace-bad-registry'), [
+    /FAIL F3 package-lock\.json:packages\/a/,
+  ]);
+  process.stdout.write(`c4-workspace-bad-registry FAIL ${result.out}`);
+});
+
+test('c5-inbundle-ok under passing parent PASS', () => {
+  const result = assertPass('c5-inbundle-ok', join(fixtures, 'c5-inbundle-ok'));
+  process.stdout.write(`c5-inbundle-ok PASS ${result.out}`);
+});
+
+test('c5-inbundle-bad-parent FAIL', () => {
+  const result = assertFail('c5-inbundle-bad-parent', join(fixtures, 'c5-inbundle-bad-parent'), [
+    /FAIL F3 package-lock\.json:node_modules\/b/,
+    /FAIL F3 package-lock\.json:node_modules\/b\/node_modules\/c/,
+  ]);
+  process.stdout.write(`c5-inbundle-bad-parent FAIL ${result.out}`);
 });

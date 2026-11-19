@@ -2,14 +2,15 @@
 /**
  * Blocking dependency-source check (SEC-20261117-02).
  *
- * Reads package.json, package-lock.json, and .npmrc from disk. No network.
- * Node built-ins only. No --skip flag, no env bypass.
+ * Reads package.json, package-lock.json, npm-shrinkwrap.json, and .npmrc
+ * from disk. No network. Node built-ins only. No --skip flag, no env bypass.
  *
  * Usage: node scripts/check-dependency-sources.mjs [rootDir]
  */
-import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 const DEP_FIELDS = [
   'dependencies',
@@ -17,6 +18,13 @@ const DEP_FIELDS = [
   'optionalDependencies',
   'peerDependencies',
   'overrides',
+];
+
+const ROOT_SPEC_FIELDS = [
+  'dependencies',
+  'devDependencies',
+  'optionalDependencies',
+  'peerDependencies',
 ];
 
 const ALLOWED_REGISTRY_HOST = 'registry.npmjs.org';
@@ -86,7 +94,6 @@ function hasProtocol(spec) {
 }
 
 function isGithubShorthand(spec) {
-  // user/repo or user/repo#ref — not @scope/name and not a semver range
   if (spec.startsWith('@')) return false;
   if (spec.includes(':')) return false;
   return /^[^/\s]+\/[^/\s]+(?:#.*)?$/.test(spec);
@@ -138,43 +145,7 @@ function checkManifest(pkg, findings) {
     if (!Object.hasOwn(pkg, field)) continue;
     walkSpecs(pkg[field], `package.json:${field}`, findings);
   }
-}
-
-function workspacePatterns(pkg) {
-  const ws = pkg.workspaces;
-  if (!ws) return [];
-  if (Array.isArray(ws)) return ws.map(String);
-  if (ws && typeof ws === 'object' && Array.isArray(ws.packages)) {
-    return ws.packages.map(String);
-  }
-  return [];
-}
-
-function normalizeRel(p) {
-  return String(p).replaceAll('\\', '/').replace(/^\.\//, '');
-}
-
-function matchesWorkspacePattern(relPath, pattern) {
-  const path = normalizeRel(relPath);
-  const pat = normalizeRel(pattern);
-  if (path === pat) return true;
-  if (pat.endsWith('/**')) {
-    const prefix = pat.slice(0, -2);
-    return prefix === '' || path === prefix.slice(0, -1) || path.startsWith(prefix);
-  }
-  if (pat.endsWith('/*')) {
-    const prefix = pat.slice(0, -1);
-    if (!path.startsWith(prefix)) return false;
-    const rest = path.slice(prefix.length);
-    return rest.length > 0 && !rest.includes('/');
-  }
-  return false;
-}
-
-function isDeclaredWorkspacePath(resolved, patterns) {
-  if (typeof resolved !== 'string') return false;
-  if (hasProtocol(resolved)) return false;
-  return patterns.some((pattern) => matchesWorkspacePattern(resolved, pattern));
+  checkPublishConfig(pkg, findings);
 }
 
 function impliedNameFromLockKey(key) {
@@ -227,79 +198,86 @@ function isNpmjsResolved(resolved) {
   }
 }
 
-function checkLockfile(root, pkg, findings) {
-  const lockPath = join(root, 'package-lock.json');
-  if (!existsSync(lockPath)) {
-    failClosed(findings, 'package-lock.json', 'missing lockfile');
-    return;
+function isAbsoluteLike(p) {
+  const n = String(p).replaceAll('\\', '/');
+  return n.startsWith('/') || /^[A-Za-z]:/.test(n);
+}
+
+function hasDotDotSegment(p) {
+  return String(p).split(/[\\/]/).includes('..');
+}
+
+function pathStaysInsideRepo(root, relPath) {
+  if (typeof relPath !== 'string' || relPath.length === 0) return false;
+  if (hasProtocol(relPath)) return false;
+  const posix = relPath.replaceAll('\\', '/');
+  if (isAbsoluteLike(posix)) return false;
+  if (hasDotDotSegment(posix)) return false;
+  let rootReal;
+  try {
+    rootReal = realpathSync(root);
+  } catch {
+    rootReal = resolve(root);
   }
-  const parsed = parseJsonOrNull(readText(lockPath));
-  if (!parsed.ok) {
-    failClosed(findings, 'package-lock.json', 'parse error');
-    return;
+  const candidate = resolve(rootReal, posix);
+  const relToRoot = relative(rootReal, candidate);
+  if (relToRoot.startsWith('..') || isAbsolute(relToRoot)) return false;
+  try {
+    const real = realpathSync(candidate);
+    const relReal = relative(rootReal, real);
+    if (relReal.startsWith('..') || isAbsolute(relReal)) return false;
+  } catch {
+    // Path does not exist; the normalized path is already inside the root.
   }
-  const lock = parsed.value;
-  if (!lock || typeof lock !== 'object' || Array.isArray(lock)) {
-    failClosed(findings, 'package-lock.json', 'parse error');
-    return;
+  return true;
+}
+
+function isLocalWorkspaceRecord(root, key, entry) {
+  if (typeof entry.resolved === 'string' && hasProtocol(entry.resolved)) {
+    return false;
   }
-  if (typeof lock.lockfileVersion !== 'number' || lock.lockfileVersion < 2) {
-    failClosed(findings, 'package-lock.json', 'lockfileVersion < 2');
-    return;
+  if (entry.link === true) {
+    return pathStaysInsideRepo(root, entry.resolved);
   }
-  const packages = lock.packages;
-  if (!packages || typeof packages !== 'object' || Array.isArray(packages)) {
-    failClosed(findings, 'package-lock.json', 'parse error');
-    return;
+  if (!key.includes('node_modules/')) {
+    return pathStaysInsideRepo(root, key);
   }
+  return false;
+}
 
-  const declared = workspacePatterns(pkg);
-  const rootSpecFields = [
-    'dependencies',
-    'devDependencies',
-    'optionalDependencies',
-    'peerDependencies',
-  ];
-  for (const [key, entry] of Object.entries(packages)) {
-    const isRoot = key === '';
-    const lockKey = isRoot ? 'package-lock.json:(root)' : `package-lock.json:${key}`;
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-      failClosed(findings, lockKey, 'parse error');
-      continue;
-    }
+function parentLockKey(key) {
+  const marker = '/node_modules/';
+  const idx = key.lastIndexOf(marker);
+  if (idx <= 0) return null;
+  return key.slice(0, idx);
+}
 
-    if (isRoot) {
-      for (const field of rootSpecFields) {
-        if (!Object.hasOwn(entry, field)) continue;
-        walkSpecs(entry[field], `${lockKey}.${field}`, findings);
-      }
-      continue;
-    }
+function lockEntryKey(lockLabel, key) {
+  return key === '' ? `${lockLabel}:(root)` : `${lockLabel}:${key}`;
+}
 
-    const workspaceLink =
-      entry.link === true && isDeclaredWorkspacePath(entry.resolved, declared);
-
-    if (!workspaceLink) {
-      if (!isNpmjsResolved(entry.resolved)) {
-        findings.push({
-          code: 'F3',
-          key: lockKey,
-          reason: 'resolved is not https://registry.npmjs.org/',
-        });
-      }
-      if (typeof entry.integrity !== 'string' || entry.integrity.length === 0) {
-        findings.push({
-          code: 'F5',
-          key: lockKey,
-          reason: 'missing integrity',
-        });
-      }
-    }
-
-    if (workspaceLink) continue;
-
-    const implied = impliedNameFromLockKey(key);
-    if (!implied) continue;
+function baseRecordFindings(root, lockLabel, key, entry) {
+  const findings = [];
+  const lockKey = lockEntryKey(lockLabel, key);
+  if (isLocalWorkspaceRecord(root, key, entry)) {
+    return { workspace: true, findings };
+  }
+  if (!isNpmjsResolved(entry.resolved)) {
+    findings.push({
+      code: 'F3',
+      key: lockKey,
+      reason: 'resolved is not https://registry.npmjs.org/',
+    });
+  }
+  if (typeof entry.integrity !== 'string' || entry.integrity.length === 0) {
+    findings.push({
+      code: 'F5',
+      key: lockKey,
+      reason: 'missing integrity',
+    });
+  }
+  const implied = impliedNameFromLockKey(key);
+  if (implied) {
     if (
       typeof entry.name === 'string' &&
       entry.name.length > 0 &&
@@ -319,6 +297,108 @@ function checkLockfile(root, pkg, findings) {
       });
     }
   }
+  return { workspace: false, findings };
+}
+
+function checkLockObject(lock, lockLabel, root, findings) {
+  if (!lock || typeof lock !== 'object' || Array.isArray(lock)) {
+    failClosed(findings, lockLabel, 'parse error');
+    return;
+  }
+  if (typeof lock.lockfileVersion !== 'number' || lock.lockfileVersion < 2) {
+    failClosed(findings, lockLabel, 'lockfileVersion < 2');
+    return;
+  }
+  const packages = lock.packages;
+  if (!packages || typeof packages !== 'object' || Array.isArray(packages)) {
+    failClosed(findings, lockLabel, 'parse error');
+    return;
+  }
+
+  const bases = new Map();
+  for (const [key, entry] of Object.entries(packages)) {
+    const lockKey = lockEntryKey(lockLabel, key);
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      failClosed(findings, lockKey, 'parse error');
+      continue;
+    }
+    if (key === '') {
+      for (const field of ROOT_SPEC_FIELDS) {
+        if (!Object.hasOwn(entry, field)) continue;
+        walkSpecs(entry[field], `${lockKey}.${field}`, findings);
+      }
+      continue;
+    }
+    bases.set(key, {
+      entry,
+      ...baseRecordFindings(root, lockLabel, key, entry),
+    });
+  }
+
+  for (const [key, base] of bases) {
+    if (base.workspace) continue;
+    const bundled = base.entry.inBundle === true;
+    const parent = parentLockKey(key);
+    const parentBase = parent ? bases.get(parent) : undefined;
+    const parentClean = Boolean(parentBase && parentBase.findings.length === 0);
+    if (bundled && parentClean) {
+      for (const finding of base.findings) {
+        if (finding.code === 'F4') findings.push(finding);
+      }
+      continue;
+    }
+    findings.push(...base.findings);
+  }
+}
+
+function loadLockObject(path, label, findings) {
+  if (!existsSync(path)) return null;
+  const parsed = parseJsonOrNull(readText(path));
+  if (!parsed.ok) {
+    failClosed(findings, label, 'parse error');
+    return null;
+  }
+  return parsed.value;
+}
+
+function checkLockfiles(root, findings) {
+  const lockPath = join(root, 'package-lock.json');
+  const shrinkPath = join(root, 'npm-shrinkwrap.json');
+  const hasLock = existsSync(lockPath);
+  const hasShrink = existsSync(shrinkPath);
+  if (!hasLock && !hasShrink) {
+    failClosed(findings, 'package-lock.json', 'missing lockfile');
+    return;
+  }
+  if (hasLock && hasShrink) {
+    const lock = loadLockObject(lockPath, 'package-lock.json', findings);
+    const shrink = loadLockObject(shrinkPath, 'npm-shrinkwrap.json', findings);
+    if (!lock || !shrink) return;
+    if (!isDeepStrictEqual(lock, shrink)) {
+      failClosed(findings, 'npm-shrinkwrap.json', 'differs from package-lock.json');
+      return;
+    }
+    checkLockObject(lock, 'package-lock.json', root, findings);
+    return;
+  }
+  if (hasLock) {
+    const lock = loadLockObject(lockPath, 'package-lock.json', findings);
+    if (!lock) return;
+    checkLockObject(lock, 'package-lock.json', root, findings);
+    return;
+  }
+  const shrink = loadLockObject(shrinkPath, 'npm-shrinkwrap.json', findings);
+  if (!shrink) return;
+  checkLockObject(shrink, 'npm-shrinkwrap.json', root, findings);
+}
+
+function checkUncheckedAlternateLockfiles(root, findings) {
+  if (existsSync(join(root, 'pnpm-lock.yaml'))) {
+    failClosed(findings, 'pnpm-lock.yaml', 'present and not validated');
+  }
+  if (existsSync(join(root, 'yarn.lock'))) {
+    failClosed(findings, 'yarn.lock', 'present and not validated');
+  }
 }
 
 function isRegistryNpmrcKey(key) {
@@ -335,22 +415,44 @@ function stripQuotes(value) {
   return value;
 }
 
-function registryHostAllowed(value) {
-  const raw = stripQuotes(value).trim();
+function registryUrlAllowed(value) {
+  const raw = stripQuotes(String(value)).trim();
   if (!raw) return false;
-  const candidates = [];
-  candidates.push(raw);
-  if (raw.startsWith('//')) candidates.push(`https:${raw}`);
   try {
-    for (const candidate of candidates) {
-      const url = new URL(candidate);
-      if (url.username || url.password) return false;
-      if (url.hostname === ALLOWED_REGISTRY_HOST) return true;
-    }
+    const url = new URL(raw);
+    if (url.username || url.password) return false;
+    if (url.protocol !== 'https:') return false;
+    return url.hostname === ALLOWED_REGISTRY_HOST;
   } catch {
     return false;
   }
-  return false;
+}
+
+function registryRejectReason(value) {
+  try {
+    const url = new URL(stripQuotes(String(value)).trim());
+    if (url.hostname === ALLOWED_REGISTRY_HOST && url.protocol !== 'https:') {
+      return 'registry is not https://registry.npmjs.org';
+    }
+  } catch {
+    // ignore parse errors; never print the value
+  }
+  return 'registry host is not registry.npmjs.org';
+}
+
+function checkPublishConfig(pkg, findings) {
+  const pc = pkg.publishConfig;
+  if (!pc || typeof pc !== 'object' || Array.isArray(pc)) return;
+  for (const [key, value] of Object.entries(pc)) {
+    if (!isRegistryNpmrcKey(key)) continue;
+    if (typeof value !== 'string' || !registryUrlAllowed(value)) {
+      findings.push({
+        code: 'F6',
+        key: `package.json:publishConfig.${key}`,
+        reason: registryRejectReason(value),
+      });
+    }
+  }
 }
 
 function checkNpmrc(root, findings) {
@@ -366,11 +468,11 @@ function checkNpmrc(root, findings) {
     const key = raw.slice(0, eq).trim();
     const value = raw.slice(eq + 1).trim();
     if (!isRegistryNpmrcKey(key)) continue;
-    if (!registryHostAllowed(value)) {
+    if (!registryUrlAllowed(value)) {
       findings.push({
         code: 'F6',
         key: `.npmrc ${key}`,
-        reason: 'registry host is not registry.npmjs.org',
+        reason: registryRejectReason(value),
       });
     }
   }
@@ -387,8 +489,7 @@ function run(root) {
   const pkgPath = join(root, 'package.json');
   if (!existsSync(pkgPath)) {
     failClosed(findings, 'package.json', 'missing package.json');
-    const allowlist = [];
-    printAllowlist(allowlist);
+    printAllowlist([]);
     for (const finding of findings) printFinding('FAIL', finding);
     return 1;
   }
@@ -408,8 +509,9 @@ function run(root) {
     allowlist.map(allowlistKey).filter((key) => typeof key === 'string'),
   );
 
+  checkUncheckedAlternateLockfiles(root, findings);
   checkManifest(pkg, findings);
-  checkLockfile(root, pkg, findings);
+  checkLockfiles(root, findings);
   checkNpmrc(root, findings);
 
   let failed = 0;
