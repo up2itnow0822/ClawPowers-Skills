@@ -281,6 +281,35 @@ mod native_store {
             )?;
             Ok(affected > 0)
         }
+
+        /// Export all non-deleted records as JSON.
+        ///
+        /// Shared with the WASM backend so workspace feature unification
+        /// (`native` + `wasm`) still exposes the IndexedDB persistence API.
+        pub fn export_json(&self) -> Result<String> {
+            let mut stmt = self.conn.prepare(
+                "SELECT id, namespace, content, content_hash, embedding, metadata,
+                        created_at, provenance
+                 FROM   canonical_records
+                 WHERE  deleted_at IS NULL",
+            )?;
+            let rows = stmt.query_map([], row_to_record)?;
+            let records = rows
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(|e| CanonicalError::Database(e.to_string()))?;
+            Ok(serde_json::to_string(&records)?)
+        }
+
+        /// Import records from JSON. Duplicates are skipped, matching the WASM backend.
+        pub fn import_json(&self, json: &str) -> Result<usize> {
+            let records: Vec<CanonicalRecord> = serde_json::from_str(json)?;
+            let count = records.len();
+            for record in &records {
+                // Skip duplicates silently during import
+                let _ = self.insert(record);
+            }
+            Ok(count)
+        }
     }
 
     fn row_to_record(row: &rusqlite::Row<'_>) -> rusqlite::Result<CanonicalRecord> {
@@ -673,5 +702,47 @@ mod tests {
         let fetched = store.get(&id).expect("get").expect("present");
         assert_eq!(fetched.metadata["ttl_seconds"], 3600);
         assert_eq!(fetched.metadata["source"], "agent-x");
+    }
+
+    #[test]
+    fn test_export_import_json_roundtrip() {
+        let store = make_store();
+        let rec = simple_record("ns", "json export content");
+        let id = store.insert(&rec).expect("insert");
+        let json = store.export_json().expect("export_json");
+        let exported: Vec<CanonicalRecord> =
+            serde_json::from_str(&json).expect("parse export json");
+        assert_eq!(exported.len(), 1);
+        assert_eq!(exported[0].id, id);
+
+        let dest = make_store();
+        let imported = dest.import_json(&json).expect("import_json");
+        assert_eq!(imported, 1);
+        let fetched = dest.get(&id).expect("get").expect("present");
+        assert_eq!(fetched.content, "json export content");
+    }
+
+    #[test]
+    fn test_export_json_omits_soft_deleted() {
+        let store = make_store();
+        let rec = simple_record("ns", "soon deleted");
+        let id = store.insert(&rec).expect("insert");
+        store.soft_delete(&id).expect("soft_delete");
+        let json = store.export_json().expect("export_json");
+        let exported: Vec<CanonicalRecord> =
+            serde_json::from_str(&json).expect("parse export json");
+        assert!(exported.is_empty());
+    }
+
+    #[test]
+    fn test_import_json_skips_duplicates() {
+        let store = make_store();
+        let rec = simple_record("ns", "duplicate import");
+        store.insert(&rec).expect("insert");
+        let json = store.export_json().expect("export_json");
+        let imported = store.import_json(&json).expect("import_json");
+        assert_eq!(imported, 1);
+        let remaining = store.query_namespace("ns", 10).expect("query");
+        assert_eq!(remaining.len(), 1);
     }
 }
