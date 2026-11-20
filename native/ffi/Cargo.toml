@@ -29,6 +29,6 @@ clawpowers-verification = { path = "../crates/verification" }
 clawpowers-security = { path = "../crates/security" }
 
 [build-dependencies]
-napi-build = "2"
+napi-build = "2.6"
 
 [dev-dependencies]
