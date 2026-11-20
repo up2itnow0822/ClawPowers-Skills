@@ -460,7 +460,7 @@ function checkUncheckedAlternateLockfiles(root, findings) {
 }
 
 function isRegistryNpmrcKey(key) {
-  return key === 'registry' || key.endsWith(':registry');
+  return typeof key === 'string' && (key === 'registry' || key.endsWith(':registry'));
 }
 
 function stripQuotes(value) {
@@ -473,16 +473,90 @@ function stripQuotes(value) {
   return value;
 }
 
-function unquoteIniKey(raw) {
-  const trimmed = String(raw).trim();
-  if (trimmed.startsWith('"') || trimmed.startsWith("'")) {
-    const quote = trimmed[0];
-    if (trimmed.length >= 2 && trimmed.endsWith(quote)) {
-      return { ok: true, key: trimmed.slice(1, -1) };
+const NPMRC_KEY_ALLOWED = /^[A-Za-z0-9@:._/~+-]+$/;
+const NPMRC_LINE_RE = /^\[([^\]]*)\]\s*$|^([^=]+)(=(.*))?$/i;
+
+function isQuotedIni(val) {
+  return (
+    (val.startsWith('"') && val.endsWith('"')) ||
+    (val.startsWith("'") && val.endsWith("'"))
+  );
+}
+
+/** npm `ini` unsafe(): quotes/JSON, then \\ \; \# and unescaped comment cuts. */
+function iniUnsafe(val) {
+  val = String(val ?? '').trim();
+  if (isQuotedIni(val)) {
+    if (val.charAt(0) === "'") {
+      val = val.slice(1, -1);
     }
-    return { ok: false, key: trimmed };
+    try {
+      val = JSON.parse(val);
+    } catch {
+      // keep raw text
+    }
+    return val;
   }
-  return { ok: true, key: trimmed };
+  let esc = false;
+  let unesc = '';
+  for (let i = 0; i < val.length; i += 1) {
+    const c = val.charAt(i);
+    if (esc) {
+      if ('\\;#'.includes(c)) {
+        unesc += c;
+      } else {
+        unesc += `\\${c}`;
+      }
+      esc = false;
+    } else if (';#'.includes(c)) {
+      break;
+    } else if (c === '\\') {
+      esc = true;
+    } else {
+      unesc += c;
+    }
+  }
+  if (esc) {
+    unesc += '\\';
+  }
+  return unesc.trim();
+}
+
+/**
+ * npm-ini line parser: split on /[\r\n]+/, skip comments/blank/sections,
+ * decode keys and values with unsafe().
+ * @returns {{ key: unknown, value: unknown, rawLine: string }[]}
+ */
+function parseNpmrc(text) {
+  const entries = [];
+  const lines = String(text).split(/[\r\n]+/);
+  for (const rawLine of lines) {
+    if (!rawLine || /^\s*[;#]/.test(rawLine) || /^\s*$/.test(rawLine)) {
+      continue;
+    }
+    const match = rawLine.match(NPMRC_LINE_RE);
+    if (!match) continue;
+    if (match[1] !== undefined) continue;
+    const key = iniUnsafe(match[2]);
+    const valueRaw = match[3] ? iniUnsafe(match[4]) : true;
+    const value =
+      valueRaw === 'true' || valueRaw === 'false' || valueRaw === 'null'
+        ? JSON.parse(valueRaw)
+        : valueRaw;
+    entries.push({ key, value, rawLine });
+  }
+  return entries;
+}
+
+function npmrcKeyDisallowed(key) {
+  if (typeof key !== 'string' || key.length === 0) return true;
+  if (key.includes('${')) return true;
+  return !NPMRC_KEY_ALLOWED.test(key);
+}
+
+function npmrcValueDisallowed(value) {
+  if (typeof value !== 'string') return true;
+  return value.includes('${') || /[\\;#]/.test(value);
 }
 
 function registryUrlAllowed(value) {
@@ -500,7 +574,7 @@ function registryUrlAllowed(value) {
 
 function registryRejectReason(value) {
   try {
-    const url = new URL(stripQuotes(String(value)).trim());
+    const url = new URL(stripQuotes(String(value ?? '')).trim());
     if (url.hostname === ALLOWED_REGISTRY_HOST && url.protocol !== 'https:') {
       return 'registry is not https://registry.npmjs.org';
     }
@@ -528,22 +602,15 @@ function checkPublishConfig(pkg, findings) {
 function checkNpmrc(root, findings) {
   const npmrcPath = join(root, '.npmrc');
   if (!existsSync(npmrcPath)) return;
-  const text = readText(npmrcPath);
-  const lines = text.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i += 1) {
-    const raw = lines[i].trim();
-    if (!raw || raw.startsWith('#') || raw.startsWith(';')) continue;
-    const eq = raw.indexOf('=');
-    if (eq === -1) continue;
-    const parsedKey = unquoteIniKey(raw.slice(0, eq));
-    if (!parsedKey.ok) {
-      failClosed(findings, `.npmrc ${parsedKey.key}`, 'quoted key cannot be parsed');
+  const entries = parseNpmrc(readText(npmrcPath));
+  for (const { key, value } of entries) {
+    if (npmrcKeyDisallowed(key)) {
+      const label = typeof key === 'string' && key.length > 0 ? key : '(key)';
+      failClosed(findings, `.npmrc ${label}`, 'npmrc key is not allowed');
       continue;
     }
-    const key = parsedKey.key;
-    const value = raw.slice(eq + 1).trim();
     if (!isRegistryNpmrcKey(key)) continue;
-    if (!registryUrlAllowed(value)) {
+    if (npmrcValueDisallowed(value) || !registryUrlAllowed(value)) {
       findings.push({
         code: 'F6',
         key: `.npmrc ${key}`,

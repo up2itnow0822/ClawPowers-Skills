@@ -333,3 +333,85 @@ test('e2 inBundle git under link parent FAIL', () => {
   ]);
   process.stdout.write(`e2 FAIL ${result.out}`);
 });
+
+test('b1-cr-only-lines CR line break FAIL', () => {
+  const result = assertFail('b1-cr-only-lines', join(fixtures, 'b1-cr-only-lines'), [
+    /FAIL F6 \.npmrc registry/,
+  ]);
+  process.stdout.write(`b1-cr-only-lines FAIL ${result.out}`);
+});
+
+test('b1-env-optional-key FAIL F7', () => {
+  const result = assertFail('b1-env-optional-key', join(fixtures, 'b1-env-optional-key'), [
+    /FAIL F7 \.npmrc/,
+  ]);
+  process.stdout.write(`b1-env-optional-key FAIL ${result.out}`);
+});
+
+test('b1-env-optional-scoped FAIL F7', () => {
+  const result = assertFail('b1-env-optional-scoped', join(fixtures, 'b1-env-optional-scoped'), [
+    /FAIL F7 \.npmrc/,
+  ]);
+  process.stdout.write(`b1-env-optional-scoped FAIL ${result.out}`);
+});
+
+test('b1-json-unicode-escape FAIL F6', () => {
+  const result = assertFail('b1-json-unicode-escape', join(fixtures, 'b1-json-unicode-escape'), [
+    /FAIL F6 \.npmrc registry/,
+  ]);
+  process.stdout.write(`b1-json-unicode-escape FAIL ${result.out}`);
+});
+
+test('b1-json-unicode-scoped FAIL F6', () => {
+  const result = assertFail('b1-json-unicode-scoped', join(fixtures, 'b1-json-unicode-scoped'), [
+    /FAIL F6 \.npmrc @foo:registry/,
+  ]);
+  process.stdout.write(`b1-json-unicode-scoped FAIL ${result.out}`);
+});
+
+test('b1-key-hash-comment FAIL F6', () => {
+  const result = assertFail('b1-key-hash-comment', join(fixtures, 'b1-key-hash-comment'), [
+    /FAIL F6 \.npmrc registry/,
+  ]);
+  process.stdout.write(`b1-key-hash-comment FAIL ${result.out}`);
+});
+
+test('b1-key-semicolon-comment FAIL F6', () => {
+  const result = assertFail('b1-key-semicolon-comment', join(fixtures, 'b1-key-semicolon-comment'), [
+    /FAIL F6 \.npmrc registry/,
+  ]);
+  process.stdout.write(`b1-key-semicolon-comment FAIL ${result.out}`);
+});
+
+test('b1-scoped-key-hash-comment FAIL F6', () => {
+  const result = assertFail('b1-scoped-key-hash-comment', join(fixtures, 'b1-scoped-key-hash-comment'), [
+    /FAIL F6 \.npmrc @foo:registry/,
+  ]);
+  process.stdout.write(`b1-scoped-key-hash-comment FAIL ${result.out}`);
+});
+
+test('v1-value-escaped-semicolon-userinfo FAIL F6', () => {
+  const result = assertFail('v1-value-escaped-semicolon-userinfo', join(fixtures, 'v1-value-escaped-semicolon-userinfo'), [
+    /FAIL F6 \.npmrc registry/,
+  ]);
+  process.stdout.write(`v1-value-escaped-semicolon-userinfo FAIL ${result.out}`);
+});
+
+test('v5-scoped-escaped-semicolon FAIL F6', () => {
+  const result = assertFail('v5-scoped-escaped-semicolon', join(fixtures, 'v5-scoped-escaped-semicolon'), [
+    /FAIL F6 \.npmrc @foo:registry/,
+  ]);
+  process.stdout.write(`v5-scoped-escaped-semicolon FAIL ${result.out}`);
+});
+
+test('v6-value-dq-json-escape FAIL F6', () => {
+  const result = assertFail('v6-value-dq-json-escape', join(fixtures, 'v6-value-dq-json-escape'), [
+    /FAIL F6 \.npmrc registry/,
+  ]);
+  process.stdout.write(`v6-value-dq-json-escape FAIL ${result.out}`);
+});
+
+test('b1-clean-npmrc allowed registry, auth token, trailing comment PASS', () => {
+  const result = assertPass('b1-clean-npmrc', join(fixtures, 'b1-clean-npmrc'));
+  process.stdout.write(`b1-clean-npmrc PASS ${result.out}`);
+});
