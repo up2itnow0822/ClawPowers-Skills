@@ -597,6 +597,34 @@ function npmrcDeniedPolicyKey(key, value) {
   return null;
 }
 
+const NPMRC_ALLOWED_FLAGS = new Set([
+  'always-auth',
+  'strict-ssl',
+  'save-exact',
+  'engine-strict',
+  'fund',
+  'audit',
+  'legacy-peer-deps',
+  'auto-install-peers',
+  'package-lock',
+  'save-prefix',
+  'loglevel',
+  'progress',
+]);
+
+const NPMRC_SCOPED_REGISTRY = /^@[a-z0-9_.~-]+:registry$/;
+const NPMRC_HOST_AUTH =
+  /^\/\/[^/]+\/:(_authtoken|_auth|username|_password|always-auth)$/;
+
+function isNpmrcKeyAllowed(key) {
+  if (typeof key !== 'string') return false;
+  const lower = key.toLowerCase();
+  if (lower === 'registry') return true;
+  if (NPMRC_SCOPED_REGISTRY.test(lower)) return true;
+  if (NPMRC_HOST_AUTH.test(lower)) return true;
+  return NPMRC_ALLOWED_FLAGS.has(lower);
+}
+
 function registryUrlAllowed(value) {
   const raw = stripQuotes(String(value)).trim();
   if (!raw) return false;
@@ -650,6 +678,10 @@ function checkNpmrc(root, findings) {
     const denied = npmrcDeniedPolicyKey(key, value);
     if (denied) {
       failClosed(findings, `.npmrc ${key}`, `denied npmrc key ${denied}`);
+      continue;
+    }
+    if (!isNpmrcKeyAllowed(key)) {
+      failClosed(findings, `.npmrc ${key}`, 'npmrc key is not allowed');
       continue;
     }
     if (!isRegistryNpmrcKey(key)) continue;

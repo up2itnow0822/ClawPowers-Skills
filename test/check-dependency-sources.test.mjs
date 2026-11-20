@@ -436,3 +436,43 @@ test('c25-replace-registry-host FAIL F7', () => {
   ]);
   process.stdout.write(`c25-replace-registry-host FAIL ${result.out}`);
 });
+
+test('d44-cache-indirect FAIL F7', () => {
+  const result = assertFail('d44-cache-indirect', join(fixtures, 'd44-cache-indirect'), [
+    /FAIL F7 \.npmrc cache/,
+  ]);
+  process.stdout.write(`d44-cache-indirect FAIL ${result.out}`);
+});
+
+test('d-script-shell FAIL F7', () => {
+  const result = assertFail('d-script-shell', join(fixtures, 'd-script-shell'), [
+    /FAIL F7 \.npmrc script-shell/,
+  ]);
+  process.stdout.write(`d-script-shell FAIL ${result.out}`);
+});
+
+test('d-node-options FAIL F7', () => {
+  const result = assertFail('d-node-options', join(fixtures, 'd-node-options'), [
+    /FAIL F7 \.npmrc node-options/,
+  ]);
+  process.stdout.write(`d-node-options FAIL ${result.out}`);
+});
+
+test('d-git FAIL F7', () => {
+  const result = assertFail('d-git', join(fixtures, 'd-git'), [
+    /FAIL F7 \.npmrc git/,
+  ]);
+  process.stdout.write(`d-git FAIL ${result.out}`);
+});
+
+test('d-unknown-key FAIL F7', () => {
+  const result = assertFail('d-unknown-key', join(fixtures, 'd-unknown-key'), [
+    /FAIL F7 \.npmrc foo-bar/,
+  ]);
+  process.stdout.write(`d-unknown-key FAIL ${result.out}`);
+});
+
+test('d-legit-config PASS', () => {
+  const result = assertPass('d-legit-config', join(fixtures, 'd-legit-config'));
+  process.stdout.write(`d-legit-config PASS ${result.out}`);
+});
