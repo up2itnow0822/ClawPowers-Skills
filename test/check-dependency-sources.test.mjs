@@ -273,3 +273,63 @@ test('c5-inbundle-bad-parent FAIL', () => {
   ]);
   process.stdout.write(`c5-inbundle-bad-parent FAIL ${result.out}`);
 });
+
+test('n8 quoted .npmrc registry key FAIL F6', () => {
+  const result = assertFail('n8', join(fixtures, 'n8-quoted-registry'), [
+    /FAIL F6 \.npmrc registry/,
+  ]);
+  process.stdout.write(`n8 FAIL ${result.out}`);
+});
+
+test('n13 quoted .npmrc scoped registry key FAIL F6', () => {
+  const result = assertFail('n13', join(fixtures, 'n13-quoted-scoped-registry'), [
+    /FAIL F6 \.npmrc @foo:registry/,
+  ]);
+  process.stdout.write(`n13 FAIL ${result.out}`);
+});
+
+test('d1 lock key ../outside FAIL F8', () => {
+  const result = assertFail('d1', join(fixtures, 'd1-dotdot-outside'), [
+    /FAIL F8 package-lock\.json:\.\.\/outside/,
+    /path escapes repo root/,
+  ]);
+  process.stdout.write(`d1 FAIL ${result.out}`);
+});
+
+test('d2 lock key /tmp/outside FAIL F8', () => {
+  const result = assertFail('d2', join(fixtures, 'd2-abs-outside'), [
+    /FAIL F8 package-lock\.json:\/tmp\/outside/,
+    /path escapes repo root/,
+  ]);
+  process.stdout.write(`d2 FAIL ${result.out}`);
+});
+
+test('d6 packages/a symlink out FAIL F8', () => {
+  const result = assertFail('d6', join(fixtures, 'd6-symlink-out'), [
+    /FAIL F8 package-lock\.json:packages\/a/,
+    /path escapes repo root/,
+  ]);
+  process.stdout.write(`d6 FAIL ${result.out}`);
+});
+
+test('d10 folder resolved ../../evil FAIL F8', () => {
+  const result = assertFail('d10', join(fixtures, 'd10-folder-resolved-escape'), [
+    /FAIL F8 package-lock\.json:packages\/a/,
+    /path escapes repo root/,
+  ]);
+  process.stdout.write(`d10 FAIL ${result.out}`);
+});
+
+test('e1 inBundle git under workspace parent FAIL', () => {
+  const result = assertFail('e1', join(fixtures, 'e1-inbundle-under-workspace'), [
+    /FAIL F3 package-lock\.json:packages\/a\/node_modules\/evil/,
+  ]);
+  process.stdout.write(`e1 FAIL ${result.out}`);
+});
+
+test('e2 inBundle git under link parent FAIL', () => {
+  const result = assertFail('e2', join(fixtures, 'e2-inbundle-under-link'), [
+    /FAIL F3 package-lock\.json:node_modules\/a\/node_modules\/evil/,
+  ]);
+  process.stdout.write(`e2 FAIL ${result.out}`);
+});

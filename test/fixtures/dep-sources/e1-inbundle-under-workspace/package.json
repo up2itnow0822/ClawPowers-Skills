@@ -1,0 +1,8 @@
+{
+  "name": "e1-inbundle-under-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "packages/*"
+  ]
+}

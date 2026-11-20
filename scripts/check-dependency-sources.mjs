@@ -7,8 +7,8 @@
  *
  * Usage: node scripts/check-dependency-sources.mjs [rootDir]
  */
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { existsSync, lstatSync, readFileSync, readlinkSync, realpathSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
@@ -207,6 +207,11 @@ function hasDotDotSegment(p) {
   return String(p).split(/[\\/]/).includes('..');
 }
 
+function staysInsideRoot(rootReal, absPath) {
+  const relToRoot = relative(rootReal, absPath);
+  return !(relToRoot.startsWith('..') || isAbsolute(relToRoot));
+}
+
 function pathStaysInsideRepo(root, relPath) {
   if (typeof relPath !== 'string' || relPath.length === 0) return false;
   if (hasProtocol(relPath)) return false;
@@ -220,16 +225,65 @@ function pathStaysInsideRepo(root, relPath) {
     rootReal = resolve(root);
   }
   const candidate = resolve(rootReal, posix);
-  const relToRoot = relative(rootReal, candidate);
-  if (relToRoot.startsWith('..') || isAbsolute(relToRoot)) return false;
+  if (!staysInsideRoot(rootReal, candidate)) return false;
   try {
+    const st = lstatSync(candidate);
+    if (st.isSymbolicLink()) {
+      try {
+        const real = realpathSync(candidate);
+        return staysInsideRoot(rootReal, real);
+      } catch {
+        let target;
+        try {
+          target = String(readlinkSync(candidate)).replaceAll('\\', '/');
+        } catch {
+          return false;
+        }
+        if (hasProtocol(target) || isAbsoluteLike(target) || hasDotDotSegment(target)) {
+          return false;
+        }
+        return staysInsideRoot(rootReal, resolve(dirname(candidate), target));
+      }
+    }
     const real = realpathSync(candidate);
-    const relReal = relative(rootReal, real);
-    if (relReal.startsWith('..') || isAbsolute(relReal)) return false;
+    return staysInsideRoot(rootReal, real);
   } catch {
     // Path does not exist; the normalized path is already inside the root.
   }
   return true;
+}
+
+function pushPathEscape(findings, lockKey) {
+  if (findings.some((finding) => finding.code === 'F8' && finding.key === lockKey)) {
+    return;
+  }
+  findings.push({
+    code: 'F8',
+    key: lockKey,
+    reason: 'path escapes repo root',
+  });
+}
+
+function collectPathEscapeFindings(root, lockLabel, key, entry) {
+  const findings = [];
+  const lockKey = lockEntryKey(lockLabel, key);
+  const folderRecord = !key.includes('node_modules/');
+  if (folderRecord && !pathStaysInsideRepo(root, key)) {
+    pushPathEscape(findings, lockKey);
+  }
+  if (entry.link === true) {
+    if (typeof entry.resolved !== 'string' || !pathStaysInsideRepo(root, entry.resolved)) {
+      pushPathEscape(findings, lockKey);
+    }
+  }
+  if (folderRecord && typeof entry.resolved === 'string' && entry.resolved.length > 0) {
+    const inRepoPath =
+      !hasProtocol(entry.resolved) && pathStaysInsideRepo(root, entry.resolved);
+    if (!inRepoPath) {
+      pushPathEscape(findings, lockKey);
+    }
+  }
+  return findings;
 }
 
 function isLocalWorkspaceRecord(root, key, entry) {
@@ -257,9 +311,9 @@ function lockEntryKey(lockLabel, key) {
 }
 
 function baseRecordFindings(root, lockLabel, key, entry) {
-  const findings = [];
+  const findings = collectPathEscapeFindings(root, lockLabel, key, entry);
   const lockKey = lockEntryKey(lockLabel, key);
-  if (isLocalWorkspaceRecord(root, key, entry)) {
+  if (findings.length === 0 && isLocalWorkspaceRecord(root, key, entry)) {
     return { workspace: true, findings };
   }
   if (!isNpmjsResolved(entry.resolved)) {
@@ -340,8 +394,12 @@ function checkLockObject(lock, lockLabel, root, findings) {
     const bundled = base.entry.inBundle === true;
     const parent = parentLockKey(key);
     const parentBase = parent ? bases.get(parent) : undefined;
-    const parentClean = Boolean(parentBase && parentBase.findings.length === 0);
-    if (bundled && parentClean) {
+    const parentAllowsInBundle =
+      Boolean(parentBase) &&
+      parentBase.workspace === false &&
+      parentBase.entry.link !== true &&
+      parentBase.findings.length === 0;
+    if (bundled && parentAllowsInBundle) {
       for (const finding of base.findings) {
         if (finding.code === 'F4') findings.push(finding);
       }
@@ -402,7 +460,7 @@ function checkUncheckedAlternateLockfiles(root, findings) {
 }
 
 function isRegistryNpmrcKey(key) {
-  return key === 'registry' || /^@[A-Za-z0-9_.~-]+:registry$/.test(key);
+  return key === 'registry' || key.endsWith(':registry');
 }
 
 function stripQuotes(value) {
@@ -413,6 +471,18 @@ function stripQuotes(value) {
     return value.slice(1, -1);
   }
   return value;
+}
+
+function unquoteIniKey(raw) {
+  const trimmed = String(raw).trim();
+  if (trimmed.startsWith('"') || trimmed.startsWith("'")) {
+    const quote = trimmed[0];
+    if (trimmed.length >= 2 && trimmed.endsWith(quote)) {
+      return { ok: true, key: trimmed.slice(1, -1) };
+    }
+    return { ok: false, key: trimmed };
+  }
+  return { ok: true, key: trimmed };
 }
 
 function registryUrlAllowed(value) {
@@ -465,7 +535,12 @@ function checkNpmrc(root, findings) {
     if (!raw || raw.startsWith('#') || raw.startsWith(';')) continue;
     const eq = raw.indexOf('=');
     if (eq === -1) continue;
-    const key = raw.slice(0, eq).trim();
+    const parsedKey = unquoteIniKey(raw.slice(0, eq));
+    if (!parsedKey.ok) {
+      failClosed(findings, `.npmrc ${parsedKey.key}`, 'quoted key cannot be parsed');
+      continue;
+    }
+    const key = parsedKey.key;
     const value = raw.slice(eq + 1).trim();
     if (!isRegistryNpmrcKey(key)) continue;
     if (!registryUrlAllowed(value)) {
