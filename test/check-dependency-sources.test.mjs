@@ -415,3 +415,24 @@ test('b1-clean-npmrc allowed registry, auth token, trailing comment PASS', () =>
   const result = assertPass('b1-clean-npmrc', join(fixtures, 'b1-clean-npmrc'));
   process.stdout.write(`b1-clean-npmrc PASS ${result.out}`);
 });
+
+test('c1-userconfig-indirect FAIL F7', () => {
+  const result = assertFail('c1-userconfig-indirect', join(fixtures, 'c1-userconfig-indirect'), [
+    /FAIL F7 \.npmrc userconfig/,
+  ]);
+  process.stdout.write(`c1-userconfig-indirect FAIL ${result.out}`);
+});
+
+test('c2-globalconfig-indirect FAIL F7', () => {
+  const result = assertFail('c2-globalconfig-indirect', join(fixtures, 'c2-globalconfig-indirect'), [
+    /FAIL F7 \.npmrc globalconfig/,
+  ]);
+  process.stdout.write(`c2-globalconfig-indirect FAIL ${result.out}`);
+});
+
+test('c25-replace-registry-host FAIL F7', () => {
+  const result = assertFail('c25-replace-registry-host', join(fixtures, 'c25-replace-registry-host'), [
+    /FAIL F7 \.npmrc replace-registry-host/,
+  ]);
+  process.stdout.write(`c25-replace-registry-host FAIL ${result.out}`);
+});

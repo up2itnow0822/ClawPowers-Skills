@@ -559,6 +559,44 @@ function npmrcValueDisallowed(value) {
   return value.includes('${') || /[\\;#]/.test(value);
 }
 
+const NPMRC_DENIED_KEYS = new Set([
+  'userconfig',
+  'globalconfig',
+  'replace-registry-host',
+  'proxy',
+  'https-proxy',
+  'noproxy',
+  'cafile',
+  'ca',
+  'globalignorefile',
+  'prefix',
+]);
+
+function npmrcKeyAliases(key) {
+  const lower = String(key).toLowerCase();
+  const colon = lower.lastIndexOf(':');
+  const scoped = colon === -1 ? lower : lower.slice(colon + 1);
+  return { lower, scoped };
+}
+
+function isFalseNpmrcValue(value) {
+  if (value === false) return true;
+  if (typeof value === 'string' && value.trim().toLowerCase() === 'false') return true;
+  return false;
+}
+
+/** F7 denylist: userconfig/globalconfig and A4 redirect/TLS keys. */
+function npmrcDeniedPolicyKey(key, value) {
+  if (typeof key !== 'string') return null;
+  const { lower, scoped } = npmrcKeyAliases(key);
+  const names = lower === scoped ? [lower] : [lower, scoped];
+  for (const name of names) {
+    if (NPMRC_DENIED_KEYS.has(name)) return name;
+    if (name === 'strict-ssl' && isFalseNpmrcValue(value)) return name;
+  }
+  return null;
+}
+
 function registryUrlAllowed(value) {
   const raw = stripQuotes(String(value)).trim();
   if (!raw) return false;
@@ -607,6 +645,11 @@ function checkNpmrc(root, findings) {
     if (npmrcKeyDisallowed(key)) {
       const label = typeof key === 'string' && key.length > 0 ? key : '(key)';
       failClosed(findings, `.npmrc ${label}`, 'npmrc key is not allowed');
+      continue;
+    }
+    const denied = npmrcDeniedPolicyKey(key, value);
+    if (denied) {
+      failClosed(findings, `.npmrc ${key}`, `denied npmrc key ${denied}`);
       continue;
     }
     if (!isRegistryNpmrcKey(key)) continue;
