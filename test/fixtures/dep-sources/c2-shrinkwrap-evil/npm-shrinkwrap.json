@@ -1,0 +1,16 @@
+{
+  "name": "c2-shrinkwrap-evil",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "c2-shrinkwrap-evil",
+      "version": "1.0.0"
+    },
+    "node_modules/foo": {
+      "version": "1.0.0",
+      "resolved": "https://evil.example/foo-1.0.0.tgz",
+      "integrity": "sha512-47DEQpj8HBSa+/TImW+5JCeuQeRkgdO72Gw01BbgLL7lvh2xcrHxCwxP3Ew=="
+    }
+  }
+}

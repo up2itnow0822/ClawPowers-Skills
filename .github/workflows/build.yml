@@ -25,6 +25,15 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Check dependency sources
+        run: node scripts/check-dependency-sources.mjs
+
+      - name: Security
+        run: npm run security
+
+      - name: Test dependency source fixtures
+        run: node --test test/check-dependency-sources.test.mjs
+
       - name: Detect toolchain and build
         shell: bash
         run: |
@@ -37,18 +46,17 @@ jobs:
 
           if [ -f package.json ]; then
             echo "Detected Node.js $(node -v)"
-            if [ -f pnpm-lock.yaml ]; then
-              corepack enable
-              pnpm install --frozen-lockfile || pnpm install
-              RUN="pnpm run"
-            elif [ -f yarn.lock ]; then
-              corepack enable
-              yarn install --frozen-lockfile || yarn install
-              RUN="yarn"
-            else
-              if [ -f package-lock.json ]; then npm ci || npm install; else npm install; fi
-              RUN="npm run"
+            node scripts/check-dependency-sources.mjs
+            if [ -f pnpm-lock.yaml ] || [ -f yarn.lock ]; then
+              echo "pnpm-lock.yaml or yarn.lock is present and not validated"
+              exit 1
             fi
+            if [ ! -f package-lock.json ] && [ ! -f npm-shrinkwrap.json ]; then
+              echo "package-lock.json required; no fallback install"
+              exit 1
+            fi
+            npm ci
+            RUN="npm run"
 
             if [ -f hardhat.config.js ] || [ -f hardhat.config.ts ] || [ -f hardhat.config.cjs ]; then
               echo "Hardhat project — compile"

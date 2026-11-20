@@ -1,0 +1,8 @@
+{
+  "name": "t3-devdep-npm-alias",
+  "private": true,
+  "version": "0.0.0",
+  "devDependencies": {
+    "foo": "npm:bar@1"
+  }
+}

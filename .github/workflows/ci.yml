@@ -17,10 +17,19 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
+      - name: Check dependency sources
+        run: node scripts/check-dependency-sources.mjs
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Install wasm-pack
         run: cargo install wasm-pack --locked
+      - name: Reject unchecked alternate lockfiles
+        run: |
+          set -euo pipefail
+          if [ -f pnpm-lock.yaml ] || [ -f yarn.lock ]; then
+            echo "pnpm-lock.yaml or yarn.lock is present and not validated"
+            exit 1
+          fi
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck

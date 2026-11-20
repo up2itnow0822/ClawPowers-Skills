@@ -1,0 +1,8 @@
+{
+  "name": "t4-tarball",
+  "private": true,
+  "version": "0.0.0",
+  "dependencies": {
+    "foo": "https://example.com/foo-1.0.0.tgz"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "c2-shrinkwrap-only-clean",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "c2-shrinkwrap-only-clean",
+      "version": "1.0.0"
+    }
+  }
+}

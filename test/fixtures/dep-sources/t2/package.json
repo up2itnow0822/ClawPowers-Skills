@@ -1,0 +1,10 @@
+{
+  "name": "t2-nested-override-npm-alias",
+  "private": true,
+  "version": "0.0.0",
+  "overrides": {
+    "vitest": {
+      "picomatch": "npm:x@1"
+    }
+  }
+}
