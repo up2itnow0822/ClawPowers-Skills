@@ -4,9 +4,15 @@ All notable changes to ClawPowers are documented here.
 
 ## Unreleased
 
+### Added
+
+- Opt-in `SpendingPolicy` persist: HMAC-SHA256 signed spend log with fail-closed load so daily counters survive restart and tampered, unsigned, or malformed state refuses spends instead of resetting to zero.
+
 ### Fixed
 
 - AutoResearch now matches the local skill catalog on whole tokens and ranks those matches by confidence, so a GitHub-domain failure keeps `skill-catalog` ahead of `npm-registry` instead of treating the word "open" as a hit on every OpenClaw skill.
+- Persist-enabled `SpendingPolicy.recordSpend` keeps every completed charge in memory while a save is failing, refuses new approvals until a later save succeeds, and writes the full log on recovery so a restart cannot under-count the daily total.
+- Persist compaction now prunes from the newest recorded UTC day, not the wall clock, so reopening after a forward jump cannot erase today's signed spend. Constructor limits and `allowedDomains` are immutable; `allowedDomains` must be an array of strings.
 
 ## [2.2.7] - 2026-05-12
 
